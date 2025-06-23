@@ -5,10 +5,11 @@ resource "aws_security_group" "allow_ssh" {
   vpc_id      = aws_vpc.main.id
 
   ingress {
-    from_port   = 22
-    to_port     = 22
+    from_port   = var.ssh_port
+    to_port     = var.ssh_port
     protocol    = "tcp"
     cidr_blocks = [var.my_ip]
+    description = "Allow SSH access from my IP"
   }
 
   egress {
@@ -16,6 +17,7 @@ resource "aws_security_group" "allow_ssh" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound traffic"
   }
 }
 
@@ -27,24 +29,35 @@ resource "aws_security_group" "app_server" {
 
   # Ruch przychodzący z generatora obciążenia na porcie 80 (Nginx)
   ingress {
-    from_port       = 80
-    to_port         = 80
+    from_port       = var.app_port
+    to_port         = var.app_port
     protocol        = "tcp"
     security_groups = [aws_security_group.load_generator.id]
+    description     = "Allow web traffic from load generator"
+  }
+
+  ingress {
+    from_port   = var.app_port
+    to_port     = var.app_port
+    protocol    = "tcp"
+    cidr_blocks = [var.my_ip]
+    description = "Allow web traffic from my IP for testing"
   }
 
   # Ruch przychodzący z serwera monitoringu (Prometheus)
   ingress {
-    from_port       = 9100 # Node Exporter
-    to_port         = 9100
+    from_port       = var.node_exporter_port # Node Exporter
+    to_port         = var.node_exporter_port
     protocol        = "tcp"
     security_groups = [aws_security_group.monitoring_server.id]
+    description     = "Allow Prometheus to scrape node-exporter"
   }
   ingress {
-    from_port       = 9113 # Nginx Exporter
-    to_port         = 9113
+    from_port       = var.nginx_exporter_port # Nginx Exporter
+    to_port         = var.nginx_exporter_port
     protocol        = "tcp"
     security_groups = [aws_security_group.monitoring_server.id]
+    description     = "Allow Prometheus to scrape nginx-exporter"
   }
 
   egress {
@@ -52,6 +65,7 @@ resource "aws_security_group" "app_server" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound traffic"
   }
 }
 
@@ -66,11 +80,12 @@ resource "aws_security_group" "load_generator" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound traffic"
   }
 
   ingress {
-    from_port       = 9100
-    to_port         = 9100
+    from_port       = var.node_exporter_port
+    to_port         = var.node_exporter_port
     protocol        = "tcp"
     security_groups = [aws_security_group.monitoring_server.id]
     description     = "Allow Prometheus to scrape node-exporter"
@@ -89,18 +104,20 @@ resource "aws_security_group" "monitoring_server" {
 
   # Dostęp do Grafany z Twojego IP
   ingress {
-    from_port   = 3000
-    to_port     = 3000
+    from_port   = var.grafana_port
+    to_port     = var.grafana_port
     protocol    = "tcp"
     cidr_blocks = [var.my_ip]
+    description = "Allow Grafana access from my IP"
   }
 
   # Dostęp do Prometheus UI z Twojego IP
   ingress {
-    from_port   = 9090
-    to_port     = 9090
+    from_port   = var.prometheus_port
+    to_port     = var.prometheus_port
     protocol    = "tcp"
     cidr_blocks = [var.my_ip]
+    description = "Allow Prometheus UI access from my IP"
   }
 
   egress {
@@ -108,5 +125,6 @@ resource "aws_security_group" "monitoring_server" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound traffic"
   }
 }

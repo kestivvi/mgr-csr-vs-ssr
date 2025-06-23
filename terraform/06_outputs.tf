@@ -67,10 +67,10 @@ output "public_ips" {
 
 output "grafana_url" {
   description = "Adres URL do panelu Grafany."
-  value       = "http://${aws_instance.monitoring_server.public_ip}:3000"
+  value       = "http://${aws_instance.monitoring_server.public_ip}:${var.grafana_port}"
 }
 
 output "prometheus_url" {
   description = "Adres URL do interfejsu Prometheus."
-  value       = "http://${aws_instance.monitoring_server.public_ip}:9090"
+  value       = "http://${aws_instance.monitoring_server.public_ip}:${var.prometheus_port}"
 }
