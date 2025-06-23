@@ -1,0 +1,12 @@
+---
+- name: Copy CSR application files
+  ansible.posix.synchronize:
+    src: "{{ playbook_dir }}/../csr-react/"
+    dest: /home/ec2-user/csr-react
+    rsync_opts:
+      - "--exclude=node_modules"
+
+- name: Run Docker Compose for CSR app
+  ansible.builtin.command:
+    cmd: docker compose up -d --build
+    chdir: /home/ec2-user/csr-react 

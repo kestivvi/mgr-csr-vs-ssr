@@ -1,0 +1,7 @@
+---
+- name: Ping app server CSR
+  hosts: role_app_server
+  gather_facts: false
+  tasks:
+    - name: Ping host
+      ansible.builtin.ping:

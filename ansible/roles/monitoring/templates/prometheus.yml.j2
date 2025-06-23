@@ -1,0 +1,27 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'node'
+    static_configs:
+      - targets:
+        - "{{ hostvars[groups['app_server_csr'][0]]['private_ip'] }}:9100"
+        - "{{ hostvars[groups['app_server_ssr'][0]]['private_ip'] }}:9100"
+        - "{{ hostvars[groups['load_generator'][0]]['private_ip'] }}:9100"
+        - 'localhost:9100' # Scrape the monitoring server itself
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '([^:]+):.*'
+        replacement: '$1'
+
+  - job_name: 'nginx'
+    static_configs:
+      - targets:
+        - "{{ hostvars[groups['app_server_csr'][0]]['private_ip'] }}:9113"
+        - "{{ hostvars[groups['app_server_ssr'][0]]['private_ip'] }}:9113"
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '([^:]+):.*'
+        replacement: '$1'

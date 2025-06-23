@@ -1,0 +1,30 @@
+---
+- name: Configure All Servers
+  hosts: all
+  become: yes
+  roles:
+    - common
+
+- name: Configure Load Generator
+  hosts: role_load_generator
+  become: yes
+  roles:
+    - load_generator
+
+- name: Configure CSR App Server
+  hosts: app_server_csr
+  become: yes
+  roles:
+    - app_server_csr
+
+- name: Configure SSR App Server
+  hosts: app_server_ssr
+  become: yes
+  roles:
+    - app_server_ssr
+
+- name: Configure Monitoring Server
+  hosts: role_monitoring_server
+  become: yes
+  roles:
+    - monitoring 

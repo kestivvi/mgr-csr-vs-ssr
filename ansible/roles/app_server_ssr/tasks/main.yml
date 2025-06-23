@@ -1,0 +1,13 @@
+---
+- name: Copy SSR application files
+  ansible.posix.synchronize:
+    src: "{{ playbook_dir }}/../ssr-nextjs/"
+    dest: /home/ec2-user/ssr-nextjs
+    rsync_opts:
+      - "--exclude=node_modules"
+      - "--exclude=.next"
+
+- name: Run Docker Compose for SSR app
+  ansible.builtin.command:
+    cmd: docker compose up -d --build
+    chdir: /home/ec2-user/ssr-nextjs

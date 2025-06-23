@@ -4,7 +4,7 @@ services:
   nginx:
     build: .
     ports:
-      - "8080:80"
+      - "80:80"
     networks:
       - monitoring
 
@@ -15,13 +15,6 @@ services:
       - "9113:9113"
     depends_on:
       - nginx
-    networks:
-      - monitoring
-
-  node-exporter:
-    image: prom/node-exporter:v1.8.1
-    ports:
-      - "9100:9100"
     networks:
       - monitoring
 
