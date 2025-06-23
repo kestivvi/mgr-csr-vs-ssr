@@ -46,13 +46,39 @@ resource "aws_security_group" "app_server" {
     protocol        = "tcp"
     security_groups = [aws_security_group.monitoring_server.id]
   }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }
 
 # Grupa dla generatora obciążenia
 resource "aws_security_group" "load_generator" {
   name        = "${var.project_name}-load-generator-sg"
-  description = "Security group for Load Generator"
+  description = "Allow all outbound traffic from load generator"
   vpc_id      = aws_vpc.main.id
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port       = 9100
+    to_port         = 9100
+    protocol        = "tcp"
+    security_groups = [aws_security_group.monitoring_server.id]
+    description     = "Allow Prometheus to scrape node-exporter"
+  }
+
+  tags = {
+    Name = "${var.project_name}-load-generator-sg"
+  }
 }
 
 # Grupa dla serwera monitoringu
@@ -75,5 +101,12 @@ resource "aws_security_group" "monitoring_server" {
     to_port     = 9090
     protocol    = "tcp"
     cidr_blocks = [var.my_ip]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 }

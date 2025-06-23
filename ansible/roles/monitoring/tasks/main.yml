@@ -9,6 +9,32 @@
   loop:
     - /home/ec2-user/prometheus
     - /home/ec2-user/grafana
+    - /home/ec2-user/grafana-provisioning/datasources
+    - /home/ec2-user/grafana-provisioning/dashboards
+
+- name: Create Grafana datasource provisioning configuration
+  ansible.builtin.template:
+    src: prometheus-datasource.yml.j2
+    dest: /home/ec2-user/grafana-provisioning/datasources/prometheus.yml
+
+- name: Create Grafana dashboard provider configuration
+  ansible.builtin.template:
+    src: dashboard-provider.yml.j2
+    dest: /home/ec2-user/grafana-provisioning/dashboards/provider.yml
+
+- name: Create directory for dashboards
+  ansible.builtin.file:
+    path: /home/ec2-user/grafana-dashboards
+    state: directory
+    owner: ec2-user
+    group: ec2-user
+    mode: '0755'
+
+- name: Copy Node Exporter dashboard
+  ansible.builtin.copy:
+    src: 1860_rev41.json
+    dest: /home/ec2-user/grafana-dashboards/node-exporter-full.json
+    mode: '0644'
 
 - name: Create Prometheus configuration
   ansible.builtin.template:

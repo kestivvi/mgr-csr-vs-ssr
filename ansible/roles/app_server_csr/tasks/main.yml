@@ -9,4 +9,4 @@
 - name: Run Docker Compose for CSR app
   ansible.builtin.command:
     cmd: docker compose up -d --build
-    chdir: /home/ec2-user/csr-react 
+    chdir: /home/ec2-user/csr-react
