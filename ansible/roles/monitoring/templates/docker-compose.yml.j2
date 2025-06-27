@@ -9,6 +9,15 @@ services:
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--web.enable-remote-write-receiver'
+      - '--enable-feature=native-histograms'
+
+  telegraf:
+    image: telegraf:1.30
+    container_name: monitoring-telegraf
+    restart: unless-stopped
+    network_mode: "host"
+    volumes:
+      - ./telegraf.conf:/etc/telegraf/telegraf.conf:ro
 
   grafana:
     image: grafana/grafana:11.1.0

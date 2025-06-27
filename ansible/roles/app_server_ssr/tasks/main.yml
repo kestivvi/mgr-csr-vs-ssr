@@ -4,10 +4,14 @@
     src: "{{ playbook_dir }}/../ssr-nextjs/"
     dest: /home/ec2-user/ssr-nextjs
     rsync_opts:
-      - "--exclude=node_modules"
       - "--exclude=.next"
 
-- name: Run Docker Compose for SSR app
+- name: Create Telegraf configuration for SSR
+  ansible.builtin.template:
+    src: telegraf.conf.j2
+    dest: /home/ec2-user/ssr-nextjs/telegraf.conf
+
+- name: Run SSR App Server
   ansible.builtin.command:
-    cmd: docker compose up -d --build
+    cmd: docker compose up -d --force-recreate
     chdir: /home/ec2-user/ssr-nextjs

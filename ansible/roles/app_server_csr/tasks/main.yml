@@ -6,7 +6,12 @@
     rsync_opts:
       - "--exclude=node_modules"
 
-- name: Run Docker Compose for CSR app
+- name: Create Telegraf configuration for CSR
+  ansible.builtin.template:
+    src: telegraf.conf.j2
+    dest: /home/ec2-user/csr-react/telegraf.conf
+
+- name: Run CSR App Server
   ansible.builtin.command:
-    cmd: docker compose up -d --build
+    cmd: docker compose up -d --force-recreate
     chdir: /home/ec2-user/csr-react

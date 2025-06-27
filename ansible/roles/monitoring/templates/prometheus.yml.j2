@@ -2,26 +2,23 @@ global:
   scrape_interval: 15s
 
 scrape_configs:
-  - job_name: 'node'
+  - job_name: 'telegraf_app_servers'
     static_configs:
       - targets:
-        - "{{ hostvars[groups['app_server_csr'][0]]['private_ip'] }}:9100"
-        - "{{ hostvars[groups['app_server_ssr'][0]]['private_ip'] }}:9100"
-        - "{{ hostvars[groups['load_generator'][0]]['private_ip'] }}:9100"
-        - 'localhost:9100' # Scrape the monitoring server itself
-    relabel_configs:
-      - source_labels: [__address__]
-        target_label: instance
-        regex: '([^:]+):.*'
-        replacement: '$1'
+        {% for host in groups['app_server_csr'] + groups['app_server_ssr'] %}
+        - "{{ hostvars[host]['private_ip'] }}:9273"
+        {% endfor %}
 
-  - job_name: 'nginx'
+  - job_name: 'telegraf_monitoring_server'
     static_configs:
       - targets:
-        - "{{ hostvars[groups['app_server_csr'][0]]['private_ip'] }}:9113"
-        - "{{ hostvars[groups['app_server_ssr'][0]]['private_ip'] }}:9113"
-    relabel_configs:
-      - source_labels: [__address__]
-        target_label: instance
-        regex: '([^:]+):.*'
-        replacement: '$1'
+        {% for host in groups['role_monitoring_server'] %}
+        - "{{ hostvars[host]['private_ip'] }}:9273"
+        {% endfor %}
+  
+  - job_name: 'telegraf_load_generator'
+    static_configs:
+      - targets:
+        {% for host in groups['role_load_generator'] %}
+        - "{{ hostvars[host]['private_ip'] }}:9273"
+        {% endfor %}

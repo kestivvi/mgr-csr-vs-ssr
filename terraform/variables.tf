@@ -40,6 +40,12 @@ variable "node_exporter_port" {
   default     = 9100
 }
 
+variable "telegraf_port" {
+  description = "Port for Telegraf"
+  type        = number
+  default     = 9273
+}
+
 variable "nginx_exporter_port" {
   description = "Port for Nginx Exporter"
   type        = number

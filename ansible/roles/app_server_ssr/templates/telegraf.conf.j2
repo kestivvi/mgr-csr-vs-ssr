@@ -1,0 +1,54 @@
+[global_tags]
+  server = "SSR"
+
+[agent]
+  interval = "10s"
+  round_interval = true
+  metric_batch_size = 1000
+  metric_buffer_limit = 10000
+  collection_jitter = "0s"
+  flush_interval = "10s"
+  flush_jitter = "0s"
+  precision = ""
+  hostname = ""
+  omit_hostname = false
+
+[[outputs.prometheus_client]]
+  listen = ":9273"
+  metric_version = 2
+  expiration_interval = "120s"
+
+[[inputs.cpu]]
+  percpu = true
+  totalcpu = true
+  collect_cpu_time = false
+  report_active = false
+[[inputs.disk]]
+  ignore_fs = ["tmpfs", "devtmpfs", "devfs", "iso9660", "overlay", "autofs", "squashfs"]
+[[inputs.diskio]]
+[[inputs.mem]]
+[[inputs.net]]
+[[inputs.processes]]
+[[inputs.swap]]
+[[inputs.system]]
+
+[[inputs.syslog]]
+  server = "udp://0.0.0.0:8124"
+  syslog_standard = "RFC3164"
+
+[[processors.parser]]
+  namepass = ["syslog"]
+  parse_fields = ["message"]
+  data_format = "grok"
+  grok_patterns = ["%{COMBINED_LOG_FORMAT}"]
+  merge = "override"
+
+[[processors.rename]]
+  namepass = ["syslog"]
+  [[processors.rename.replace]]
+    measurement = "syslog"
+    dest = "nginxlog"
+
+[[inputs.nginx]]
+  urls = ["http://nginx:8060/nginx_status"]
+  response_timeout = "5s" 

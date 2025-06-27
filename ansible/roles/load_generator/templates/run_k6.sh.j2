@@ -5,4 +5,4 @@ SSR_URL="http://{{ hostvars[groups['app_server_ssr'][0]]['private_ip'] }}"
 PROMETHEUS_RW_URL="http://{{ hostvars[groups['monitoring_server'][0]]['private_ip'] }}:9090/api/v1/write"
 
 cd /home/ec2-user/k6
-./run.sh "$CSR_URL" "$SSR_URL" "$PROMETHEUS_RW_URL" 
+sh ./run.sh "$CSR_URL" "$SSR_URL" "$PROMETHEUS_RW_URL" 

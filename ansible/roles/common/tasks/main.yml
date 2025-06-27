@@ -32,17 +32,4 @@
         mode: '0755'
         checksum: "sha256:https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-linux-{{ ansible_architecture }}.sha256"
       retries: 3
-      delay: 5
-
-- name: Run node-exporter container on all hosts
-  community.docker.docker_container:
-    name: node-exporter
-    image: prom/node-exporter:v1.8.1
-    state: started
-    network_mode: host
-    pid_mode: host
-    volumes:
-      - "/:/host:ro,rslave"
-    command:
-      - "--path.rootfs=/host"
-    restart_policy: unless-stopped 
+      delay: 5 

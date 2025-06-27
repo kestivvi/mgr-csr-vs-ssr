@@ -44,28 +44,22 @@ resource "aws_security_group" "app_server" {
     description = "Allow web traffic from my IP for testing"
   }
 
-  # Ruch przychodzący z serwera monitoringu (Prometheus)
+  # Allow Telegraf from within the VPC
   ingress {
-    from_port       = var.node_exporter_port # Node Exporter
-    to_port         = var.node_exporter_port
+    from_port       = var.telegraf_port
+    to_port         = var.telegraf_port
     protocol        = "tcp"
     security_groups = [aws_security_group.monitoring_server.id]
-    description     = "Allow Prometheus to scrape node-exporter"
-  }
-  ingress {
-    from_port       = var.nginx_exporter_port # Nginx Exporter
-    to_port         = var.nginx_exporter_port
-    protocol        = "tcp"
-    security_groups = [aws_security_group.monitoring_server.id]
-    description     = "Allow Prometheus to scrape nginx-exporter"
+    description     = "Allow Prometheus to scrape telegraf"
   }
 
+  # Allow all outbound traffic
   egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "Allow all outbound traffic"
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
   }
 }
 
@@ -84,11 +78,11 @@ resource "aws_security_group" "load_generator" {
   }
 
   ingress {
-    from_port       = var.node_exporter_port
-    to_port         = var.node_exporter_port
+    from_port       = var.telegraf_port
+    to_port         = var.telegraf_port
     protocol        = "tcp"
     security_groups = [aws_security_group.monitoring_server.id]
-    description     = "Allow Prometheus to scrape node-exporter"
+    description     = "Allow Prometheus to scrape telegraf"
   }
 
   tags = {
@@ -125,6 +119,6 @@ resource "aws_security_group" "monitoring_server" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
-    description = "Allow all outbound traffic"
+    ipv6_cidr_blocks = ["::/0"]
   }
 }
