@@ -17,25 +17,25 @@
   roles:
     - app_server_ssr
 
-- name: Configure CSR Load Generator
+- name: Configure and deploy load generator for CSR
   hosts: role_load_generator_csr
   become: yes
   vars:
     target_url: "http://{{ hostvars[groups['app_server_csr'][0]]['private_ip'] }}"
     target_server_type: "csr"
   roles:
-    - load_generator
+    - role: load_generator
 
-- name: Configure SSR Load Generator
+- name: Configure and deploy load generator for SSR
   hosts: role_load_generator_ssr
   become: yes
   vars:
     target_url: "http://{{ hostvars[groups['app_server_ssr'][0]]['private_ip'] }}"
     target_server_type: "ssr"
   roles:
-    - load_generator
+    - role: load_generator
 
-- name: Configure Monitoring Server
+- name: Configure monitoring server
   hosts: role_monitoring_server
   become: yes
   roles:

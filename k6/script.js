@@ -34,8 +34,9 @@ export const options = {
       maxVUs: 10000,
       // Define the stages for ramping the request rate
       stages: [
-        { target: 10, duration: '2m' }, // maintain 10 RPS for 1 minute
-        { target: 10000, duration: '20m' }, // ramp up to 10000 RPS over 10 minutes
+        { target: 10, duration: '1m' }, // maintain 10 RPS for 1 minute
+        { target: 100, duration: '1m' }, // ramp up to 10000 RPS over 10 minutes
+        { target: 100, duration: '20m' }, // ramp up to 10000 RPS over 10 minutes
         { target: 0, duration: '1m' },   // ramp down to 0
       ],
     },

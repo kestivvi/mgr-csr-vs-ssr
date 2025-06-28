@@ -1,6 +1,15 @@
 #!/bin/bash
+set -euo pipefail
 
 PROMETHEUS_RW_URL="http://{{ hostvars[groups['role_monitoring_server'][0]]['private_ip'] }}:9090/api/v1/write"
 
-cd /home/ec2-user/k6
-sh ./run.sh "{{ target_url }}" "{{ target_server_type }}" "$PROMETHEUS_RW_URL" 
+docker run --rm --net=host -i \
+  -v /home/ec2-user/k6_archive.tar:/k6_archive.tar:ro \
+  -e TARGET_URL="{{ target_url }}" \
+  -e SERVER_TYPE="{{ target_server_type }}" \
+  -e K6_PROMETHEUS_RW_SERVER_URL="$PROMETHEUS_RW_URL" \
+  -e K6_PROMETHEUS_RW_TREND_AS_NATIVE_HISTOGRAM=true \
+  -e K6_LOG_OUTPUT=none \
+  grafana/k6:1.1.0 run \
+    --out experimental-prometheus-rw \
+    /k6_archive.tar 

@@ -1,0 +1,22 @@
+---
+- name: Stop k6 Performance Test
+  hosts: role_load_generator_csr, role_load_generator_ssr
+  gather_facts: no
+  become: yes
+
+  tasks:
+    - name: Find and stop all running k6 containers
+      ansible.builtin.shell:
+        cmd: "docker ps | grep 'grafana/k6' | awk '{print $1}' | xargs -r docker stop"
+      register: stop_result
+      changed_when: "stop_result.stdout != ''"
+
+    - name: Display stopped containers
+      ansible.builtin.debug:
+        msg: "Stopped k6 container(s): {{ stop_result.stdout_lines }}"
+      when: "stop_result.stdout != ''"
+
+    - name: Display no containers found
+      ansible.builtin.debug:
+        msg: "No running k6 containers were found."
+      when: "stop_result.stdout == ''" 
