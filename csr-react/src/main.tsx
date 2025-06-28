@@ -1,9 +1,8 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
-import './index.css'
 import App from './App.tsx'
-import HelloWorld from './pages/HelloWorld.tsx';
+import Dynamic from './pages/Dynamic.tsx';
 
 const router = createBrowserRouter([
   {
@@ -11,8 +10,8 @@ const router = createBrowserRouter([
     element: <App />,
   },
   {
-    path: "/hello-world",
-    element: <HelloWorld />,
+    path: "/dynamic/:name",
+    element: <Dynamic />,
   },
 ]);
 

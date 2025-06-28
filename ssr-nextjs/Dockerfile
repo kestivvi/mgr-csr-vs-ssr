@@ -16,12 +16,15 @@ FROM node:20-alpine3.22 AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV PORT 3000
 
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
+# Automatically leverage output traces to reduce image size
+# https://nextjs.org/docs/advanced-features/output-file-tracing
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
 
 EXPOSE 3000
 
-CMD ["npm", "start"] 
+# server.js is created by the build script when output is standalone
+CMD ["node", "server.js"] 
