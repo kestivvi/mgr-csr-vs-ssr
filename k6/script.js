@@ -34,9 +34,8 @@ export const options = {
       maxVUs: 10000,
       // Define the stages for ramping the request rate
       stages: [
-        { target: 10, duration: '1m' }, // maintain 10 RPS for 1 minute
+        { target: 10, duration: '2m' }, // maintain 10 RPS for 1 minute
         { target: 10000, duration: '20m' }, // ramp up to 10000 RPS over 10 minutes
-        { target: 10000, duration: '5m' }, // stay at 10000 RPS for 5 minutes
         { target: 0, duration: '1m' },   // ramp down to 0
       ],
     },
@@ -52,9 +51,42 @@ export const options = {
 };
 
 export default function () {
-  const res = http.get(`${target_server.url}/hello-world`, { timeout: 500 });
+  group('Main page', function () {
+    const res = http.get(`${target_server.url}/`, { timeout: 500 });
+    check(res, {
+      [`${target_server.type}: status is 200`]: (r) => r.status === 200,
+    });
+  });
 
-  check(res, {
-    [`${target_server.type}: status is 200`]: (r) => r.status === 200,
+  group('Static assets', function () {
+    let assets = [];
+    if (target_server.type === 'csr') {
+      assets = ['/assets/index-B2WQNOJE.js', '/favicon.ico'];
+    } else if (target_server.type === 'ssr') {
+      assets = [
+        '/_next/static/chunks/webpack-5adebf9f62dc3001.js',
+        '/_next/static/chunks/4bd1b696-67ee12fb04071d3b.js',
+        '/_next/static/chunks/684-fa9a024d07420a1a.js',
+        '/_next/static/chunks/main-app-f38f0d9153b95312.js',
+        '/favicon.ico',
+      ];
+    }
+
+    if (assets.length > 0) {
+      const responses = http.batch(
+        assets.map((asset) => {
+          return {
+            method: 'GET',
+            url: `${target_server.url}${asset}`,
+            params: { timeout: 500 },
+          };
+        })
+      );
+      responses.forEach((res) => {
+        check(res, {
+          'Asset downloaded successfully': (r) => r.status === 200,
+        });
+      });
+    }
   });
 }
