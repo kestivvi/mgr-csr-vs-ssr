@@ -32,4 +32,8 @@
         mode: '0755'
         checksum: "sha256:https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-linux-{{ ansible_architecture }}.sha256"
       retries: 3
-      delay: 5 
+      delay: 5
+
+- name: Include node_exporter role
+  ansible.builtin.include_role:
+    name: node_exporter 

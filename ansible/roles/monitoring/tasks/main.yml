@@ -48,15 +48,15 @@
     dest: /home/ec2-user/grafana-dashboards/k6-dashboard.json
     mode: '0644'
 
+- name: Create Prometheus targets file
+  ansible.builtin.template:
+    src: prometheus_targets.json.j2
+    dest: /home/ec2-user/prometheus/prometheus_targets.json
+
 - name: Create Prometheus configuration
   ansible.builtin.template:
     src: prometheus.yml.j2
     dest: /home/ec2-user/prometheus/prometheus.yml
-
-- name: Create Monitoring Telegraf configuration
-  ansible.builtin.template:
-    src: telegraf.conf.j2
-    dest: /home/ec2-user/telegraf.conf
 
 - name: Create Monitoring docker-compose file
   ansible.builtin.template:

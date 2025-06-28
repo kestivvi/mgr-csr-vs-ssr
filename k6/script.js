@@ -66,20 +66,26 @@ export const options = {
 };
 
 export default function () {
+  const responses = http.batch([
+    [
+      'GET',
+      `${csr_server.url}/hello-world`,
+      null,
+      { tags: { server: 'csr' }, timeout: 500 },
+    ],
+    [
+      'GET',
+      `${ssr_server.url}/hello-world`,
+      null,
+      { tags: { server: 'ssr' }, timeout: 500 },
+    ],
+  ]);
 
-  group(csr_server.name, function () {
-    const res = http.get(`${csr_server.url}/hello-world`, {
-      tags: { server: 'csr' },
-    });
-
-    check(res, { 'status is 200': (r) => r.status === 200 }, { server: 'csr' });
+  check(responses[0], {
+    'csr: status is 200': (r) => r.status === 200,
   });
 
-  group(ssr_server.name, function () {
-    const res = http.get(`${ssr_server.url}/hello-world`, {
-      tags: { server: 'ssr' },
-    });
-
-    check(res, { 'status is 200': (r) => r.status === 200 }, { server: 'ssr' });
+  check(responses[1], {
+    'ssr: status is 200': (r) => r.status === 200,
   });
 }

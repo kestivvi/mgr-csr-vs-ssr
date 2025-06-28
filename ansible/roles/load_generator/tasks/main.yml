@@ -9,18 +9,3 @@
     src: run_k6.sh.j2
     dest: /home/ec2-user/run_k6.sh
     mode: '0755'
-
-- name: Create Telegraf configuration for Load Generator
-  ansible.builtin.template:
-    src: telegraf.conf.j2
-    dest: /home/ec2-user/telegraf.conf
-
-- name: Create docker-compose file for Load Generator
-  ansible.builtin.template:
-    src: docker-compose.yml.j2
-    dest: /home/ec2-user/docker-compose.yml
-
-- name: Run Telegraf container on Load Generator
-  ansible.builtin.command:
-    cmd: docker compose up -d --force-recreate
-    chdir: /home/ec2-user/

@@ -6,10 +6,18 @@
     rsync_opts:
       - "--exclude=node_modules"
 
-- name: Create Telegraf configuration for CSR
-  ansible.builtin.template:
-    src: telegraf.conf.j2
-    dest: /home/ec2-user/csr-react/telegraf.conf
+- name: Create nginx log directory for CSR
+  ansible.builtin.file:
+    path: /var/log/csr-react-nginx
+    state: directory
+    mode: '0755'
+  become: true
+
+- name: Include nginx_log_exporter role for CSR
+  include_role:
+    name: nginx_log_exporter
+  vars:
+    nginx_log_path: "/var/log/csr-react-nginx/access.log"
 
 - name: Run CSR App Server
   ansible.builtin.command:

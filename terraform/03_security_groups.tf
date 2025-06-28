@@ -44,13 +44,22 @@ resource "aws_security_group" "app_server" {
     description = "Allow web traffic from my IP for testing"
   }
 
-  # Allow Telegraf from within the VPC
+  # Allow Node Exporter from Monitoring Server
   ingress {
-    from_port       = var.telegraf_port
-    to_port         = var.telegraf_port
+    from_port       = var.node_exporter_port
+    to_port         = var.node_exporter_port
     protocol        = "tcp"
     security_groups = [aws_security_group.monitoring_server.id]
-    description     = "Allow Prometheus to scrape telegraf"
+    description     = "Allow Prometheus to scrape node_exporter"
+  }
+
+  # Allow Nginx Exporter from Monitoring Server
+  ingress {
+    from_port       = var.nginx_exporter_port
+    to_port         = var.nginx_exporter_port
+    protocol        = "tcp"
+    security_groups = [aws_security_group.monitoring_server.id]
+    description     = "Allow Prometheus to scrape nginx_log_exporter"
   }
 
   # Allow all outbound traffic
@@ -77,12 +86,13 @@ resource "aws_security_group" "load_generator" {
     description = "Allow all outbound traffic"
   }
 
+  # Allow Node Exporter from Monitoring Server
   ingress {
-    from_port       = var.telegraf_port
-    to_port         = var.telegraf_port
+    from_port       = var.node_exporter_port
+    to_port         = var.node_exporter_port
     protocol        = "tcp"
     security_groups = [aws_security_group.monitoring_server.id]
-    description     = "Allow Prometheus to scrape telegraf"
+    description     = "Allow Prometheus to scrape node_exporter"
   }
 
   tags = {
@@ -114,6 +124,15 @@ resource "aws_security_group" "monitoring_server" {
     description = "Allow Prometheus UI access from my IP"
   }
 
+  # Allow Node Exporter from Monitoring Server (for self-monitoring)
+  ingress {
+    from_port   = var.node_exporter_port
+    to_port     = var.node_exporter_port
+    protocol    = "tcp"
+    self        = true
+    description = "Allow Prometheus to scrape node_exporter on self"
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -121,4 +140,14 @@ resource "aws_security_group" "monitoring_server" {
     cidr_blocks = ["0.0.0.0/0"]
     ipv6_cidr_blocks = ["::/0"]
   }
+}
+
+resource "aws_security_group_rule" "allow_prometheus_rw_from_lg" {
+  type                     = "ingress"
+  from_port                = var.prometheus_port
+  to_port                  = var.prometheus_port
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.load_generator.id
+  security_group_id        = aws_security_group.monitoring_server.id
+  description              = "Allow k6 to push metrics to Prometheus"
 }

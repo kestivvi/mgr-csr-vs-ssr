@@ -1,0 +1,11 @@
+---
+- name: Restart prometheus-nginxlog-exporter
+  ansible.builtin.systemd:
+    name: prometheus-nginxlog-exporter
+    state: restarted
+  become: true
+
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: yes
+  become: true 

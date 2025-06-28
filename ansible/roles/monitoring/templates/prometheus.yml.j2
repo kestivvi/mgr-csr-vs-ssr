@@ -2,23 +2,14 @@ global:
   scrape_interval: 15s
 
 scrape_configs:
-  - job_name: 'telegraf_app_servers'
-    static_configs:
-      - targets:
-        {% for host in groups['app_server_csr'] + groups['app_server_ssr'] %}
-        - "{{ hostvars[host]['private_ip'] }}:9273"
-        {% endfor %}
-
-  - job_name: 'telegraf_monitoring_server'
-    static_configs:
-      - targets:
-        {% for host in groups['role_monitoring_server'] %}
-        - "{{ hostvars[host]['private_ip'] }}:9273"
-        {% endfor %}
-  
-  - job_name: 'telegraf_load_generator'
-    static_configs:
-      - targets:
-        {% for host in groups['role_load_generator'] %}
-        - "{{ hostvars[host]['private_ip'] }}:9273"
-        {% endfor %}
+  - job_name: 'file_sd_scrape'
+    file_sd_configs:
+      - files:
+          - '/etc/prometheus/prometheus_targets.json'
+    relabel_configs:
+      # Use the 'job' label from the JSON file as the real job label.
+      - source_labels: [job]
+        target_label: job
+      # Set the instance label to the target's address.
+      - source_labels: [__address__]
+        target_label: instance

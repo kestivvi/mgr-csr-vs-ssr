@@ -1,0 +1,48 @@
+---
+- name: Download prometheus-nginxlog-exporter
+  ansible.builtin.get_url:
+    url: "https://github.com/martin-helmich/prometheus-nginxlog-exporter/releases/download/v1.11.0/prometheus-nginxlog-exporter_1.11.0_linux_arm64.tar.gz"
+    dest: "/tmp/prometheus-nginxlog-exporter.tar.gz"
+    mode: '0644'
+  become: true
+
+- name: Unarchive prometheus-nginxlog-exporter
+  ansible.builtin.unarchive:
+    src: "/tmp/prometheus-nginxlog-exporter.tar.gz"
+    dest: "/tmp"
+    remote_src: yes
+  become: true
+
+- name: Move prometheus-nginxlog-exporter binary
+  ansible.builtin.copy:
+    src: "/tmp/prometheus-nginxlog-exporter"
+    dest: "/usr/local/bin/prometheus-nginxlog-exporter"
+    remote_src: yes
+    mode: '0755'
+    owner: root
+    group: root
+  become: true
+
+- name: Create prometheus-nginxlog-exporter config file
+  ansible.builtin.template:
+    src: prometheus-nginxlog-exporter.hcl.j2
+    dest: /etc/prometheus-nginxlog-exporter.hcl
+    mode: '0644'
+  become: true
+  notify: Restart prometheus-nginxlog-exporter
+
+- name: Create systemd service file for prometheus-nginxlog-exporter
+  ansible.builtin.template:
+    src: prometheus-nginxlog-exporter.service.j2
+    dest: /etc/systemd/system/prometheus-nginxlog-exporter.service
+    mode: '0644'
+  become: true
+  notify: Reload systemd
+
+- name: Start and enable prometheus-nginxlog-exporter service
+  ansible.builtin.systemd:
+    name: prometheus-nginxlog-exporter
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  become: true 

@@ -1,0 +1,16 @@
+{%- set targets = [] %}
+{%- for host in groups['app_server_csr'] %}
+  {%- set _ = targets.append({'targets': [hostvars[host]['private_ip'] ~ ':9100'], 'labels': {'server': 'CSR', 'job': 'node_exporter'}}) %}
+  {%- set _ = targets.append({'targets': [hostvars[host]['private_ip'] ~ ':9113'], 'labels': {'server': 'CSR', 'job': 'nginx_log_exporter'}}) %}
+{%- endfor %}
+{%- for host in groups['app_server_ssr'] %}
+  {%- set _ = targets.append({'targets': [hostvars[host]['private_ip'] ~ ':9100'], 'labels': {'server': 'SSR', 'job': 'node_exporter'}}) %}
+  {%- set _ = targets.append({'targets': [hostvars[host]['private_ip'] ~ ':9113'], 'labels': {'server': 'SSR', 'job': 'nginx_log_exporter'}}) %}
+{%- endfor %}
+{%- for host in groups['role_monitoring_server'] %}
+  {%- set _ = targets.append({'targets': [hostvars[host]['private_ip'] ~ ':9100'], 'labels': {'server': 'MON', 'job': 'node_exporter'}}) %}
+{%- endfor %}
+{%- for host in groups['role_load_generator'] %}
+  {%- set _ = targets.append({'targets': [hostvars[host]['private_ip'] ~ ':9100'], 'labels': {'server': 'LG', 'job': 'node_exporter'}}) %}
+{%- endfor %}
+{{ targets | to_json(indent=2) }} 

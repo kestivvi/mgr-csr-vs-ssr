@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   nginx:
-    image: nginx:1.26.0
+    build: .
     container_name: nginx
     restart: unless-stopped
     ports:
@@ -10,29 +10,10 @@ services:
       - "8060:8060"
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf
-      - ./dist:/usr/share/nginx/html
-    logging:
-      driver: syslog
-      options:
-        syslog-address: "udp://127.0.0.1:8124"
-        tag: "nginx"
-    depends_on:
-      - telegraf
-    networks:
-      - app-net
-
-  telegraf:
-    image: telegraf:1.30
-    container_name: telegraf
-    restart: unless-stopped
-    ports:
-      - "9273:9273" # Prometheus
-      - "8124:8124/udp" # Syslog
-    volumes:
-      - ./telegraf.conf:/etc/telegraf/telegraf.conf:ro
+      - /var/log/csr-react-nginx:/var/log/nginx
     networks:
       - app-net
 
 networks:
   app-net:
-    driver: bridge 
+    driver: bridge

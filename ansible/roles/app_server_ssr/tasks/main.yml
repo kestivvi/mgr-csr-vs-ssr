@@ -6,10 +6,18 @@
     rsync_opts:
       - "--exclude=.next"
 
-- name: Create Telegraf configuration for SSR
-  ansible.builtin.template:
-    src: telegraf.conf.j2
-    dest: /home/ec2-user/ssr-nextjs/telegraf.conf
+- name: Create nginx log directory for SSR
+  ansible.builtin.file:
+    path: /var/log/ssr-nextjs-nginx
+    state: directory
+    mode: '0755'
+  become: true
+
+- name: Include nginx_log_exporter role for SSR
+  include_role:
+    name: nginx_log_exporter
+  vars:
+    nginx_log_path: "/var/log/ssr-nextjs-nginx/access.log"
 
 - name: Run SSR App Server
   ansible.builtin.command:

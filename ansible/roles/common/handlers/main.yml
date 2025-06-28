@@ -1,6 +1,5 @@
 ---
-- name: Restart Telegraf
+- name: Reload systemd
   ansible.builtin.systemd:
-    name: telegraf
-    state: restarted
-  listen: "Restart Telegraf" 
+    daemon_reload: yes
+  become: true 
