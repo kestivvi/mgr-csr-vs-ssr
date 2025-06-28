@@ -1,8 +1,6 @@
 #!/bin/bash
 
-CSR_URL="http://{{ hostvars[groups['app_server_csr'][0]]['private_ip'] }}"
-SSR_URL="http://{{ hostvars[groups['app_server_ssr'][0]]['private_ip'] }}"
 PROMETHEUS_RW_URL="http://{{ hostvars[groups['role_monitoring_server'][0]]['private_ip'] }}:9090/api/v1/write"
 
 cd /home/ec2-user/k6
-sh ./run.sh "$CSR_URL" "$SSR_URL" "$PROMETHEUS_RW_URL" 
+sh ./run.sh "{{ target_url }}" "{{ target_server_type }}" "$PROMETHEUS_RW_URL" 

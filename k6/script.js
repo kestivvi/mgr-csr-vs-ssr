@@ -1,16 +1,9 @@
 import http from 'k6/http';
 import { check, group, sleep } from 'k6';
 
-const csr_server = {
-  name: 'CSR Server',
-  url: __ENV.CSR_URL || 'http://localhost:8080',
-  tag: 'server:csr',
-};
-
-const ssr_server = {
-  name: 'SSR Server',
-  url: __ENV.SSR_URL || 'http://localhost:8081',
-  tag: 'server:ssr',
+const target_server = {
+  url: __ENV.TARGET_URL || 'http://localhost:8080',
+  type: __ENV.SERVER_TYPE || 'unknown',
 };
 
 const testId = new Date().toISOString().slice(0, 19).replace('T', ' ');
@@ -25,6 +18,7 @@ export const options = {
   },
   tags: {
     testid: testId,
+    server: target_server.type,
   },
   discardResponseBodies: true,
   scenarios: {
@@ -41,51 +35,26 @@ export const options = {
       // Define the stages for ramping the request rate
       stages: [
         { target: 10, duration: '1m' }, // maintain 10 RPS for 1 minute
-        { target: 10000, duration: '20m' }, // ramp to 10000 RPS over 1 minute
+        { target: 10000, duration: '20m' }, // ramp up to 10000 RPS over 10 minutes
+        { target: 10000, duration: '5m' }, // stay at 10000 RPS for 5 minutes
         { target: 0, duration: '1m' },   // ramp down to 0
       ],
     },
   },
 
+  // Commented out for now, because it's a stress test and we want to see errors
   // Thresholds are the pass/fail criteria for the test
-  thresholds: {
-    // A global threshold: less than 1% of all requests should fail
-    // http_req_failed: ['rate<0.01'],
-
-    // // --- Per-server thresholds using tags ---
-    // // 95% of requests to the 'primary' server must be below 300ms
-    // 'http_req_duration{server:csr}': ['p(95)<300'],
-    // // 99% of checks for the 'primary' server must pass
-    // 'checks{server:csr}': ['rate>0.99'],
-
-    // // 95% of requests to the 'secondary' server must be below 500ms
-    // 'http_req_duration{server:ssr}': ['p(95)<500'],
-    // // 99% of checks for the 'secondary' server must pass
-    // 'checks{server:ssr}': ['rate>0.99'],
-  },
+  // thresholds: {
+  //   http_req_failed: ['rate<0.01'], // less than 1% of requests should fail
+  //   http_req_duration: ['p(95)<500'], // 95% of requests must complete below 500ms
+  //   checks: ['rate>0.99'], // 99% of checks must pass
+  // },
 };
 
 export default function () {
-  const responses = http.batch([
-    [
-      'GET',
-      `${csr_server.url}/hello-world`,
-      null,
-      { tags: { server: 'csr' }, timeout: 500 },
-    ],
-    [
-      'GET',
-      `${ssr_server.url}/hello-world`,
-      null,
-      { tags: { server: 'ssr' }, timeout: 500 },
-    ],
-  ]);
+  const res = http.get(`${target_server.url}/hello-world`, { timeout: 500 });
 
-  check(responses[0], {
-    'csr: status is 200': (r) => r.status === 200,
-  });
-
-  check(responses[1], {
-    'ssr: status is 200': (r) => r.status === 200,
+  check(res, {
+    [`${target_server.type}: status is 200`]: (r) => r.status === 200,
   });
 }

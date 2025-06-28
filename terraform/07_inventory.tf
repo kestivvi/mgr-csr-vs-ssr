@@ -1,6 +1,7 @@
 resource "local_file" "ansible_inventory" {
   content = templatefile("${path.module}/templates/inventory.yml.tftpl", {
-    load_generator     = aws_instance.load_generator
+    load_generator_csr = aws_instance.load_generator_csr
+    load_generator_ssr = aws_instance.load_generator_ssr
     app_server_csr     = aws_instance.app_server_csr
     app_server_ssr     = aws_instance.app_server_ssr
     monitoring_server  = aws_instance.monitoring_server

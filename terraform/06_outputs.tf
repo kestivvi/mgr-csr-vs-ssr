@@ -6,9 +6,14 @@ output "ansible_inventory" {
     # w każdej innej grupie, do której należy.
     all = {
       hosts = {
-        "load-generator" = {
-          ansible_host = aws_instance.load_generator.public_ip,
-          private_ip   = aws_instance.load_generator.private_ip,
+        "load-generator-csr" = {
+          ansible_host = aws_instance.load_generator_csr.public_ip,
+          private_ip   = aws_instance.load_generator_csr.private_ip,
+          ansible_user = "ec2-user" # Użytkownik dla Amazon Linux
+        }
+        "load-generator-ssr" = {
+          ansible_host = aws_instance.load_generator_ssr.public_ip,
+          private_ip   = aws_instance.load_generator_ssr.private_ip,
           ansible_user = "ec2-user" # Użytkownik dla Amazon Linux
         }
         "app-server-csr" = {
@@ -32,9 +37,14 @@ output "ansible_inventory" {
     # Grupy specyficzne dla ról.
     # Nie musimy tu powtarzać zmiennych, ponieważ są one dziedziczone z grupy 'all'.
     # Pusty obiekt {} jest wystarczający, aby zadeklarować przynależność hosta do grupy.
-    load_generators = {
+    load_generators_csr = {
       hosts = {
-        "load-generator" = {}
+        "load-generator-csr" = {}
+      }
+    }
+    load_generators_ssr = {
+      hosts = {
+        "load-generator-ssr" = {}
       }
     }
     app_servers_csr = {
@@ -58,7 +68,8 @@ output "ansible_inventory" {
 output "public_ips" {
   description = "Prosta lista publicznych adresów IP dla szybkiego dostępu."
   value = {
-    load_generator    = aws_instance.load_generator.public_ip
+    load_generator_csr    = aws_instance.load_generator_csr.public_ip
+    load_generator_ssr    = aws_instance.load_generator_ssr.public_ip
     app_server_csr    = aws_instance.app_server_csr.public_ip
     app_server_ssr    = aws_instance.app_server_ssr.public_ip
     monitoring_server = aws_instance.monitoring_server.public_ip

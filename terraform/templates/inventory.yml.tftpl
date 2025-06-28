@@ -4,14 +4,24 @@ all:
     ansible_user: ${ssh_user}
     ansible_ssh_private_key_file: ${private_key_path}
   children:
-    role_load_generator:
-      hosts:
-        ${load_generator.tags.Name}:
-          ansible_host: ${load_generator.public_ip}
-          private_ip: ${load_generator.private_ip}
-          public_ip: ${load_generator.public_ip}
-          private_dns: ${load_generator.private_dns}
-          public_dns: ${load_generator.public_dns}
+    role_load_generators:
+      children:
+        role_load_generator_csr:
+          hosts:
+            ${load_generator_csr.tags.Name}:
+              ansible_host: ${load_generator_csr.public_ip}
+              private_ip: ${load_generator_csr.private_ip}
+              public_ip: ${load_generator_csr.public_ip}
+              private_dns: ${load_generator_csr.private_dns}
+              public_dns: ${load_generator_csr.public_dns}
+        role_load_generator_ssr:
+          hosts:
+            ${load_generator_ssr.tags.Name}:
+              ansible_host: ${load_generator_ssr.public_ip}
+              private_ip: ${load_generator_ssr.private_ip}
+              public_ip: ${load_generator_ssr.public_ip}
+              private_dns: ${load_generator_ssr.private_dns}
+              public_dns: ${load_generator_ssr.public_dns}
     app_server_csr:
       hosts:
         ${app_server_csr.tags.Name}:
