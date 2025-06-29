@@ -1,0 +1,4 @@
+pandas
+prometheus-api-client
+numpy
+scipy 

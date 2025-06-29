@@ -1,0 +1,6 @@
+# Python
+statistics/venv/
+__pycache__/
+*.pyc 
+
+results/

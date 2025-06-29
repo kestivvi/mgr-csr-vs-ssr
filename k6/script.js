@@ -3,6 +3,9 @@ import { check, group } from 'k6';
 
 const target_url = __ENV.TARGET_URL || 'http://localhost:8080';
 const server_type = __ENV.SERVER_TYPE || 'unknown';
+const K6_RPS = __ENV.K6_RPS || 100;
+const K6_DURATION = __ENV.K6_DURATION || '5m';
+const K6_SCENARIO = __ENV.K6_SCENARIO || 'stress_test';
 
 const testId = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
@@ -33,10 +36,18 @@ export const options = {
       // Define the stages for ramping the request rate
       stages: [
         { target: 10, duration: '1m' }, // maintain 10 RPS for 1 minute
-        { target: 100, duration: '1m' }, // ramp up to 10000 RPS over 10 minutes
-        { target: 100, duration: '20m' }, // ramp up to 10000 RPS over 10 minutes
+        { target: 100, duration: '1m' }, // ramp up to 100 RPS over 1 minute
+        { target: 100, duration: '20m' }, // maintain 100 RPS for 20 minutes
         { target: 0, duration: '1m' },   // ramp down to 0
       ],
+    },
+    constant_test: {
+      executor: 'constant-arrival-rate',
+      rate: K6_RPS,
+      timeUnit: '1s',
+      duration: K6_DURATION,
+      preAllocatedVUs: 200, // Pre-allocate VUs for the target rate
+      maxVUs: 10000,
     },
   },
 
@@ -47,6 +58,11 @@ export const options = {
   //   http_req_duration: ['p(95)<500'], // 95% of requests must complete below 500ms
   //   checks: ['rate>0.99'], // 99% of checks must pass
   // },
+};
+
+// Select the scenario to run based on the K6_SCENARIO environment variable
+options.scenarios = {
+  [K6_SCENARIO]: options.scenarios[K6_SCENARIO],
 };
 
 export default function () {
