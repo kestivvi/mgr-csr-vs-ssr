@@ -22,7 +22,7 @@
   become: yes
   vars:
     target_url: "http://{{ hostvars[groups['app_server_csr'][0]]['private_ip'] }}"
-    target_server_type: "csr"
+    target_server_type: "CSR"
   roles:
     - role: load_generator
 
@@ -31,7 +31,7 @@
   become: yes
   vars:
     target_url: "http://{{ hostvars[groups['app_server_ssr'][0]]['private_ip'] }}"
-    target_server_type: "ssr"
+    target_server_type: "SSR"
   roles:
     - role: load_generator
 

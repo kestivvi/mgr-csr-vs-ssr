@@ -1,10 +1,8 @@
 import http from 'k6/http';
-import { check, group, sleep } from 'k6';
+import { check, group } from 'k6';
 
-const target_server = {
-  url: __ENV.TARGET_URL || 'http://localhost:8080',
-  type: __ENV.SERVER_TYPE || 'unknown',
-};
+const target_url = __ENV.TARGET_URL || 'http://localhost:8080';
+const server_type = __ENV.SERVER_TYPE || 'unknown';
 
 const testId = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
@@ -18,7 +16,7 @@ export const options = {
   },
   tags: {
     testid: testId,
-    server: target_server.type,
+    server: server_type,
   },
   discardResponseBodies: true,
   scenarios: {
@@ -53,17 +51,17 @@ export const options = {
 
 export default function () {
   group('Main page', function () {
-    const res = http.get(`${target_server.url}/`, { timeout: 500 });
+    const res = http.get(`${target_url}/`, { timeout: 500 });
     check(res, {
-      [`${target_server.type}: status is 200`]: (r) => r.status === 200,
+      [`${server_type}: status is 200`]: (r) => r.status === 200,
     });
   });
 
   group('Static assets', function () {
     let assets = [];
-    if (target_server.type === 'csr') {
+    if (server_type === 'CSR') {
       assets = ['/assets/index-B2WQNOJE.js', '/favicon.ico'];
-    } else if (target_server.type === 'ssr') {
+    } else if (server_type === 'SSR') {
       assets = [
         '/_next/static/chunks/webpack-5adebf9f62dc3001.js',
         '/_next/static/chunks/4bd1b696-67ee12fb04071d3b.js',
@@ -78,7 +76,7 @@ export default function () {
         assets.map((asset) => {
           return {
             method: 'GET',
-            url: `${target_server.url}${asset}`,
+            url: `${target_url}${asset}`,
             params: { timeout: 500 },
           };
         })

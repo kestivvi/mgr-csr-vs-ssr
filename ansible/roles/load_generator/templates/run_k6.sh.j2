@@ -12,4 +12,5 @@ docker run --rm --net=host -i \
   -e K6_LOG_OUTPUT=none \
   grafana/k6:1.1.0 run \
     --out experimental-prometheus-rw \
+    --tag server={{ target_server_type }} \
     /k6_archive.tar 
