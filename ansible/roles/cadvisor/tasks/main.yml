@@ -1,0 +1,14 @@
+---
+- name: Ensure cAdvisor container is running
+  docker_container:
+    name: cadvisor
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    restart_policy: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /cgroup:/cgroup:ro 

@@ -30,28 +30,19 @@
     group: ec2-user
     mode: '0755'
 
-- name: Copy NGINX dashboard
+- name: Copy dashboard
   ansible.builtin.copy:
-    src: nginx-dashboard.json
-    dest: /home/ec2-user/grafana-dashboards/nginx-dashboard.json
-    mode: '0644'
-
-- name: Copy System dashboard
-  ansible.builtin.copy:
-    src: system-dashboard.json
-    dest: /home/ec2-user/grafana-dashboards/system-dashboard.json
-    mode: '0644'
-
-- name: Copy k6 dashboard
-  ansible.builtin.copy:
-    src: k6-dashboard.json
-    dest: /home/ec2-user/grafana-dashboards/k6-dashboard.json
+    src: dashboard.json
+    dest: /home/ec2-user/grafana-dashboards/dashboard.json
     mode: '0644'
 
 - name: Create Prometheus targets file
   ansible.builtin.template:
     src: prometheus_targets.json.j2
     dest: /home/ec2-user/prometheus/prometheus_targets.json
+    owner: ec2-user
+    group: ec2-user
+    mode: '0644'
 
 - name: Create Prometheus configuration
   ansible.builtin.template:

@@ -47,9 +47,15 @@ variable "telegraf_port" {
 }
 
 variable "nginx_exporter_port" {
-  description = "Port for Nginx Exporter"
+  description = "Port for nginx log exporter"
   type        = number
   default     = 9113
+}
+
+variable "cadvisor_port" {
+  description = "Port for cAdvisor"
+  type        = number
+  default     = 8080
 }
 
 variable "grafana_port" {

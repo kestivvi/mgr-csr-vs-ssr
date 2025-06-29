@@ -10,12 +10,14 @@
   become: yes
   roles:
     - app_server_csr
+    - cadvisor
 
 - name: Configure SSR App Server
   hosts: app_server_ssr
   become: yes
   roles:
     - app_server_ssr
+    - cadvisor
 
 - name: Configure and deploy load generator for CSR
   hosts: role_load_generator_csr

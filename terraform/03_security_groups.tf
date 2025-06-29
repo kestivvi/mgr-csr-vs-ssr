@@ -62,6 +62,15 @@ resource "aws_security_group" "app_server" {
     description     = "Allow Prometheus to scrape nginx_log_exporter"
   }
 
+  # Allow cAdvisor from Monitoring Server
+  ingress {
+    from_port       = var.cadvisor_port
+    to_port         = var.cadvisor_port
+    protocol        = "tcp"
+    security_groups = [aws_security_group.monitoring_server.id]
+    description     = "Allow Prometheus to scrape cAdvisor"
+  }
+
   # Allow all outbound traffic
   egress {
     from_port        = 0
