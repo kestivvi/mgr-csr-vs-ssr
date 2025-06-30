@@ -4,6 +4,7 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 from scipy import stats
+import matplotlib.pyplot as plt
 
 def cohen_d(group1, group2):
     """Calculates Cohen's d for independent samples."""
@@ -60,7 +61,37 @@ def bootstrap_ci_ratio(group1, group2, n_bootstrap=10000):
     
     return lower_bound, upper_bound
 
-def analyze_metric(df, metric_col, metric_name):
+def save_normality_plots(data, group_name, output_dir):
+    """Creates and saves a histogram and Q-Q plot for visual normality assessment."""
+    if data.empty or len(data) < 3:
+        print(f"INFO: Skipping plot for '{group_name}' due to insufficient data.")
+        return
+
+    plt.figure(figsize=(10, 5))
+
+    # 1. Histogram
+    plt.subplot(1, 2, 1)
+    plt.hist(data, bins='auto', edgecolor='k', alpha=0.7)
+    plt.title(f'Histogram of {group_name}')
+    plt.xlabel('Value')
+    plt.ylabel('Frequency')
+
+    # 2. Q-Q Plot
+    plt.subplot(1, 2, 2)
+    stats.probplot(data, dist="norm", plot=plt)
+    plt.title(f'Q-Q Plot of {group_name}')
+
+    plt.suptitle(f'Normality Plots for {group_name}')
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # Adjust layout to make room for suptitle
+
+    # Save the plot
+    filename = f"{group_name.replace(' ', '_').lower()}_normality_plots.png"
+    filepath = output_dir / filename
+    plt.savefig(filepath)
+    plt.close() # Prevent plot from displaying
+    print(f"INFO: Normality plots saved to {filepath}")
+
+def analyze_metric(df, metric_col, metric_name, plots_dir):
     """Performs and prints a full statistical analysis for a given metric."""
     print(f"\n\n{'='*20} Analysis for: {metric_name.upper()} {'='*20}")
 
@@ -80,6 +111,11 @@ def analyze_metric(df, metric_col, metric_name):
     print(f"Shapiro-Wilk Test for Normality (CSR): Statistic={shapiro_csr.statistic:.4f}, p-value={shapiro_csr.pvalue:.4f}")
     print(f"Shapiro-Wilk Test for Normality (SSR): Statistic={shapiro_ssr.statistic:.4f}, p-value={shapiro_ssr.pvalue:.4f}")
     print(f"Levene's Test for Equal Variances: Statistic={levene_test.statistic:.4f}, p-value={levene_test.pvalue:.4f}")
+
+    # Visual check for normality
+    print("INFO: Generating normality plots (Histogram and Q-Q Plot)...")
+    save_normality_plots(group_csr, f"CSR {metric_name}", plots_dir)
+    save_normality_plots(group_ssr, f"SSR {metric_name}", plots_dir)
 
     is_normal_csr = shapiro_csr.pvalue > 0.05
     is_normal_ssr = shapiro_ssr.pvalue > 0.05
@@ -127,6 +163,10 @@ def main():
         print(f"ERROR: Input directory not found: {args.input_dir}")
         return
 
+    # Create a subdirectory for plots
+    plots_dir = args.input_dir / "plots"
+    plots_dir.mkdir(exist_ok=True)
+
     # 1. Load and aggregate data
     all_files = glob.glob(str(args.input_dir / "*.csv"))
     if not all_files:
@@ -150,14 +190,14 @@ def main():
     summary_df.rename(columns={'<lambda_0>': 'p95'}, inplace=True)
 
     # 3. Perform analysis for each metric
-    analyze_metric(summary_df[summary_df['metric'] == 'cpu'], 'mean', 'Mean CPU Usage')
-    analyze_metric(summary_df[summary_df['metric'] == 'memory'], 'mean', 'Mean Memory Usage')
+    analyze_metric(summary_df[summary_df['metric'] == 'cpu'], 'mean', 'Mean CPU Usage', plots_dir)
+    analyze_metric(summary_df[summary_df['metric'] == 'memory'], 'mean', 'Mean Memory Usage', plots_dir)
 
-    analyze_metric(summary_df[summary_df['metric'] == 'cpu'], 'std', 'CPU Usage Stability (Std Dev)')
-    analyze_metric(summary_df[summary_df['metric'] == 'memory'], 'std', 'Memory Usage Stability (Std Dev)')
+    analyze_metric(summary_df[summary_df['metric'] == 'cpu'], 'std', 'CPU Usage Stability (Std Dev)', plots_dir)
+    analyze_metric(summary_df[summary_df['metric'] == 'memory'], 'std', 'Memory Usage Stability (Std Dev)', plots_dir)
 
-    analyze_metric(summary_df[summary_df['metric'] == 'cpu'], 'p95', 'Peak CPU Usage (95th Percentile)')
-    analyze_metric(summary_df[summary_df['metric'] == 'memory'], 'p95', 'Peak Memory Usage (95th Percentile)')
+    analyze_metric(summary_df[summary_df['metric'] == 'cpu'], 'p95', 'Peak CPU Usage (95th Percentile)', plots_dir)
+    analyze_metric(summary_df[summary_df['metric'] == 'memory'], 'p95', 'Peak Memory Usage (95th Percentile)', plots_dir)
 
 
 if __name__ == "__main__":
