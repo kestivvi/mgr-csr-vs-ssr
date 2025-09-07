@@ -18,7 +18,6 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 4,
   "links": [],
   "panels": [
     {
@@ -39,8 +38,8 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
+            "fillOpacity": 51,
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -64,7 +63,6 @@
             }
           },
           "mappings": [],
-          "max": 1,
           "min": 0,
           "thresholds": {
             "mode": "absolute",
@@ -81,7 +79,38 @@
           },
           "unit": "percentunit"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CSR"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "SSR"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -137,8 +166,8 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
+            "fillOpacity": 50,
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -162,8 +191,6 @@
             }
           },
           "mappings": [],
-          "max": 1,
-          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -179,7 +206,38 @@
           },
           "unit": "percentunit"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CSR"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "SSR"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -235,8 +293,8 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
+            "fillOpacity": 50,
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -244,6 +302,9 @@
             },
             "insertNulls": false,
             "lineInterpolation": "linear",
+            "lineStyle": {
+              "fill": "solid"
+            },
             "lineWidth": 1,
             "pointSize": 5,
             "scaleDistribution": {
@@ -275,7 +336,38 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CSR"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "SSR"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -283,7 +375,7 @@
         "x": 0,
         "y": 8
       },
-      "id": 2,
+      "id": 16,
       "options": {
         "legend": {
           "calcs": [],
@@ -303,14 +395,14 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum by (server) (rate(k6_http_reqs_total{server=~\"$server\", group=\"::Main page\"}[$my_rate_interval]))",
+          "expr": "# sum by (server) (rate(k6_http_reqs_total{server=~\"$server\", group=\"::Main page\"}[$my_rate_interval]))\r\nsum by (server) (rate(k6_http_reqs_total{server=~\"$server\", error_code=\"\"}[$my_rate_interval]))",
           "instant": false,
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Client requests per second",
+      "title": "Successful client requests per second",
       "type": "timeseries"
     },
     {
@@ -331,8 +423,8 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
+            "fillOpacity": 50,
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -372,7 +464,38 @@
           },
           "unit": "s"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CSR"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "SSR"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -428,8 +551,8 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
+            "fillOpacity": 50,
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -470,7 +593,38 @@
           },
           "unit": "percentunit"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CSR"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "SSR"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -498,14 +652,14 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "# sum by (server) (k6_checks_rate)\r\n\r\n# (\r\n#   sum by (server) (rate(k6_http_req_failed{server=~\"$server\"}[$__rate_interval]))\r\n# /\r\n#   sum by (server) (rate(k6_http_reqs{server=~\"$server\"}[$__rate_interval]))\r\n# ) * 100 or vector(0)\r\n\r\n# avg by (server) (k6_http_req_failed_rate{error!=\"\", server=~\"$server\"} or vector(0))\r\n\r\n# avg by (server) (1-k6_checks_rate{server=~\"$server\"})\r\n\r\n# sum(rate(k6_http_req_failed_total[5m])) / sum(rate(k6_http_reqs_total[5m]))\r\n\r\n# sum by (server) (k6_http_reqs_total{error!=\"\"})\r\n\r\n(\r\n  (\r\n    sum by (server) (rate(k6_http_reqs_total{error!=\"\", server=~\"$server\"}[$my_rate_interval]))\r\n  )\r\n  or on(server)\r\n  (\r\n    sum by (server) (rate(k6_http_reqs_total{server=~\"$server\"}[$my_rate_interval])) * 0\r\n  )\r\n)\r\n/\r\n(\r\n  sum by (server) (rate(k6_http_reqs_total{server=~\"$server\"}[$my_rate_interval]))\r\n)",
+          "expr": "# sum by (server) (k6_checks_rate)\r\n\r\n# (\r\n#   sum by (server) (rate(k6_http_req_failed{server=~\"$server\"}[$__rate_interval]))\r\n# /\r\n#   sum by (server) (rate(k6_http_reqs{server=~\"$server\"}[$__rate_interval]))\r\n# ) * 100 or vector(0)\r\n\r\n# avg by (server) (k6_http_req_failed_rate{error!=\"\", server=~\"$server\"} or vector(0))\r\n\r\n# avg by (server) (1-k6_checks_rate{server=~\"$server\"})\r\n\r\n# sum(rate(k6_http_req_failed_total[5m])) / sum(rate(k6_http_reqs_total[5m]))\r\n\r\n# sum by (server) (k6_http_reqs_total{error!=\"\"})\r\n\r\n# Client error rate\r\n# (\r\n#   (\r\n#     sum by (server) (rate(k6_http_reqs_total{error!=\"\", server=~\"$server\"}[$my_rate_interval]))\r\n#   )\r\n#   or on(server)\r\n#   (\r\n#     sum by (server) (rate(k6_http_reqs_total{server=~\"$server\"}[$my_rate_interval])) * 0\r\n#   )\r\n# )\r\n# /\r\n# (\r\n#   sum by (server) (rate(k6_http_reqs_total{server=~\"$server\"}[$my_rate_interval]))\r\n# )\r\n\r\n1-\r\n(\r\n  (\r\n    sum by (server) (rate(k6_http_reqs_total{error_code!=\"\", server=~\"$server\"}[$my_rate_interval]))\r\n  )\r\n  or on(server)\r\n  (\r\n    sum by (server) (rate(k6_http_reqs_total{server=~\"$server\"}[$my_rate_interval])) * 0\r\n  )\r\n)\r\n/\r\n(\r\n  sum by (server) (rate(k6_http_reqs_total{server=~\"$server\"}[$my_rate_interval]))\r\n)",
           "instant": false,
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Client error rate",
+      "title": "Availability (Client Perspective)",
       "type": "timeseries"
     },
     {
@@ -526,8 +680,8 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
+            "fillOpacity": 50,
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -568,7 +722,38 @@
           },
           "unit": "percentunit"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CSR"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "SSR"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -596,14 +781,14 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "# (\r\n#   sum by (server) (rate(nginx_http_response_count_total{status=~\"5xx\"}[$__rate_interval]))\r\n#   or\r\n#   # This part creates a zero-value series for every server that has *any* traffic\r\n#   (sum by (server) (rate(nginx_http_response_count_total[$__rate_interval])) * 0)\r\n# )\r\n# /\r\n# sum by (server) (rate(nginx_http_response_count_total[$__rate_interval]))\r\n\r\n(\r\n  (\r\n    sum by (server) (rate(nginx_http_response_count_total{status=~\"^[45]..\", server=~\"$server\"}[$my_rate_interval]))\r\n  )\r\n  or on(server)\r\n  (\r\n    sum by (server) (rate(nginx_http_response_count_total{server=~\"$server\"}[$my_rate_interval])) * 0\r\n  )\r\n)\r\n/\r\n(\r\n  sum by (server) (rate(nginx_http_response_count_total{server=~\"$server\"}[$my_rate_interval]))\r\n)",
+          "expr": "# (\r\n#   sum by (server) (rate(nginx_http_response_count_total{status=~\"5xx\"}[$__rate_interval]))\r\n#   or\r\n#   # This part creates a zero-value series for every server that has *any* traffic\r\n#   (sum by (server) (rate(nginx_http_response_count_total[$__rate_interval])) * 0)\r\n# )\r\n# /\r\n# sum by (server) (rate(nginx_http_response_count_total[$__rate_interval]))\r\n\r\n# Nginx error rate\r\n# (\r\n#   (\r\n#     sum by (server) (rate(nginx_http_response_count_total{status=~\"^[45]..\", server=~\"$server\"}[$my_rate_interval]))\r\n#   )\r\n#   or on(server)\r\n#   (\r\n#     sum by (server) (rate(nginx_http_response_count_total{server=~\"$server\"}[$my_rate_interval])) * 0\r\n#   )\r\n# )\r\n# /\r\n# (\r\n#   sum by (server) (rate(nginx_http_response_count_total{server=~\"$server\"}[$my_rate_interval]))\r\n# )\r\n\r\n1-\r\n(\r\n  (\r\n    sum by (server) (rate(nginx_http_response_count_total{status=~\"^[45]..\", server=~\"$server\"}[$my_rate_interval]))\r\n  )\r\n  or on(server)\r\n  (\r\n    sum by (server) (rate(nginx_http_response_count_total{server=~\"$server\"}[$my_rate_interval])) * 0\r\n  )\r\n)\r\n/\r\n(\r\n  sum by (server) (rate(nginx_http_response_count_total{server=~\"$server\"}[$my_rate_interval]))\r\n)",
           "instant": false,
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Nginx error rate",
+      "title": "Availability (Nginx perspective)",
       "type": "timeseries"
     },
     {
@@ -720,8 +905,8 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
+            "fillOpacity": 50,
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -729,6 +914,9 @@
             },
             "insertNulls": false,
             "lineInterpolation": "linear",
+            "lineStyle": {
+              "fill": "solid"
+            },
             "lineWidth": 1,
             "pointSize": 5,
             "scaleDistribution": {
@@ -760,7 +948,38 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CSR"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "SSR"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -768,7 +987,7 @@
         "x": 12,
         "y": 24
       },
-      "id": 6,
+      "id": 2,
       "options": {
         "legend": {
           "calcs": [],
@@ -788,14 +1007,14 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "# sum by (server) (rate(nginx_http_response_count_total[$__rate_interval]))\r\n\r\nsum by (server) (rate(nginx_http_response_count_total{status=~\"^[23]..\"}[$__rate_interval]))",
+          "expr": "# sum by (server) (rate(k6_http_reqs_total{server=~\"$server\", group=\"::Main page\"}[$my_rate_interval]))\r\nsum by (server) (rate(k6_http_reqs_total{server=~\"$server\"}[$my_rate_interval]))",
           "instant": false,
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Nginx success requests per second",
+      "title": "Client requests rate",
       "type": "timeseries"
     },
     {
@@ -960,7 +1179,7 @@
         "x": 12,
         "y": 32
       },
-      "id": 15,
+      "id": 6,
       "options": {
         "legend": {
           "calcs": [],
@@ -980,14 +1199,14 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "# sum by (server) (rate(nginx_http_response_count_total[$__rate_interval]))\r\n\r\n# sum by (server) (rate(nginx_http_response_count_total{status=~\"^[45]..\"}[$__rate_interval]))\r\n\r\n(\r\n  sum by (server) (rate(nginx_http_response_count_total{status=~\"^[45]..\"}[$__rate_interval]))\r\n)\r\nor on(server)\r\n(\r\n  sum by (server) (rate(nginx_http_response_count_total[$__rate_interval])) * 0\r\n)",
+          "expr": "# sum by (server) (rate(nginx_http_response_count_total[$__rate_interval]))\r\n\r\nsum by (server) (rate(nginx_http_response_count_total{status=~\"^[23]..\"}[$__rate_interval]))",
           "instant": false,
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Nginx failed requests per second",
+      "title": "Nginx success requests per second",
       "type": "timeseries"
     },
     {
@@ -1008,8 +1227,8 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
+            "fillOpacity": 50,
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -1033,6 +1252,7 @@
             }
           },
           "mappings": [],
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -1076,7 +1296,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum by (server) (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes)",
+          "expr": "sum by (server) (node_memory_MemTotal_bytes{server=~\"$server\"} - node_memory_MemAvailable_bytes{server=~\"$server\"})",
           "instant": false,
           "legendFormat": "__auto",
           "range": true,
@@ -1129,6 +1349,7 @@
             }
           },
           "mappings": [],
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -1141,8 +1362,7 @@
                 "value": 80
               }
             ]
-          },
-          "unit": "decbytes"
+          }
         },
         "overrides": []
       },
@@ -1152,7 +1372,7 @@
         "x": 12,
         "y": 40
       },
-      "id": 11,
+      "id": 15,
       "options": {
         "legend": {
           "calcs": [],
@@ -1172,14 +1392,14 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum by (server) (rate(node_network_transmit_bytes_total[$__rate_interval]))",
+          "expr": "# sum by (server) (rate(nginx_http_response_count_total[$__rate_interval]))\r\n\r\n# sum by (server) (rate(nginx_http_response_count_total{status=~\"^[45]..\"}[$__rate_interval]))\r\n\r\n(\r\n  sum by (server) (rate(nginx_http_response_count_total{status=~\"^[45]..\"}[$__rate_interval]))\r\n)\r\nor on(server)\r\n(\r\n  sum by (server) (rate(nginx_http_response_count_total[$__rate_interval])) * 0\r\n)",
           "instant": false,
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "System trasmitted bytes per second",
+      "title": "Nginx failed requests per second",
       "type": "timeseries"
     },
     {
@@ -1335,7 +1555,8 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "decbytes"
         },
         "overrides": []
       },
@@ -1344,6 +1565,101 @@
         "w": 12,
         "x": 12,
         "y": 48
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "sum by (server) (rate(node_network_transmit_bytes_total[$__rate_interval]))",
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "System trasmitted bytes per second",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 56
       },
       "id": 9,
       "options": {
@@ -1440,7 +1756,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 56
+        "y": 64
       },
       "id": 14,
       "options": {
@@ -1483,15 +1799,15 @@
           "selected": true,
           "text": [
             "CSR",
-            "SSR",
             "LG_CSR",
-            "LG_SSR"
+            "LG_SSR",
+            "SSR"
           ],
           "value": [
             "CSR",
-            "SSR",
             "LG_CSR",
-            "LG_SSR"
+            "LG_SSR",
+            "SSR"
           ]
         },
         "datasource": {
@@ -1561,9 +1877,9 @@
       },
       {
         "current": {
-          "selected": true,
-          "text": "$__rate_interval",
-          "value": "$__rate_interval"
+          "selected": false,
+          "text": "15s",
+          "value": "15s"
         },
         "hide": 0,
         "includeAll": false,
@@ -1572,12 +1888,12 @@
         "name": "my_rate_interval",
         "options": [
           {
-            "selected": true,
+            "selected": false,
             "text": "$__rate_interval",
             "value": "$__rate_interval"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "15s",
             "value": "15s"
           },
@@ -1620,13 +1936,13 @@
     ]
   },
   "time": {
-    "from": "now-15m",
+    "from": "2025-09-06T19:11:00.000Z",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "My Dashboard",
+  "title": "Master Dashboard",
   "uid": "aeq8yi5ae25tse",
-  "version": 7,
+  "version": 1,
   "weekStart": ""
 }
