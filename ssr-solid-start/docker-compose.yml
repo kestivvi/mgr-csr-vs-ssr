@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  solid-app:
+    build: .
+    image: ssr-solid-start-solid-app
+    container_name: solid-app
+    restart: unless-stopped
+    networks:
+      - app-net
+
+  nginx:
+    image: nginx:1.26.0
+    container_name: nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "8060:8060"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - /var/log/ssr-solid-start-nginx:/var/log/nginx
+    depends_on:
+      - solid-app
+    networks:
+      - app-net
+
+networks:
+  app-net:
+    driver: bridge

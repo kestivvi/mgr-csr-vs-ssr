@@ -1,150 +1,263 @@
 #!/bin/bash
+#
+# Orchestrates a series of k6 load tests against different server types in parallel.
+# It handles dependency checks, setup, test execution via Ansible, and metrics
+# collection via a Python script.
 
 # Exit immediately if a command exits with a non-zero status.
 set -e
+# Treat unset variables as an error when substituting.
+set -u
+# Pipe commands will fail if any command in the pipe fails.
+set -o pipefail
 
 # --- ANSIBLE CONFIGURATION ---
 # Disable host key checking for non-interactive execution
 export ANSIBLE_HOST_KEY_CHECKING=False
 
-# --- CONFIGURATION ---
-NUM_RUNS=15
+# --- USER CONFIGURATION ---
+# These are the primary variables you might want to change between test runs.
+SERVER_TYPES=("CSR" "SSR")
+NUM_RUNS=2
 K6_RPS=100
-K6_DURATION="5m"
-# SERVER_TYPES="CSR SSR" # No longer needed, handled explicitly
-INVENTORY_FILE="ansible/inventory.yml"
-PLAYBOOK="ansible/run_constant_load_test.yml"
+K6_DURATION="3m"
+# Test path: 'static' for "/" or 'dynamic' for "/dynamic/{random-number}"
+TEST_PATH="static"
+# Margin to trim from the start and end of the test window for stable metrics.
+METRICS_TIME_MARGIN="1 minute"
+
+# --- SCRIPT CONSTANTS ---
+# These define the script's integration with the project structure and tools.
+# Avoid changing these unless you are modifying the project structure itself.
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+PROJECT_ROOT="$SCRIPT_DIR"
+
+# Tool Integration
+PROMETHEUS_HOST_QUERY='.all.children.role_monitoring_server.hosts.*.ansible_host'
+ANSIBLE_GROUP_TEMPLATE="role_load_generator_"
+
+# File Paths
+INVENTORY_FILE="${PROJECT_ROOT}/ansible/inventory.yml"
+PLAYBOOK="${PROJECT_ROOT}/ansible/run_constant_load_test.yml"
+K6_BUILD_DIR="${PROJECT_ROOT}/k6"
+RESULTS_BASE_DIR="${PROJECT_ROOT}/results"
+PYTHON_COLLECTOR_SCRIPT="${PROJECT_ROOT}/statistics/collector.py"
+PYTHON_ANALYZER_SCRIPT="${PROJECT_ROOT}/statistics/analyzer.py"
+
+# Global variables populated by the setup function.
+PROMETHEUS_URL=""
+OUTPUT_DIR=""
 
 # --- TRAP FOR CLEANUP ---
 # Ensure background jobs are killed if the script exits unexpectedly
 trap 'kill $(jobs -p) 2>/dev/null' EXIT
 
-# --- PRE-FLIGHT CHECKS ---
-echo "INFO: Starting pre-flight checks..."
+# --- HELPER FUNCTIONS ---
 
-# Check 1: Ensure yq is installed
-if ! command -v yq &> /dev/null
-then
-    echo "ERROR: yq command could not be found. Please install yq to proceed. (sudo snap install yq)"
-    echo "Installation instructions: https://github.com/mikefarah/yq/#install"
-    exit 1
-fi
-echo "INFO: [✓] yq is installed."
-
-# Check 2: Ensure Ansible inventory exists
-if [ ! -f "$INVENTORY_FILE" ]; then
-    echo "ERROR: Ansible inventory not found at $INVENTORY_FILE."
-    echo "Please run Terraform to create the infrastructure first."
-    exit 1
-fi
-echo "INFO: [✓] Ansible inventory found."
-
-# --- SETUP ---
-
-# Define the project root for absolute path references
-PROJECT_ROOT=$(pwd)
-
-# Build the k6 test archive. This is a prerequisite for the Ansible playbook.
-echo "INFO: Building k6 test archive..."
-if ! (cd k6 && ./build.sh); then
-    echo "ERROR: Failed to build k6 test archive."
-    exit 1
-fi
-echo "INFO: [✓] k6 test archive built successfully."
-
-# Get Prometheus URL from inventory
-PROMETHEUS_IP=$(yq '.all.children.role_monitoring_server.hosts.*.ansible_host' "$INVENTORY_FILE" | head -n 1)
-if [ -z "$PROMETHEUS_IP" ] || [ "$PROMETHEUS_IP" == "null" ]; then
-    echo "ERROR: Could not parse Prometheus IP from inventory file. 'yq' returned an empty or null value."
-    exit 1
-fi
-PROMETHEUS_URL="http://${PROMETHEUS_IP}:9090"
-echo "INFO: Prometheus URL set to: $PROMETHEUS_URL"
-
-# Create a unique, timestamped output directory for this experiment
-OUTPUT_DIR="results/run_$(date -u +"%Y-%m-%dT%H-%M-%SZ")"
-mkdir -p "$OUTPUT_DIR"
-echo "INFO: Results will be saved in: $OUTPUT_DIR"
-
-# Activate Python virtual environment
-VENV_PATH="statistics/venv/bin/activate"
-if [ ! -f "$VENV_PATH" ]; then
-    echo "ERROR: Python virtual environment not found at $VENV_PATH"
-    echo "Please run 'python3 -m venv statistics/venv' to create it."
-    exit 1
-fi
-source "$VENV_PATH"
-echo "INFO: Python virtual environment activated."
-
-# --- HELPER FUNCTION ---
-run_test_series() {
-    local server_type=$1
-    local output_dir=$2
-    
-    echo "INFO: Starting test series for server type: $server_type"
-    for (( run_num=1; run_num<=NUM_RUNS; run_num++ )); do
-        echo -e "\n--- Starting Run $run_num / $NUM_RUNS for $server_type ---"
-
-        # 1. Capture real start time
-        local REAL_START_TIME=$(date -u --iso-8601=seconds)
-        echo "INFO: [$server_type] Actual test start time: $REAL_START_TIME"
-
-        # 2. Run the Ansible playbook to execute the k6 test
-        echo "INFO: [$server_type] Running k6 test via Ansible..."
-        ansible-playbook -i "$INVENTORY_FILE" "$PLAYBOOK" \
-            --extra-vars "k6_rps=${K6_RPS} k6_duration=${K6_DURATION} prometheus_url=${PROMETHEUS_URL} project_root=${PROJECT_ROOT}" \
-            -l "role_load_generator_${server_type,,}"
-
-        # 3. Capture real end time
-        local REAL_END_TIME=$(date -u --iso-8601=seconds)
-        echo "INFO: [$server_type] Actual test end time: $REAL_END_TIME"
-
-        # 4. Calculate the adjusted time window for metric collection
-        echo "INFO: [$server_type] Adjusting time window by a 1-minute margin on each end."
-        local METRICS_START_TIME=$(date -d "$REAL_START_TIME + 1 minute" -u --iso-8601=seconds)
-        local METRICS_END_TIME=$(date -d "$REAL_END_TIME - 1 minute" -u --iso-8601=seconds)
-        echo "INFO: [$server_type] Metrics collection window: $METRICS_START_TIME to $METRICS_END_TIME"
-
-        # 5. Run the Python collector script
-        echo "INFO: [$server_type] Collecting metrics from Prometheus..."
-        python3 statistics/collector.py \
-            --prometheus-url "$PROMETHEUS_URL" \
-            --start "$METRICS_START_TIME" \
-            --end "$METRICS_END_TIME" \
-            --server-type "$server_type" \
-            --run-number "$run_num" \
-            --output-dir "$output_dir"
-        
-        echo "INFO: [$server_type] Run $run_num completed."
-    done
-    echo "INFO: Test series for $server_type completed successfully."
+# Centralized logging function for consistent output format.
+log() {
+    echo "INFO: $(date -u --iso-8601=seconds) | $*"
 }
 
-# --- EXPERIMENT EXECUTION ---
+execute_k6_test() {
+    local server_type=$1
+    local prometheus_url=$2
+    local ansible_group="${ANSIBLE_GROUP_TEMPLATE}${server_type,,}"
+    
+    log "[$server_type] Running k6 test via Ansible on group '$ansible_group'..."
 
-echo -e "\n========================================================="
-echo "INFO: Starting test series for CSR and SSR in parallel."
-echo "INFO: CSR run log will be saved to $OUTPUT_DIR/csr_run.log"
-echo "========================================================="
+    # Build --extra-vars as a single JSON string for robustness.
+    local extra_vars_json
+    extra_vars_json=$(printf '{"k6_rps": %d, "k6_duration": "%s", "test_path": "%s", "prometheus_url": "%s", "project_root": "%s"}' \
+        "$K6_RPS" "$K6_DURATION" "$TEST_PATH" "$prometheus_url" "$PROJECT_ROOT")
 
-# Run CSR tests in the background, redirecting output to a log file
-run_test_series "CSR" "$OUTPUT_DIR" > "$OUTPUT_DIR/csr_run.log" 2>&1 &
-CSR_PID=$!
+    # Build the full command in an array to prevent quoting issues.
+    local cmd=(
+        ansible-playbook
+        -i "$INVENTORY_FILE"
+        "$PLAYBOOK"
+        --extra-vars "$extra_vars_json"
+        -l "$ansible_group"
+    )
 
-# Run SSR tests in the foreground
-run_test_series "SSR" "$OUTPUT_DIR"
+    # Execute the command.
+    "${cmd[@]}"
+}
 
-# Wait for the background CSR process to finish and check its exit code
-echo "INFO: SSR test series finished. Waiting for CSR series to complete..."
-wait $CSR_PID
-echo "INFO: CSR test series completed."
+collect_prometheus_metrics() {
+    local server_type=$1
+    local run_num=$2
+    local start_time=$3
+    local end_time=$4
+    local prometheus_url=$5
+    local output_dir=$6
 
-# Deactivate Python environment
-deactivate
-echo -e "\n========================================================="
-echo "INFO: All experiments completed successfully."
-echo "INFO: Raw data saved in $OUTPUT_DIR"
-echo "INFO: To analyze the results, run:"
-echo "source $VENV_PATH"
-echo "python3 statistics/analyzer.py --input-dir $OUTPUT_DIR"
-echo "=========================================================" 
+    log "[$server_type] Collecting metrics from Prometheus..."
+    python3 "$PYTHON_COLLECTOR_SCRIPT" \
+        --prometheus-url "$prometheus_url" \
+        --start "$start_time" \
+        --end "$end_time" \
+        --server-type "$server_type" \
+        --run-number "$run_num" \
+        --output-dir "$output_dir"
+}
+
+run_test_series_for_type() {
+    local server_type=$1
+    local prometheus_url=$2
+    local output_dir=$3
+    
+    log "Starting test series for server type: $server_type"
+    for (( run_num=1; run_num<=NUM_RUNS; run_num++ )); do
+        log "--- Starting Run $run_num / $NUM_RUNS for $server_type ---"
+
+        local real_start_time
+        real_start_time=$(date -u --iso-8601=seconds)
+        log "[$server_type] Actual test start time: $real_start_time"
+
+        execute_k6_test "$server_type" "$prometheus_url"
+
+        local real_end_time
+        real_end_time=$(date -u --iso-8601=seconds)
+        log "[$server_type] Actual test end time: $real_end_time"
+
+        log "[$server_type] Adjusting time window by a ${METRICS_TIME_MARGIN} margin on each end."
+        local metrics_start_time
+        metrics_start_time=$(date -d "$real_start_time + ${METRICS_TIME_MARGIN}" -u --iso-8601=seconds)
+        local metrics_end_time
+        metrics_end_time=$(date -d "$real_end_time - ${METRICS_TIME_MARGIN}" -u --iso-8601=seconds)
+        log "[$server_type] Metrics collection window: $metrics_start_time to $metrics_end_time"
+
+        collect_prometheus_metrics "$server_type" "$run_num" "$metrics_start_time" "$metrics_end_time" "$prometheus_url" "$output_dir"
+        
+        log "[$server_type] Run $run_num completed."
+    done
+    log "Test series for $server_type completed successfully."
+}
+
+# --- MAIN LOGIC FUNCTIONS ---
+
+preflight_checks() {
+    log "Starting pre-flight checks..."
+    local dependencies=("yq" "ansible-playbook" "python3")
+    for cmd in "${dependencies[@]}"; do
+        if ! command -v "$cmd" &> /dev/null; then
+            echo "ERROR: Required command '$cmd' could not be found." >&2
+            echo "Please ensure it is installed and in your PATH." >&2
+            exit 1
+        fi
+        log "[✓] $cmd is installed."
+    done
+
+    # Check for required Python packages to fail fast.
+    log "Checking for required Python packages..."
+    if ! python3 -c "import pandas, requests, numpy" &> /dev/null; then
+        echo "ERROR: Missing required Python packages (e.g., pandas, requests, numpy)." >&2
+        echo "Please install them in your active Python environment (e.g., 'pip install pandas requests numpy')." >&2
+        exit 1
+    fi
+    log "[✓] Required Python packages are installed."
+
+    # Specifically check for GNU date, as its flags are used for time arithmetic.
+    if ! date -d "now + 1 min" >/dev/null 2>&1; then
+        echo "ERROR: This script requires GNU 'date' for time calculations." >&2
+        exit 1
+    fi
+    log "[✓] GNU date is available."
+
+    if [ ! -f "$INVENTORY_FILE" ]; then
+        echo "ERROR: Ansible inventory not found at $INVENTORY_FILE." >&2
+        exit 1
+    fi
+    log "[✓] Ansible inventory found."
+}
+
+setup() {
+    log "Starting setup..."
+    
+    log "Building k6 test archive..."
+    if ! (cd "$K6_BUILD_DIR" && ./build.sh); then
+        echo "ERROR: Failed to build k6 test archive." >&2
+        exit 1
+    fi
+    log "[✓] k6 test archive built successfully."
+
+    local prometheus_ip
+    prometheus_ip=$(yq "$PROMETHEUS_HOST_QUERY" "$INVENTORY_FILE" | head -n 1)
+    if [ -z "$prometheus_ip" ] || [ "$prometheus_ip" == "null" ]; then
+        echo "ERROR: Could not parse Prometheus IP from inventory file using query." >&2
+        exit 1
+    fi
+    PROMETHEUS_URL="http://${prometheus_ip}:9090"
+    log "Prometheus URL set to: $PROMETHEUS_URL"
+
+    OUTPUT_DIR="${RESULTS_BASE_DIR}/run_$(date -u +"%Y-%m-%dT%H-%M-%SZ")"
+    mkdir -p "$OUTPUT_DIR"
+    log "Results will be saved in: $OUTPUT_DIR"
+}
+
+run_experiments() {
+    local prometheus_url=$1
+    local output_dir=$2
+
+    log "========================================================="
+    log "Starting test series for all server types in parallel."
+    log "Types to be tested: ${SERVER_TYPES[*]}"
+    log "========================================================="
+
+    local pids=()
+    declare -A pid_map
+    for type in "${SERVER_TYPES[@]}"; do
+        local log_file="${output_dir}/${type,,}_run.log"
+        log "Launching test for '$type'. Log file: $log_file"
+        
+        run_test_series_for_type "$type" "$prometheus_url" "$output_dir" > "$log_file" 2>&1 &
+        
+        local pid=$!
+        pids+=($pid)
+        pid_map[$pid]="Test for '$type' (Log: $log_file)"
+    done
+
+    log "All test series launched. Waiting for completion..."
+    local has_failed=0
+    for pid in "${pids[@]}"; do
+        if ! wait "$pid"; then
+            echo "ERROR: ${pid_map[$pid]} FAILED." >&2
+            has_failed=1
+        fi
+    done
+
+    if [ "$has_failed" -ne 0 ]; then
+        echo "ERROR: One or more test series failed. Please review the logs in $output_dir" >&2
+        exit 1
+    fi
+}
+
+print_summary() {
+    local output_dir=$1
+    local venv_activate_path="${PROJECT_ROOT}/statistics/venv/bin/activate"
+
+    log "========================================================="
+    log "All experiments completed successfully."
+    log "Raw data saved in $output_dir"
+    # Use plain echo for user instructions that are meant to be copied.
+    echo ""
+    echo "To analyze the results, first activate your Python virtual environment:"
+    echo "source $venv_activate_path"
+    echo ""
+    echo "Then, run the analyzer script:"
+    echo "python3 $PYTHON_ANALYZER_SCRIPT --input-dir $output_dir"
+    echo "========================================================="
+}
+
+# --- MAIN EXECUTION ---
+
+main() {
+    preflight_checks
+    setup
+    run_experiments "$PROMETHEUS_URL" "$OUTPUT_DIR"
+    print_summary "$OUTPUT_DIR"
+}
+
+# Run the main function
+main
