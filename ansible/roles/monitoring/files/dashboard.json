@@ -809,8 +809,8 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
+            "fillOpacity": 50,
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -914,9 +914,6 @@
             },
             "insertNulls": false,
             "lineInterpolation": "linear",
-            "lineStyle": {
-              "fill": "solid"
-            },
             "lineWidth": 1,
             "pointSize": 5,
             "scaleDistribution": {
@@ -933,7 +930,6 @@
             }
           },
           "mappings": [],
-          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -946,40 +942,10 @@
                 "value": 80
               }
             ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "CSR"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "blue",
-                  "mode": "fixed"
-                }
-              }
-            ]
           },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "SSR"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "red",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          }
-        ]
+          "unit": "decbytes"
+        },
+        "overrides": []
       },
       "gridPos": {
         "h": 8,
@@ -987,7 +953,7 @@
         "x": 12,
         "y": 24
       },
-      "id": 2,
+      "id": 11,
       "options": {
         "legend": {
           "calcs": [],
@@ -1007,14 +973,14 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "# sum by (server) (rate(k6_http_reqs_total{server=~\"$server\", group=\"::Main page\"}[$my_rate_interval]))\r\nsum by (server) (rate(k6_http_reqs_total{server=~\"$server\"}[$my_rate_interval]))",
+          "expr": "sum by (server) (rate(node_network_transmit_bytes_total[$__rate_interval]))",
           "instant": false,
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Client requests rate",
+      "title": "System trasmitted bytes per second",
       "type": "timeseries"
     },
     {
@@ -1131,8 +1097,8 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
+            "fillOpacity": 50,
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -1140,6 +1106,9 @@
             },
             "insertNulls": false,
             "lineInterpolation": "linear",
+            "lineStyle": {
+              "fill": "solid"
+            },
             "lineWidth": 1,
             "pointSize": 5,
             "scaleDistribution": {
@@ -1171,7 +1140,38 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CSR"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "SSR"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -1179,7 +1179,7 @@
         "x": 12,
         "y": 32
       },
-      "id": 6,
+      "id": 2,
       "options": {
         "legend": {
           "calcs": [],
@@ -1199,14 +1199,14 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "# sum by (server) (rate(nginx_http_response_count_total[$__rate_interval]))\r\n\r\nsum by (server) (rate(nginx_http_response_count_total{status=~\"^[23]..\"}[$__rate_interval]))",
+          "expr": "# sum by (server) (rate(k6_http_reqs_total{server=~\"$server\", group=\"::Main page\"}[$my_rate_interval]))\r\nsum by (server) (rate(k6_http_reqs_total{server=~\"$server\"}[$my_rate_interval]))",
           "instant": false,
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Nginx success requests per second",
+      "title": "Client requests rate",
       "type": "timeseries"
     },
     {
@@ -1372,7 +1372,7 @@
         "x": 12,
         "y": 40
       },
-      "id": 15,
+      "id": 6,
       "options": {
         "legend": {
           "calcs": [],
@@ -1392,14 +1392,14 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "# sum by (server) (rate(nginx_http_response_count_total[$__rate_interval]))\r\n\r\n# sum by (server) (rate(nginx_http_response_count_total{status=~\"^[45]..\"}[$__rate_interval]))\r\n\r\n(\r\n  sum by (server) (rate(nginx_http_response_count_total{status=~\"^[45]..\"}[$__rate_interval]))\r\n)\r\nor on(server)\r\n(\r\n  sum by (server) (rate(nginx_http_response_count_total[$__rate_interval])) * 0\r\n)",
+          "expr": "# sum by (server) (rate(nginx_http_response_count_total[$__rate_interval]))\r\n\r\nsum by (server) (rate(nginx_http_response_count_total{status=~\"^[23]..\"}[$__rate_interval]))",
           "instant": false,
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Nginx failed requests per second",
+      "title": "Nginx success requests per second",
       "type": "timeseries"
     },
     {
@@ -1543,6 +1543,7 @@
             }
           },
           "mappings": [],
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -1555,8 +1556,7 @@
                 "value": 80
               }
             ]
-          },
-          "unit": "decbytes"
+          }
         },
         "overrides": []
       },
@@ -1566,7 +1566,7 @@
         "x": 12,
         "y": 48
       },
-      "id": 11,
+      "id": 15,
       "options": {
         "legend": {
           "calcs": [],
@@ -1586,14 +1586,14 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum by (server) (rate(node_network_transmit_bytes_total[$__rate_interval]))",
+          "expr": "# sum by (server) (rate(nginx_http_response_count_total[$__rate_interval]))\r\n\r\n# sum by (server) (rate(nginx_http_response_count_total{status=~\"^[45]..\"}[$__rate_interval]))\r\n\r\n(\r\n  sum by (server) (rate(nginx_http_response_count_total{status=~\"^[45]..\"}[$__rate_interval]))\r\n)\r\nor on(server)\r\n(\r\n  sum by (server) (rate(nginx_http_response_count_total[$__rate_interval])) * 0\r\n)",
           "instant": false,
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "System trasmitted bytes per second",
+      "title": "Nginx failed requests per second",
       "type": "timeseries"
     },
     {
@@ -1936,7 +1936,7 @@
     ]
   },
   "time": {
-    "from": "2025-09-06T19:11:00.000Z",
+    "from": "now-5m",
     "to": "now"
   },
   "timepicker": {},

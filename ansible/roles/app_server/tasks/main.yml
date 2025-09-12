@@ -1,0 +1,26 @@
+---
+- name: Copy application files
+  ansible.posix.synchronize:
+    src: "{{ playbook_dir }}/../{{ app_dir }}/"
+    dest: "/home/ec2-user/{{ app_dir }}"
+    rsync_opts:
+      - "--exclude=node_modules"
+      - "--exclude=.next"
+
+- name: Create nginx log directory
+  ansible.builtin.file:
+    path: "/var/log/{{ app_dir }}-nginx"
+    state: directory
+    mode: '0755'
+  become: true
+
+- name: Include nginx_log_exporter role
+  ansible.builtin.include_role:
+    name: nginx_log_exporter
+  vars:
+    nginx_log_path: "/var/log/{{ app_dir }}-nginx/access.log"
+
+- name: Run App Server
+  ansible.builtin.command:
+    cmd: docker compose up -d --force-recreate
+    chdir: "/home/ec2-user/{{ app_dir }}"

@@ -6,11 +6,11 @@ PROMETHEUS_RW_URL="http://{{ hostvars[groups['role_monitoring_server'][0]]['priv
 docker run --rm --net=host -i \
   -v /home/ec2-user/k6_archive.tar:/k6_archive.tar:ro \
   -e TARGET_URL="{{ target_url }}" \
-  -e SERVER_TYPE="{{ target_server_type }}" \
+  -e SERVER_TYPE="{{ scenario_type_upper }}" \
   -e K6_PROMETHEUS_RW_SERVER_URL="$PROMETHEUS_RW_URL" \
   -e K6_PROMETHEUS_RW_TREND_AS_NATIVE_HISTOGRAM=true \
   -e K6_LOG_OUTPUT=none \
   grafana/k6:1.1.0 run \
     --out experimental-prometheus-rw \
-    --tag server={{ target_server_type }} \
-    /k6_archive.tar 
+    --tag server={{ scenario_type_upper }} \
+    /k6_archive.tar

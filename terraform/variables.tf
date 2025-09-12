@@ -69,3 +69,38 @@ variable "prometheus_port" {
   type        = number
   default     = 9090
 }
+
+variable "app_server_instance_type" {
+  description = "Instance type for all application servers (e.g., 2 vCPUs)."
+  type        = string
+  # default     = "t4g.micro"
+  default     = "c8g.large"
+}
+
+variable "load_generator_instance_type" {
+  description = "Instance type for all load generator servers (e.g., 4 vCPUs)."
+  type        = string
+  # default     = "t4g.micro"
+  default     = "c8g.4xlarge"
+}
+
+variable "test_scenarios" {
+  description = "A map of test scenarios to provision. The key is the short name (e.g., 'csr')."
+  type = map(object({
+    description = string
+    purpose     = string
+    app_dir     = string
+  }))
+  default = {
+    "csr" = {
+      description = "Application Server (CSR)"
+      purpose     = "Hosts Client-Side Rendered application"
+      app_dir     = "csr-react"
+    },
+    "ssr" = {
+      description = "Application Server (SSR)"
+      purpose     = "Hosts Server-Side Rendered application"
+      app_dir     = "ssr-nextjs"
+    }
+  }
+}

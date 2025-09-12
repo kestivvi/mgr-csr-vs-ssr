@@ -1,44 +1,30 @@
 ---
-- name: Configure All Servers
+- name: Configure All Servers (Common baseline)
   hosts: all
   become: yes
   roles:
     - common
 
-- name: Configure CSR App Server
-  hosts: app_server_csr
+- name: Configure All App Servers
+  hosts: role_app_servers
   become: yes
   roles:
-    - app_server_csr
+    - app_server
     - cadvisor
 
-- name: Configure SSR App Server
-  hosts: app_server_ssr
-  become: yes
-  roles:
-    - app_server_ssr
-    - cadvisor
-
-- name: Configure and deploy load generator for CSR
-  hosts: role_load_generator_csr
+- name: Configure All Load Generators
+  hosts: role_load_generators
   become: yes
   vars:
-    target_url: "http://{{ hostvars[groups['app_server_csr'][0]]['private_ip'] }}"
-    target_server_type: "CSR"
+    # Dynamically determine the target URL for each load generator based on its scenario_type
+    target_url: "http://{{ hostvars[groups['app_server_' + scenario_type][0]]['private_ip'] }}"
+    # Create the uppercase version for use in templates/scripts
+    scenario_type_upper: "{{ scenario_type | upper }}"
   roles:
     - role: load_generator
 
-- name: Configure and deploy load generator for SSR
-  hosts: role_load_generator_ssr
-  become: yes
-  vars:
-    target_url: "http://{{ hostvars[groups['app_server_ssr'][0]]['private_ip'] }}"
-    target_server_type: "SSR"
-  roles:
-    - role: load_generator
-
-- name: Configure monitoring server
+- name: Configure Monitoring Server
   hosts: role_monitoring_server
   become: yes
   roles:
-    - monitoring 
+    - monitoring

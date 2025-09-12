@@ -11,7 +11,16 @@ set -u
 # Pipe commands will fail if any command in the pipe fails.
 set -o pipefail
 
+# --- SCRIPT CONSTANTS & PATHS ---
+# These define the script's integration with the project structure and tools.
+# Avoid changing these unless you are modifying the project structure itself.
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+PROJECT_ROOT="$SCRIPT_DIR"
+
 # --- ANSIBLE CONFIGURATION ---
+# Explicitly set the path to the ansible.cfg file. This is the crucial fix.
+# It ensures Ansible always finds its configuration, including the correct remote_user.
+export ANSIBLE_CONFIG="${PROJECT_ROOT}/ansible/ansible.cfg"
 # Disable host key checking for non-interactive execution
 export ANSIBLE_HOST_KEY_CHECKING=False
 
@@ -26,17 +35,9 @@ TEST_PATH="static"
 # Margin to trim from the start and end of the test window for stable metrics.
 METRICS_TIME_MARGIN="1 minute"
 
-# --- SCRIPT CONSTANTS ---
-# These define the script's integration with the project structure and tools.
-# Avoid changing these unless you are modifying the project structure itself.
-SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-PROJECT_ROOT="$SCRIPT_DIR"
-
-# Tool Integration
+# --- TOOL INTEGRATION & FILE PATHS ---
 PROMETHEUS_HOST_QUERY='.all.children.role_monitoring_server.hosts.*.ansible_host'
 ANSIBLE_GROUP_TEMPLATE="role_load_generator_"
-
-# File Paths
 INVENTORY_FILE="${PROJECT_ROOT}/ansible/inventory.yml"
 PLAYBOOK="${PROJECT_ROOT}/ansible/run_constant_load_test.yml"
 K6_BUILD_DIR="${PROJECT_ROOT}/k6"

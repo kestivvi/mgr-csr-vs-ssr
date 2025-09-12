@@ -1,31 +1,21 @@
 {%- set targets = [] %}
-{# App Server CSR #}
-{%- for host in groups['app_server_csr'] %}
-  {%- set _ = targets.append({'targets': [hostvars[host]['private_ip'] ~ ':' ~ (node_exporter_port | default(9100))], 'labels': {'server': 'CSR', 'job': 'node_exporter'}}) %}
-  {%- set _ = targets.append({'targets': [hostvars[host]['private_ip'] ~ ':' ~ (nginx_exporter_port | default(9113))], 'labels': {'server': 'CSR', 'job': 'nginx_log_exporter'}}) %}
-  {%- set _ = targets.append({'targets': [hostvars[host]['private_ip'] ~ ':' ~ (cadvisor_port | default(8080))], 'labels': {'server': 'CSR', 'job': 'cadvisor'}}) %}
+{# Dynamically add all App Servers #}
+{%- for host in groups['role_app_servers'] %}
+  {%- set scenario_upper = hostvars[host]['scenario_type'] | upper %}
+  {%- set _ = targets.append({'targets': [hostvars[host]['private_ip'] ~ ':' ~ (node_exporter_port | default(9100))], 'labels': {'server': scenario_upper, 'job': 'node_exporter'}}) %}
+  {%- set _ = targets.append({'targets': [hostvars[host]['private_ip'] ~ ':' ~ (nginx_exporter_port | default(9113))], 'labels': {'server': scenario_upper, 'job': 'nginx_log_exporter'}}) %}
+  {%- set _ = targets.append({'targets': [hostvars[host]['private_ip'] ~ ':' ~ (cadvisor_port | default(8080))], 'labels': {'server': scenario_upper, 'job': 'cadvisor'}}) %}
 {%- endfor %}
 
-{# App Server SSR #}
-{%- for host in groups['app_server_ssr'] %}
-  {%- set _ = targets.append({'targets': [hostvars[host]['private_ip'] ~ ':' ~ (node_exporter_port | default(9100))], 'labels': {'server': 'SSR', 'job': 'node_exporter'}}) %}
-  {%- set _ = targets.append({'targets': [hostvars[host]['private_ip'] ~ ':' ~ (nginx_exporter_port | default(9113))], 'labels': {'server': 'SSR', 'job': 'nginx_log_exporter'}}) %}
-  {%- set _ = targets.append({'targets': [hostvars[host]['private_ip'] ~ ':' ~ (cadvisor_port | default(8080))], 'labels': {'server': 'SSR', 'job': 'cadvisor'}}) %}
+{# Dynamically add all Load Generators #}
+{%- for host in groups['role_load_generators'] %}
+  {%- set scenario_upper = hostvars[host]['scenario_type'] | upper %}
+  {%- set _ = targets.append({'targets': [hostvars[host]['private_ip'] ~ ':' ~ (node_exporter_port | default(9100))], 'labels': {'server': 'LG_' ~ scenario_upper, 'job': 'node_exporter'}}) %}
 {%- endfor %}
 
-{# Monitoring Server #}
+{# Monitoring Server (static) #}
 {%- for host in groups['role_monitoring_server'] %}
   {%- set _ = targets.append({'targets': [hostvars[host]['private_ip'] ~ ':' ~ (node_exporter_port | default(9100))], 'labels': {'server': 'MON', 'job': 'node_exporter'}}) %}
 {%- endfor %}
 
-{# Load Generator CSR #}
-{%- for host in groups['role_load_generator_csr'] %}
-  {%- set _ = targets.append({'targets': [hostvars[host]['private_ip'] ~ ':' ~ (node_exporter_port | default(9100))], 'labels': {'server': 'LG_CSR', 'job': 'node_exporter'}}) %}
-{%- endfor %}
-
-{# Load Generator SSR #}
-{%- for host in groups['role_load_generator_ssr'] %}
-  {%- set _ = targets.append({'targets': [hostvars[host]['private_ip'] ~ ':' ~ (node_exporter_port | default(9100))], 'labels': {'server': 'LG_SSR', 'job': 'node_exporter'}}) %}
-{%- endfor %}
-
-{{ targets | to_json(indent=2) }} 
+{{ targets | to_json(indent=2) }}
