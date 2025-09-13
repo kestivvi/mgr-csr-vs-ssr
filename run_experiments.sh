@@ -26,7 +26,7 @@ export ANSIBLE_HOST_KEY_CHECKING=False
 
 # --- USER CONFIGURATION ---
 # These are the primary variables you might want to change between test runs.
-SERVER_TYPES=("CSR" "SSR")
+# SERVER_TYPES is now discovered automatically from the inventory.
 NUM_RUNS=2
 K6_RPS=100
 K6_DURATION="3m"
@@ -48,6 +48,8 @@ PYTHON_ANALYZER_SCRIPT="${PROJECT_ROOT}/statistics/analyzer.py"
 # Global variables populated by the setup function.
 PROMETHEUS_URL=""
 OUTPUT_DIR=""
+# Declare SERVER_TYPES as an array to be populated dynamically
+declare -a SERVER_TYPES
 
 # --- TRAP FOR CLEANUP ---
 # Ensure background jobs are killed if the script exits unexpectedly
@@ -61,11 +63,11 @@ log() {
 }
 
 execute_k6_test() {
-    local server_type=$1
+    local server_type_lower=$1
     local prometheus_url=$2
-    local ansible_group="${ANSIBLE_GROUP_TEMPLATE}${server_type,,}"
+    local ansible_group="${ANSIBLE_GROUP_TEMPLATE}${server_type_lower}"
     
-    log "[$server_type] Running k6 test via Ansible on group '$ansible_group'..."
+    log "[${server_type_lower^^}] Running k6 test via Ansible on group '$ansible_group'..."
 
     # Build --extra-vars as a single JSON string for robustness.
     local extra_vars_json
@@ -86,54 +88,55 @@ execute_k6_test() {
 }
 
 collect_prometheus_metrics() {
-    local server_type=$1
+    local server_type_upper=$1
     local run_num=$2
     local start_time=$3
     local end_time=$4
     local prometheus_url=$5
     local output_dir=$6
 
-    log "[$server_type] Collecting metrics from Prometheus..."
+    log "[${server_type_upper}] Collecting metrics from Prometheus..."
     python3 "$PYTHON_COLLECTOR_SCRIPT" \
         --prometheus-url "$prometheus_url" \
         --start "$start_time" \
         --end "$end_time" \
-        --server-type "$server_type" \
+        --server-type "$server_type_upper" \
         --run-number "$run_num" \
         --output-dir "$output_dir"
 }
 
 run_test_series_for_type() {
-    local server_type=$1
+    local server_type_lower=$1
     local prometheus_url=$2
     local output_dir=$3
+    local server_type_upper=${server_type_lower^^} # Convert to uppercase for display/external use
     
-    log "Starting test series for server type: $server_type"
+    log "Starting test series for server type: $server_type_upper"
     for (( run_num=1; run_num<=NUM_RUNS; run_num++ )); do
-        log "--- Starting Run $run_num / $NUM_RUNS for $server_type ---"
+        log "--- Starting Run $run_num / $NUM_RUNS for $server_type_upper ---"
 
         local real_start_time
         real_start_time=$(date -u --iso-8601=seconds)
-        log "[$server_type] Actual test start time: $real_start_time"
+        log "[$server_type_upper] Actual test start time: $real_start_time"
 
-        execute_k6_test "$server_type" "$prometheus_url"
+        execute_k6_test "$server_type_lower" "$prometheus_url"
 
         local real_end_time
         real_end_time=$(date -u --iso-8601=seconds)
-        log "[$server_type] Actual test end time: $real_end_time"
+        log "[$server_type_upper] Actual test end time: $real_end_time"
 
-        log "[$server_type] Adjusting time window by a ${METRICS_TIME_MARGIN} margin on each end."
+        log "[$server_type_upper] Adjusting time window by a ${METRICS_TIME_MARGIN} margin on each end."
         local metrics_start_time
         metrics_start_time=$(date -d "$real_start_time + ${METRICS_TIME_MARGIN}" -u --iso-8601=seconds)
         local metrics_end_time
         metrics_end_time=$(date -d "$real_end_time - ${METRICS_TIME_MARGIN}" -u --iso-8601=seconds)
-        log "[$server_type] Metrics collection window: $metrics_start_time to $metrics_end_time"
+        log "[$server_type_upper] Metrics collection window: $metrics_start_time to $metrics_end_time"
 
-        collect_prometheus_metrics "$server_type" "$run_num" "$metrics_start_time" "$metrics_end_time" "$prometheus_url" "$output_dir"
+        collect_prometheus_metrics "$server_type_upper" "$run_num" "$metrics_start_time" "$metrics_end_time" "$prometheus_url" "$output_dir"
         
-        log "[$server_type] Run $run_num completed."
+        log "[$server_type_upper] Run $run_num completed."
     done
-    log "Test series for $server_type completed successfully."
+    log "Test series for $server_type_upper completed successfully."
 }
 
 # --- MAIN LOGIC FUNCTIONS ---
@@ -195,6 +198,20 @@ setup() {
     OUTPUT_DIR="${RESULTS_BASE_DIR}/run_$(date -u +"%Y-%m-%dT%H-%M-%SZ")"
     mkdir -p "$OUTPUT_DIR"
     log "Results will be saved in: $OUTPUT_DIR"
+
+    # --- DYNAMICALLY DISCOVER SERVER TYPES ---
+    log "Discovering server types from inventory..."
+    
+    # Use mapfile (readarray) to correctly read multi-line output into an array.
+    # This is the robust way to handle discovery of one or more server types.
+    # This is the critical fix.
+    mapfile -t SERVER_TYPES < <(yq '.all.children.role_load_generators.children | keys | .[]' "$INVENTORY_FILE" | sed "s/${ANSIBLE_GROUP_TEMPLATE}//")
+
+    if [ ${#SERVER_TYPES[@]} -eq 0 ]; then
+        echo "ERROR: No server types discovered from inventory. Check inventory structure and yq query." >&2
+        exit 1
+    fi
+    log "[✓] Discovered server types: ${SERVER_TYPES[*]}"
 }
 
 run_experiments() {
@@ -212,8 +229,10 @@ run_experiments() {
         local log_file="${output_dir}/${type,,}_run.log"
         log "Launching test for '$type'. Log file: $log_file"
         
+        # Launch the entire test series for this type in the background
         run_test_series_for_type "$type" "$prometheus_url" "$output_dir" > "$log_file" 2>&1 &
         
+        # Capture the Process ID (PID) of the background job
         local pid=$!
         pids+=($pid)
         pid_map[$pid]="Test for '$type' (Log: $log_file)"
@@ -221,7 +240,9 @@ run_experiments() {
 
     log "All test series launched. Waiting for completion..."
     local has_failed=0
+    # Loop through all the captured PIDs and wait for them to finish
     for pid in "${pids[@]}"; do
+        # 'wait' will return a non-zero exit code if the background job failed
         if ! wait "$pid"; then
             echo "ERROR: ${pid_map[$pid]} FAILED." >&2
             has_failed=1

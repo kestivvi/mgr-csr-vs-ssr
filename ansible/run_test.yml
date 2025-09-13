@@ -12,7 +12,7 @@
       run_once: true
 
 - name: Deploy k6 test archive
-  hosts: role_load_generator_csr, role_load_generator_ssr
+  hosts: role_load_generators
   gather_facts: no
 
   tasks:
@@ -22,11 +22,11 @@
         dest: /home/ec2-user/k6_archive.tar
 
 - name: Trigger k6 test on all load generators
-  hosts: role_load_generator_csr, role_load_generator_ssr
+  hosts: role_load_generators
   gather_facts: no
 
   tasks:
     - name: Start k6 test execution
       ansible.builtin.command: "/home/ec2-user/run_k6.sh"
       async: 7200 # 2 hours. Set to a value longer than your test duration.
-      poll: 0     # Fire and forget. 
+      poll: 0     # Fire and forget.

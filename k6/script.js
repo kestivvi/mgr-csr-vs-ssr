@@ -20,7 +20,7 @@ const K6_SCENARIO = __ENV.K6_SCENARIO || 'stress_test';
 const TEST_PATH = __ENV.TEST_PATH || 'static';
 
 // Request timeout in seconds (converted to milliseconds)
-const TIMEOUT = (__ENV.TIMEOUT || 0.01) * 1000;
+const TIMEOUT = (__ENV.TIMEOUT || 0.2) * 1000;
 
 const testId = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
@@ -28,12 +28,12 @@ const stressTestScenario = {
   executor: 'ramping-arrival-rate',
   startRate: 10,
   timeUnit: '1s',
-  preAllocatedVUs: 3000,
-  maxVUs: 3000,
+  preAllocatedVUs: 200,
+  maxVUs: 200,
   stages: [
     { target: 10, duration: '1m' },
-    { target: 90000, duration: '10m' },
-    { target: 90000, duration: '10m' },
+    { target: 6000, duration: '10m' },
+    { target: 6000, duration: '10m' },
     { target: 0, duration: '1m' },
   ],
 };

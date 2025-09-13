@@ -1,6 +1,6 @@
 ---
 - name: Stop k6 Performance Test
-  hosts: role_load_generator_csr, role_load_generator_ssr
+  hosts: role_load_generators
   gather_facts: no
   become: yes
 
@@ -19,4 +19,4 @@
     - name: Display no containers found
       ansible.builtin.debug:
         msg: "No running k6 containers were found."
-      when: "stop_result.stdout == ''" 
+      when: "stop_result.stdout == ''"

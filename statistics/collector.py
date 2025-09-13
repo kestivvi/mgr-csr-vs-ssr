@@ -25,28 +25,43 @@ def download_metric(prom, metric_name, server_type, start_time, end_time):
     config = METRIC_CONFIG[metric_name]
     print(f"--- Downloading {config['name']} ---")
     
-    promql = config['query'].format(server_type=server_type)
+    # The server_type might contain hyphens, which is fine for regex matching in PromQL.
+    # We will also collect metrics for the load generator, identified by the 'LG_' prefix.
+    # This regex will match 'SERVER_TYPE' OR 'LG_SERVER_TYPE'.
+    server_type_regex = f"{server_type}|LG_{server_type}"
+    
+    promql = config['query'].format(server_type=server_type_regex)
     print(f"INFO: Querying Prometheus for: {promql}")
     
-    # Use custom_query_range for full PromQL queries
     metric_data = prom.custom_query_range(
         query=promql,
         start_time=start_time,
         end_time=end_time,
-        step="1s" # Use a 1-second step for high resolution
+        step="1s"
     )
 
     if not metric_data:
         print(f"WARNING: No data returned for query: {promql}")
         return pd.DataFrame()
 
-    # The result is a list of metrics. Even with one server, we get a list.
-    # Convert the first (and only) result to a DataFrame.
-    # The library now returns a DataFrame directly in the 'values' key.
-    metric_df = pd.DataFrame(metric_data[0]['values'])
-    metric_df.columns = ['timestamp', 'metric_value']
-    metric_df['timestamp'] = pd.to_datetime(metric_df['timestamp'], unit='s')
-    return metric_df
+    # Process all returned time series (e.g., one for the app server, one for the load generator)
+    all_dfs = []
+    for series in metric_data:
+        # The label 'server' from Prometheus tells us which server this data is for.
+        series_server_label = series['metric']['server']
+        
+        df = pd.DataFrame(series['values'])
+        df.columns = ['timestamp', 'metric_value']
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s')
+        df['server_label'] = series_server_label # Add the server label as a column
+        all_dfs.append(df)
+
+    if not all_dfs:
+        return pd.DataFrame()
+
+    # Combine all dataframes into one for this metric
+    combined_df = pd.concat(all_dfs, ignore_index=True)
+    return combined_df
 
 
 def main():
@@ -55,7 +70,9 @@ def main():
     parser.add_argument('--prometheus-url', required=True, help="URL of the Prometheus server (e.g., http://localhost:9090)")
     parser.add_argument('--start', required=True, help="Start time for the query in ISO 8601 format (e.g., 2023-10-28T10:00:00Z)")
     parser.add_argument('--end', required=True, help="End time for the query in ISO 8601 format")
-    parser.add_argument('--server-type', required=True, choices=['CSR', 'SSR'], help="The type of server to query for (CSR or SSR)")
+    # --- THIS IS THE FIX ---
+    # Removed the hardcoded 'choices' to allow any server type string.
+    parser.add_argument('--server-type', required=True, help="The type of server to query for (e.g., 'NextJS-Bun')")
     parser.add_argument('--run-number', required=True, type=int, help="The run number of the experiment (e.g., 5)")
     parser.add_argument('--output-dir', required=True, type=Path, help="Directory to save the output CSV files")
     args = parser.parse_args()
@@ -80,6 +97,7 @@ def main():
 
         # Construct filename and save
         if not df.empty:
+            # The filename now represents the entire scenario (e.g., nextjs-bun)
             filename = f"{args.server_type.lower()}_run_{args.run_number:02d}_{metric_name}.csv"
             output_path = args.output_dir / filename
             df.to_csv(output_path, index=False)
@@ -87,4 +105,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() 
+    main()

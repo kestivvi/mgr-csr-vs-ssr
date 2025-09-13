@@ -74,14 +74,14 @@ variable "app_server_instance_type" {
   description = "Instance type for all application servers (e.g., 2 vCPUs)."
   type        = string
   # default     = "t4g.micro"
-  default     = "c8g.large"
+  default     = "c8g.medium"
 }
 
 variable "load_generator_instance_type" {
   description = "Instance type for all load generator servers (e.g., 4 vCPUs)."
   type        = string
   # default     = "t4g.micro"
-  default     = "c8g.4xlarge"
+  default     = "c8g.xlarge"
 }
 
 variable "test_scenarios" {
@@ -92,15 +92,35 @@ variable "test_scenarios" {
     app_dir     = string
   }))
   default = {
-    "csr" = {
+    "React-Nginx" = {
       description = "Application Server (CSR)"
       purpose     = "Hosts Client-Side Rendered application"
       app_dir     = "csr-react"
     },
-    "ssr" = {
+    "NextJS" = {
       description = "Application Server (SSR)"
       purpose     = "Hosts Server-Side Rendered application"
       app_dir     = "ssr-nextjs"
+    },
+    "NextJS-Deno" = {
+      description = "Application Server (SSR-NextJS-Deno)"
+      purpose     = "Hosts NextJS Server-Side Rendered application"
+      app_dir     = "ssr-nextjs-deno"
+    },
+    "NextJS-Bun" = {
+      description = "Application Server (SSR-NextJS-Bun)"
+      purpose     = "Hosts NextJS Server-Side Rendered application"
+      app_dir     = "ssr-nextjs-bun"
+    },
+    "SvelteKit" = {
+      description = "Application Server (SSR-SvelteKit)"
+      purpose     = "Hosts SvelteKit Server-Side Rendered application"
+      app_dir     = "ssr-svelte-kit"
+    },
+    "SvelteKit-Bun" = {
+      description = "Application Server (SSR-SvelteKit-Bun)"
+      purpose     = "Hosts SvelteKit Server-Side Rendered application"
+      app_dir     = "ssr-svelte-kit-bun"
     }
   }
 }
