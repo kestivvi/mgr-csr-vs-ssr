@@ -17,6 +17,13 @@ METRIC_CONFIG = {
     'memory': {
         'name': 'Memory Utilization',
         'query': 'sum by (server) (1 - (node_memory_MemAvailable_bytes{{server=~"{server_type}"}} / node_memory_MemTotal_bytes{{server=~"{server_type}"}}))'
+    },
+    # --- NEW METRIC ADDED ---
+    'latency': {
+        'name': 'p95 Request Latency',
+        # This query calculates the 95th percentile latency from the k6 histogram data.
+        # It is converted to milliseconds by multiplying by 1000.
+        'query': 'histogram_quantile(0.95, sum by (le, server) (rate(k6_http_req_duration_seconds{{server=~"{server_type}"}}[1m]))) * 1000'
     }
 }
 
@@ -25,9 +32,7 @@ def download_metric(prom, metric_name, server_type, start_time, end_time):
     config = METRIC_CONFIG[metric_name]
     print(f"--- Downloading {config['name']} ---")
     
-    # The server_type might contain hyphens, which is fine for regex matching in PromQL.
-    # We will also collect metrics for the load generator, identified by the 'LG_' prefix.
-    # This regex will match 'SERVER_TYPE' OR 'LG_SERVER_TYPE'.
+    # This regex will match the app server (e.g., 'NextJS-Bun') OR its load generator ('LG_NextJS-Bun').
     server_type_regex = f"{server_type}|LG_{server_type}"
     
     promql = config['query'].format(server_type=server_type_regex)
@@ -44,22 +49,19 @@ def download_metric(prom, metric_name, server_type, start_time, end_time):
         print(f"WARNING: No data returned for query: {promql}")
         return pd.DataFrame()
 
-    # Process all returned time series (e.g., one for the app server, one for the load generator)
     all_dfs = []
     for series in metric_data:
-        # The label 'server' from Prometheus tells us which server this data is for.
         series_server_label = series['metric']['server']
         
         df = pd.DataFrame(series['values'])
         df.columns = ['timestamp', 'metric_value']
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s')
-        df['server_label'] = series_server_label # Add the server label as a column
+        df['server_label'] = series_server_label
         all_dfs.append(df)
 
     if not all_dfs:
         return pd.DataFrame()
 
-    # Combine all dataframes into one for this metric
     combined_df = pd.concat(all_dfs, ignore_index=True)
     return combined_df
 
@@ -70,14 +72,11 @@ def main():
     parser.add_argument('--prometheus-url', required=True, help="URL of the Prometheus server (e.g., http://localhost:9090)")
     parser.add_argument('--start', required=True, help="Start time for the query in ISO 8601 format (e.g., 2023-10-28T10:00:00Z)")
     parser.add_argument('--end', required=True, help="End time for the query in ISO 8601 format")
-    # --- THIS IS THE FIX ---
-    # Removed the hardcoded 'choices' to allow any server type string.
     parser.add_argument('--server-type', required=True, help="The type of server to query for (e.g., 'NextJS-Bun')")
     parser.add_argument('--run-number', required=True, type=int, help="The run number of the experiment (e.g., 5)")
     parser.add_argument('--output-dir', required=True, type=Path, help="Directory to save the output CSV files")
     args = parser.parse_args()
 
-    # Ensure output directory exists
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"INFO: Connecting to Prometheus at {args.prometheus_url}...")
@@ -87,15 +86,12 @@ def main():
         print(f"ERROR: Could not connect to Prometheus: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Convert string times to datetime objects
     start_time = datetime.fromisoformat(args.start.replace('Z', '+00:00'))
     end_time = datetime.fromisoformat(args.end.replace('Z', '+00:00'))
-
 
     for metric_name in METRIC_CONFIG.keys():
         df = download_metric(prom, metric_name, args.server_type, start_time, end_time)
 
-        # Construct filename and save
         if not df.empty:
             # The filename now represents the entire scenario (e.g., nextjs-bun)
             filename = f"{args.server_type.lower()}_run_{args.run_number:02d}_{metric_name}.csv"

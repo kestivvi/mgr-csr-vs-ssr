@@ -43,8 +43,8 @@ const constantTestScenario = {
   rate: K6_RPS,
   timeUnit: '1s',
   duration: K6_DURATION,
-  preAllocatedVUs: 2000,
-  maxVUs: 2000,
+  preAllocatedVUs: 200,
+  maxVUs: 200,
 };
 
 const selectedScenario = K6_SCENARIO === 'constant_test' 

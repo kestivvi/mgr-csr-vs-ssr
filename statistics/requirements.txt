@@ -1,4 +1,7 @@
 pandas
 prometheus-api-client
 numpy
-scipy 
+scipy
+pyyaml
+seaborn
+tabulate

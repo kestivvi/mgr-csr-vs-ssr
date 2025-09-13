@@ -31,6 +31,7 @@
         src: "{{ project_root }}/k6/build/k6_archive.tar"
         dest: /home/ec2-user/k6_archive.tar
         mode: '0644'
+        force: yes
 
     - name: Ensure k6 Docker image is present
       community.docker.docker_image:

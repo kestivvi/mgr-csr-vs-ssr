@@ -28,7 +28,7 @@ export ANSIBLE_HOST_KEY_CHECKING=False
 # These are the primary variables you might want to change between test runs.
 # SERVER_TYPES is now discovered automatically from the inventory.
 NUM_RUNS=2
-K6_RPS=100
+K6_RPS=500
 K6_DURATION="3m"
 # Test path: 'static' for "/" or 'dynamic' for "/dynamic/{random-number}"
 TEST_PATH="static"
