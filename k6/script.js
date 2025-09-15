@@ -1,5 +1,7 @@
 import http from 'k6/http';
-import { check } from 'k6';
+import { check, group } from 'k6';
+import { parseHTML } from 'k6/html';
+import { URL } from 'https://jslib.k6.io/url/1.0.0/index.js';
 
 // Target server URL to load test
 const target_url = __ENV.TARGET_URL || 'http://localhost:8080';
@@ -32,8 +34,8 @@ const stressTestScenario = {
   maxVUs: 200,
   stages: [
     { target: 10, duration: '1m' },
-    { target: 6000, duration: '10m' },
-    { target: 6000, duration: '10m' },
+    { target: 80000, duration: '20m' },
+    { target: 80000, duration: '5m' },
     { target: 0, duration: '1m' },
   ],
 };
@@ -62,20 +64,116 @@ export const options = {
     testid: testId,
     server: server_type,
   },
-  discardResponseBodies: true,
+  discardResponseBodies: false,
   scenarios: {
     [K6_SCENARIO]: selectedScenario,
   },
 };
 
+/**
+ * A lightweight, log-free version of your original parsing function.
+ * @param {string} htmlBody - The HTML content of the page.
+ * @param {string} baseUrl - The base URL of the page to resolve relative paths.
+ * @returns {string[]} An array of absolute URLs for the assets.
+ */
+function getAssetUrls(htmlBody, baseUrl) {
+  const doc = parseHTML(htmlBody);
+  const assetUrls = new Set();
 
-export default function () {
+  const selectors = [
+    'link[href]',
+    'script[src]',
+    'img[src]',
+    'source[src]',
+    'video[src]',
+  ];
+  
+  const foundElements = doc.find(selectors.join(','));
+  
+  foundElements.each((i, el) => {
+    let assetPath = null;
+    
+    if (el && typeof el.attr === 'function') {
+      assetPath = el.attr('href') || el.attr('src');
+    }
+    if (!assetPath && el && el.attributes) {
+      assetPath = el.attributes.href || el.attributes.src;
+    }
+    if (!assetPath && el && typeof el.getAttribute === 'function') {
+      assetPath = el.getAttribute('href') || el.getAttribute('src');
+    }
+    
+    if (!assetPath || assetPath.startsWith('data:') || assetPath.startsWith('#')) {
+      return;
+    }
+
+    const assetUrl = new URL(assetPath, baseUrl).toString();
+    
+    if (assetUrl.startsWith('http')) {
+        assetUrls.add(assetUrl);
+    }
+  });
+
+  return Array.from(assetUrls);
+}
+
+export function setup() {
+  const pageToParse = `${target_url}/`;
+  
+  console.log(`[setup] Discovering assets from ${pageToParse}...`);
+  
+  const res = http.get(pageToParse);
+  
+  if (res.status !== 200 || !res.body) {
+    throw new Error(`[setup] Could not fetch the page to parse assets. Status: ${res.status}. Aborting test.`);
+  }
+  
+  const urls = getAssetUrls(res.body, res.url);
+  
+  console.log(`[setup] Discovered ${urls.length} assets to be used for the test.`);
+  
+  return { assetUrls: urls };
+}
+
+export default function (data) {
   const testPath = TEST_PATH === 'dynamic' 
     ? `/dynamic/${Math.floor(Math.random() * 1000000) + 1}`
     : '/';
   
-  const res = http.get(`${target_url}${testPath}`, { timeout: TIMEOUT });
-  check(res, {
-    [`${server_type}: status is 200`]: (r) => r.status === 200,
+  const pageUrl = `${target_url}${testPath}`;
+
+  group(`Load Page: ${testPath}`, function () {
+    const mainPageRes = http.get(pageUrl, { 
+      timeout: TIMEOUT,
+      tags: { resource_type: 'html' } 
+    });
+
+    check(mainPageRes, {
+      [`${server_type}: status is 200`]: (r) => r.status === 200,
+    });
+
+    const assetUrls = data.assetUrls;
+
+    const assetRequests = assetUrls.map(url => {
+      return {
+        method: 'GET',
+        url: url,
+        params: { 
+          timeout: TIMEOUT,
+          tags: { resource_type: 'asset' },
+          responseType: 'none' 
+        },
+      };
+    });
+
+    if (assetRequests.length > 0) {
+      const assetResponses = http.batch(assetRequests);
+      
+      assetResponses.forEach((res) => {
+        check(res, {
+          'asset status is 200': (r) => r.status === 200,
+        }, { resource_type: 'asset_check' });
+      });
+    }
   });
 }
