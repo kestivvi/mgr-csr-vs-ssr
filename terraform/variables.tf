@@ -1,7 +1,8 @@
 variable "aws_region" {
   description = "Region AWS, w którym zostaną utworzone zasoby."
   type        = string
-  default     = "eu-central-1"
+  # default     = "eu-central-1"
+  default     = "ap-south-1" # Mumbai region
 }
 
 variable "project_name" {
@@ -13,13 +14,14 @@ variable "project_name" {
 variable "key_name" {
   description = "Nazwa pary kluczy EC2 do użycia dla instancji."
   type        = string
-  default     = "MGR1"
+  # default     = "MGR1" # For Frankfurt region (eu-central-1)
+  default     = "MGR-M" # For Mumbai region (ap-south-1)
 }
 
 variable "my_ip" {
   description = "Twój publiczny adres IP dozwolony do połączeń SSH i dostępu do paneli (Grafana, Prometheus). WAŻNE: Zmień to!"
   type        = string
-  default     = "0.0.0.0/0" # UWAGA: To jest niebezpieczne! Zmień na swój IP, np. "89.123.45.67/32". Możesz sprawdzić swój IP na stronie https://www.whatismyip.com/
+  default     = "46.205.200.250/32" # https://www.whatismyip.com/ or allow all IPs with 0.0.0.0/0
 }
 
 variable "ssh_port" {
@@ -38,12 +40,6 @@ variable "node_exporter_port" {
   description = "Port for Node Exporter"
   type        = number
   default     = 9100
-}
-
-variable "telegraf_port" {
-  description = "Port for Telegraf"
-  type        = number
-  default     = 9273
 }
 
 variable "nginx_exporter_port" {
@@ -74,14 +70,14 @@ variable "app_server_instance_type" {
   description = "Instance type for all application servers (e.g., 2 vCPUs)."
   type        = string
   # default     = "t4g.micro"
-  default     = "c8g.medium"
+  default = "c8g.medium"
 }
 
 variable "load_generator_instance_type" {
   description = "Instance type for all load generator servers (e.g., 4 vCPUs)."
   type        = string
   # default     = "t4g.micro"
-  default     = "c8g.xlarge"
+  default = "c8g.xlarge"
 }
 
 variable "test_scenarios" {
@@ -97,30 +93,35 @@ variable "test_scenarios" {
       purpose     = "Hosts Client-Side Rendered application"
       app_dir     = "csr-react"
     },
-    "NextJS" = {
-      description = "Application Server (SSR)"
-      purpose     = "Hosts Server-Side Rendered application"
-      app_dir     = "ssr-nextjs"
+    "SolidJS-Nginx" = {
+      description = "Application Server (CSR-SolidJS)"
+      purpose     = "Hosts Client-Side Rendered application"
+      app_dir     = "csr-solidjs"
     },
-    "NextJS-Deno" = {
-      description = "Application Server (SSR-NextJS-Deno)"
-      purpose     = "Hosts NextJS Server-Side Rendered application"
-      app_dir     = "ssr-nextjs-deno"
-    },
-    "NextJS-Bun" = {
-      description = "Application Server (SSR-NextJS-Bun)"
-      purpose     = "Hosts NextJS Server-Side Rendered application"
-      app_dir     = "ssr-nextjs-bun"
-    },
-    "SvelteKit" = {
-      description = "Application Server (SSR-SvelteKit)"
-      purpose     = "Hosts SvelteKit Server-Side Rendered application"
-      app_dir     = "ssr-svelte-kit"
-    },
-    "SvelteKit-Bun" = {
-      description = "Application Server (SSR-SvelteKit-Bun)"
-      purpose     = "Hosts SvelteKit Server-Side Rendered application"
-      app_dir     = "ssr-svelte-kit-bun"
-    }
+    # "NextJS" = {
+    #   description = "Application Server (SSR)"
+    #   purpose     = "Hosts Server-Side Rendered application"
+    #   app_dir     = "ssr-nextjs"
+    # },
+    # "NextJS-Deno" = {
+    #   description = "Application Server (SSR-NextJS-Deno)"
+    #   purpose     = "Hosts NextJS Server-Side Rendered application"
+    #   app_dir     = "ssr-nextjs-deno"
+    # },
+    # "NextJS-Bun" = {
+    #   description = "Application Server (SSR-NextJS-Bun)"
+    #   purpose     = "Hosts NextJS Server-Side Rendered application"
+    #   app_dir     = "ssr-nextjs-bun"
+    # },
+    # "SvelteKit" = {
+    #   description = "Application Server (SSR-SvelteKit)"
+    #   purpose     = "Hosts SvelteKit Server-Side Rendered application"
+    #   app_dir     = "ssr-svelte-kit"
+    # },
+    # "SvelteKit-Bun" = {
+    #   description = "Application Server (SSR-SvelteKit-Bun)"
+    #   purpose     = "Hosts SvelteKit Server-Side Rendered application"
+    #   app_dir     = "ssr-svelte-kit-bun"
+    # }
   }
 }

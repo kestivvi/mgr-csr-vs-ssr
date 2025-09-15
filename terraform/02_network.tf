@@ -1,3 +1,4 @@
+# trivy:ignore:AVD-AWS-0178[OK_for_thesis] VPC Flow logs are not needed for this temporary project.
 resource "aws_vpc" "main" {
   cidr_block = "10.0.0.0/16"
   tags = {
@@ -5,10 +6,11 @@ resource "aws_vpc" "main" {
   }
 }
 
+# trivy:ignore:AVD-AWS-0164[OK_for_thesis] Public IPs are required for direct access to instances for this project.
 resource "aws_subnet" "public" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = "10.0.1.0/24"
-  map_public_ip_on_launch = true # Kluczowe, aby instancje miały publiczne IP
+  map_public_ip_on_launch = true                 # Kluczowe, aby instancje miały publiczne IP
   availability_zone       = "${var.aws_region}a" # Używamy jednej strefy dla minimalnych opóźnień
 
   tags = {
