@@ -1,20 +1,20 @@
 ---
 - name: Configure All Servers (Common baseline)
   hosts: all
-  become: yes
+  become: true
   roles:
     - common
 
 - name: Configure All App Servers
   hosts: role_app_servers
-  become: yes
+  become: true
   roles:
     - app_server
     - cadvisor
 
 - name: Configure All Load Generators
   hosts: role_load_generators
-  become: yes
+  become: true
   vars:
     # Dynamically determine the target URL for each load generator based on its scenario_type
     target_url: "http://{{ hostvars[groups['app_server_' + scenario_type][0]]['private_ip'] }}"
@@ -25,6 +25,6 @@
 
 - name: Configure Monitoring Server
   hosts: role_monitoring_server
-  become: yes
+  become: true
   roles:
     - monitoring

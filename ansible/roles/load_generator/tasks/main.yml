@@ -3,4 +3,4 @@
   ansible.builtin.template:
     src: run_k6.sh.j2
     dest: /home/ec2-user/run_k6.sh
-    mode: '0755'
+    mode: "0755"

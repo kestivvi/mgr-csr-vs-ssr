@@ -1,13 +1,14 @@
 ---
 - name: Stop k6 Performance Test
   hosts: role_load_generators
-  gather_facts: no
-  become: yes
+  gather_facts: false
+  become: true
 
   tasks:
     - name: Find and stop all running k6 containers
       ansible.builtin.shell:
-        cmd: "docker ps | grep 'grafana/k6' | awk '{print $1}' | xargs -r docker stop"
+        cmd: "set -euo pipefail; docker ps | grep 'grafana/k6' | awk '{print $1}' | xargs -r docker stop"
+        executable: /bin/bash
       register: stop_result
       changed_when: "stop_result.stdout != ''"
 

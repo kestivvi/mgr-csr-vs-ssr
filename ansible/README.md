@@ -14,3 +14,15 @@ TF_STATE=../terraform ansible-playbook -i $(which terraform-inventory) ./ping.ym
 #
 TF_STATE=../terraform ansible-playbook -i $(which terraform-inventory) ./site.yml
 ```
+
+To check the validity of ansible:
+```bash
+# Format the ansible files
+prettier --write "**/*.{yml,yaml}"
+
+# Run ansible-lint
+ansible-lint
+
+# Run trivy
+trivy config .
+```

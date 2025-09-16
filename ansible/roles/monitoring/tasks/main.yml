@@ -5,7 +5,7 @@
     state: directory
     owner: ec2-user
     group: ec2-user
-    mode: '0755'
+    mode: "0755"
   loop:
     - /home/ec2-user/prometheus
     - /home/ec2-user/grafana
@@ -16,11 +16,13 @@
   ansible.builtin.template:
     src: prometheus-datasource.yml.j2
     dest: /home/ec2-user/grafana-provisioning/datasources/prometheus.yml
+    mode: "0644"
 
 - name: Create Grafana dashboard provider configuration
   ansible.builtin.template:
     src: dashboard-provider.yml.j2
     dest: /home/ec2-user/grafana-provisioning/dashboards/provider.yml
+    mode: "0644"
 
 - name: Create directory for dashboards
   ansible.builtin.file:
@@ -28,13 +30,13 @@
     state: directory
     owner: ec2-user
     group: ec2-user
-    mode: '0755'
+    mode: "0755"
 
 - name: Copy dashboard
   ansible.builtin.copy:
     src: dashboard.json
     dest: /home/ec2-user/grafana-dashboards/dashboard.json
-    mode: '0644'
+    mode: "0644"
 
 - name: Create Prometheus targets file
   ansible.builtin.template:
@@ -42,19 +44,22 @@
     dest: /home/ec2-user/prometheus/prometheus_targets.json
     owner: ec2-user
     group: ec2-user
-    mode: '0644'
+    mode: "0644"
 
 - name: Create Prometheus configuration
   ansible.builtin.template:
     src: prometheus.yml.j2
     dest: /home/ec2-user/prometheus/prometheus.yml
+    mode: "0644"
 
 - name: Create Monitoring docker-compose file
   ansible.builtin.template:
     src: docker-compose.yml.j2
     dest: /home/ec2-user/docker-compose.yml
+    mode: "0644"
 
 - name: Run Monitoring Stack
   ansible.builtin.command:
     cmd: docker compose up -d --force-recreate
     chdir: /home/ec2-user/
+  changed_when: false
