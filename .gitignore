@@ -2,6 +2,7 @@
 statistics/venv/
 __pycache__/
 *.pyc 
+venv/
 
 results/
 notes.md
