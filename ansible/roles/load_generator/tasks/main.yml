@@ -1,6 +1,0 @@
----
-- name: Create k6 run script
-  ansible.builtin.template:
-    src: run_k6.sh.j2
-    dest: /home/ec2-user/run_k6.sh
-    mode: "0755"

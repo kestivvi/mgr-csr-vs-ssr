@@ -23,6 +23,13 @@
       - python3-docker
     state: present
 
+- name: Install Docker Compose Python library (required by docker_compose module)
+  ansible.builtin.pip:
+    name: docker-compose
+    state: present
+    extra_args: --user
+  become: true
+
 - name: Install Docker Compose
   become: true
   block:

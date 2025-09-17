@@ -5,19 +5,27 @@
   become: true
 
   tasks:
-    - name: Find and stop all running k6 containers
-      ansible.builtin.shell:
-        cmd: "set -euo pipefail; docker ps | grep 'grafana/k6' | awk '{print $1}' | xargs -r docker stop"
-        executable: /bin/bash
-      register: stop_result
-      changed_when: "stop_result.stdout != ''"
+    - name: Discover running k6 containers by ancestor image
+      community.docker.docker_host_info:
+        containers: true
+        containers_filters:
+          ancestor: "grafana/k6:1.1.0"
+      register: docker_info
 
-    - name: Display stopped containers
-      ansible.builtin.debug:
-        msg: "Stopped k6 container(s): {{ stop_result.stdout_lines }}"
-      when: "stop_result.stdout != ''"
+    - name: Stop all found k6 containers
+      community.docker.docker_container:
+        # CORRECTED: Use the universally available 'regex_replace' filter.
+        # This finds the '/' at the start of the string ('^/') and removes it.
+        name: "{{ item.Names[0] | regex_replace('^/', '') }}"
+        state: stopped
+      loop: "{{ docker_info.containers | default([]) }}"
 
-    - name: Display no containers found
+    - name: Report on action taken
       ansible.builtin.debug:
-        msg: "No running k6 containers were found."
-      when: "stop_result.stdout == ''"
+        msg: >-
+          {% set found_containers = docker_info.containers | default([]) %}
+          {% if found_containers | length > 0 %}
+          Stopped {{ found_containers | length }} k6 container(s): {{ found_containers | map(attribute='Names') | list | join(', ') }}
+          {% else %}
+          No running k6 containers were found to stop.
+          {% endif %}

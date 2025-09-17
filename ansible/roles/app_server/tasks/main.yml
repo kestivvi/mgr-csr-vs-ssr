@@ -20,8 +20,6 @@
   vars:
     nginx_log_exporter_log_path: "/var/log/{{ app_dir }}-nginx/access.log"
 
-- name: Run App Server
-  ansible.builtin.command:
-    cmd: docker compose up -d --force-recreate
-    chdir: "/home/ec2-user/{{ app_dir }}"
-  changed_when: false
+- name: Ensure App Server stack is running
+  community.docker.docker_compose_v2:
+    project_src: "/home/ec2-user/{{ app_dir }}"

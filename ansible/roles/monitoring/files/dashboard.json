@@ -502,7 +502,7 @@
           "refId": "A"
         }
       ],
-      "title": "Successful client requests per second",
+      "title": "Successful client page requests per second",
       "type": "timeseries"
     },
     {
@@ -1161,8 +1161,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",

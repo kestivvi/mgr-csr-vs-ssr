@@ -12,17 +12,6 @@
     - app_server
     - cadvisor
 
-- name: Configure All Load Generators
-  hosts: role_load_generators
-  become: true
-  vars:
-    # Dynamically determine the target URL for each load generator based on its scenario_type
-    target_url: "http://{{ hostvars[groups['app_server_' + scenario_type][0]]['private_ip'] }}"
-    # Create the uppercase version for use in templates/scripts
-    scenario_type_upper: "{{ scenario_type | upper }}"
-  roles:
-    - role: load_generator
-
 - name: Configure Monitoring Server
   hosts: role_monitoring_server
   become: true

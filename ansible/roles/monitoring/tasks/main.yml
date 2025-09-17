@@ -58,8 +58,6 @@
     dest: /home/ec2-user/docker-compose.yml
     mode: "0644"
 
-- name: Run Monitoring Stack
-  ansible.builtin.command:
-    cmd: docker compose up -d --force-recreate
-    chdir: /home/ec2-user/
-  changed_when: false
+- name: Ensure Monitoring Stack is running
+  community.docker.docker_compose_v2:
+    project_src: /home/ec2-user/

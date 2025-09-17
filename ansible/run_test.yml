@@ -1,5 +1,5 @@
 ---
-- name: Run k6 Performance Test
+- name: Build k6 test archive locally
   hosts: localhost
   connection: local
   gather_facts: false
@@ -12,24 +12,55 @@
       run_once: true # noqa run-once[task]
       changed_when: false
 
-- name: Deploy k6 test archive
+- name: Deploy and Run k6 Performance Test
   hosts: role_load_generators
   gather_facts: false
+  vars:
+    # Define the Prometheus URL once for clarity
+    prometheus_url: "http://{{ hostvars[groups['role_monitoring_server'][0]]['private_ip'] }}:9090"
 
   tasks:
-    - name: Copy k6 test archive to servers
+    - name: Define server-specific variables
+      ansible.builtin.set_fact:
+        # Create the uppercase version of the scenario type for use in templates
+        scenario_type_upper: "{{ scenario_type | upper }}"
+        # Dynamically construct the target URL using the private IP of the corresponding app server
+        target_url: "http://{{ hostvars[groups['app_server_' + scenario_type][0]]['private_ip'] }}"
+
+    - name: Copy k6 test archive to remote host
       ansible.builtin.copy:
         src: "{{ playbook_dir }}/../k6/build/k6_archive.tar"
         dest: /home/ec2-user/k6_archive.tar
         mode: "0644"
 
-- name: Trigger k6 test on all load generators
-  hosts: role_load_generators
-  gather_facts: false
+    - name: Ensure k6 Docker image is present
+      community.docker.docker_image:
+        name: "grafana/k6:1.1.0"
+        source: pull
 
-  tasks:
-    - name: Start k6 test execution
-      ansible.builtin.command: "/home/ec2-user/run_k6.sh"
-      async: 7200 # 2 hours. Set to a value longer than your test duration.
-      poll: 0 # Fire and forget.
-      changed_when: false
+    - name: Run k6 test using docker_container module (fire-and-forget)
+      community.docker.docker_container:
+        name: "k6_load_test_{{ scenario_type }}"
+        image: "grafana/k6:1.1.0"
+        state: started
+        auto_remove: true
+        network_mode: host
+        interactive: true
+        volumes:
+          - /home/ec2-user/k6_archive.tar:/k6_archive.tar:ro
+        env:
+          TARGET_URL: "{{ target_url }}"
+          SERVER_TYPE: "{{ scenario_type_upper }}"
+          K6_PROMETHEUS_RW_SERVER_URL: "{{ prometheus_url }}/api/v1/write"
+          K6_PROMETHEUS_RW_TREND_AS_NATIVE_HISTOGRAM: "true"
+          K6_LOG_OUTPUT: "none"
+        command:
+          - "run"
+          - "--out"
+          - "experimental-prometheus-rw"
+          - "--tag"
+          - "server={{ scenario_type_upper }}"
+          - "/k6_archive.tar"
+      # The async/poll directives are preserved to maintain the "fire-and-forget" behavior
+      async: 7200 # 2 hours
+      poll: 0

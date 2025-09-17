@@ -1,6 +1,6 @@
 ---
 - name: Run k6 Constant Load Test Synchronously
-  hosts: all
+  hosts: role_load_generators
   gather_facts: false
   vars:
     # These values can be overridden from the ansible-playbook command if needed
@@ -38,22 +38,30 @@
         name: "grafana/k6:1.1.0"
         source: pull
 
-    - name: Run k6 constant load test
-      block:
-        - name: Create k6 runner script from template
-          ansible.builtin.template:
-            src: templates/run_constant_k6.sh.j2
-            dest: /tmp/run_constant_k6.sh
-            mode: "0755"
-
-        - name: Execute k6 runner script
-          ansible.builtin.command:
-            cmd: /tmp/run_constant_k6.sh
-          register: k6_result
-          changed_when: true
-
-      always:
-        - name: Clean up k6 runner script
-          ansible.builtin.file:
-            path: /tmp/run_constant_k6.sh
-            state: absent
+    - name: Run k6 constant load test using docker_container module
+      community.docker.docker_container:
+        name: "k6_constant_load_{{ scenario_type }}"
+        image: "grafana/k6:1.1.0"
+        state: started
+        auto_remove: true
+        network_mode: host
+        interactive: true
+        volumes:
+          - /home/ec2-user/k6_archive.tar:/k6_archive.tar:ro
+        env:
+          K6_SCENARIO: "constant_test"
+          SERVER_TYPE: "{{ scenario_type_upper }}"
+          TARGET_URL: "{{ target_url }}"
+          K6_RPS: "{{ k6_rps }}"
+          K6_DURATION: "{{ k6_duration }}"
+          K6_PROMETHEUS_RW_SERVER_URL: "{{ prometheus_url }}/api/v1/write"
+          K6_PROMETHEUS_RW_TREND_AS_NATIVE_HISTOGRAM: "true"
+          K6_LOG_OUTPUT: "none"
+        command:
+          - "run"
+          - "--out"
+          - "experimental-prometheus-rw"
+          - "--tag"
+          - "server={{ scenario_type_upper }}"
+          - "/k6_archive.tar"
+      register: k6_result
