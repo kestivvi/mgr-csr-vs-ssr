@@ -10,7 +10,7 @@ services:
       - "8060:8060"
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf
-      - /var/log/ssr-svelte-kit-static-nginx:/var/log/nginx
+      - /var/log/csr-svelte-kit-static-nginx:/var/log/nginx
     networks:
       - app-net
 

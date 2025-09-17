@@ -8,7 +8,7 @@ variable "aws_region" {
 variable "project_name" {
   description = "Nazwa projektu używana do tagowania zasobów."
   type        = string
-  default     = "mgr-perf-test"
+  default     = "mgr"
 }
 
 variable "key_name" {
@@ -77,7 +77,7 @@ variable "load_generator_instance_type" {
   description = "Instance type for all load generator servers (e.g., 4 vCPUs)."
   type        = string
   # default     = "t4g.micro"
-  default = "c8g.xlarge"
+  default = "c8g.large"
 }
 
 variable "test_scenarios" {
@@ -88,40 +88,45 @@ variable "test_scenarios" {
     app_dir     = string
   }))
   default = {
-    "React-Nginx" = {
-      description = "Application Server (CSR)"
-      purpose     = "Hosts Client-Side Rendered application"
-      app_dir     = "csr-react"
-    },
+    # "React-Nginx" = {
+    #   description = "Application Server (CSR)"
+    #   purpose     = "Hosts Client-Side Rendered application"
+    #   app_dir     = "apps/csr-react"
+    # },
     "SolidJS-Nginx" = {
       description = "Application Server (CSR-SolidJS)"
       purpose     = "Hosts Client-Side Rendered application"
-      app_dir     = "csr-solidjs"
+      app_dir     = "apps/csr-solidjs"
     },
+    # "SvelteKit-Static" = {
+    #   description = "Application Server (CSR-SvelteKit-Static)"
+    #   purpose     = "Hosts SvelteKit Client-Side Rendered application"
+    #   app_dir     = "apps/csr-svelte-kit-static"
+    # },
     # "NextJS" = {
     #   description = "Application Server (SSR)"
     #   purpose     = "Hosts Server-Side Rendered application"
-    #   app_dir     = "ssr-nextjs"
+    #   app_dir     = "apps/ssr-nextjs"
     # },
     # "NextJS-Deno" = {
     #   description = "Application Server (SSR-NextJS-Deno)"
     #   purpose     = "Hosts NextJS Server-Side Rendered application"
-    #   app_dir     = "ssr-nextjs-deno"
+    #   app_dir     = "apps/ssr-nextjs-deno"
     # },
     # "NextJS-Bun" = {
     #   description = "Application Server (SSR-NextJS-Bun)"
     #   purpose     = "Hosts NextJS Server-Side Rendered application"
-    #   app_dir     = "ssr-nextjs-bun"
+    #   app_dir     = "apps/ssr-nextjs-bun"
     # },
     # "SvelteKit" = {
     #   description = "Application Server (SSR-SvelteKit)"
     #   purpose     = "Hosts SvelteKit Server-Side Rendered application"
-    #   app_dir     = "ssr-svelte-kit"
+    #   app_dir     = "apps/ssr-svelte-kit"
     # },
     # "SvelteKit-Bun" = {
     #   description = "Application Server (SSR-SvelteKit-Bun)"
     #   purpose     = "Hosts SvelteKit Server-Side Rendered application"
-    #   app_dir     = "ssr-svelte-kit-bun"
+    #   app_dir     = "apps/ssr-svelte-kit-bun"
     # }
   }
 }
