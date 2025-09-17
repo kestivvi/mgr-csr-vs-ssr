@@ -64,15 +64,19 @@ log() {
 
 execute_k6_test() {
     local server_type_lower=$1
-    local prometheus_url=$2
+    # prometheus_url is no longer needed here, Ansible will handle it.
     local ansible_group="${ANSIBLE_GROUP_TEMPLATE}${server_type_lower}"
+    local server_type_upper=${server_type_lower^^}
     
-    log "[${server_type_lower^^}] Running k6 test via Ansible on group '$ansible_group'..."
+    log "[${server_type_upper}] Running k6 test via Ansible on group '$ansible_group'..."
 
     # Build --extra-vars as a single JSON string for robustness.
     local extra_vars_json
-    extra_vars_json=$(printf '{"k6_rps": %d, "k6_duration": "%s", "test_path": "%s", "prometheus_url": "%s", "project_root": "%s"}' \
-        "$K6_RPS" "$K6_DURATION" "$TEST_PATH" "$prometheus_url" "$PROJECT_ROOT")
+    # --- THIS IS THE FIX ---
+    # REMOVED prometheus_url from this command. The playbook now correctly
+    # uses its internal definition based on the private IP.
+    extra_vars_json=$(printf '{"k6_rps": "%s", "k6_duration": "%s", "test_path": "%s", "project_root": "%s"}' \
+        "$K6_RPS" "$K6_DURATION" "$TEST_PATH" "$PROJECT_ROOT")
 
     # Build the full command in an array to prevent quoting issues.
     local cmd=(
@@ -85,6 +89,11 @@ execute_k6_test() {
 
     # Execute the command.
     "${cmd[@]}"
+
+    # The Ansible playbook returns immediately after starting the container.
+    # We must explicitly wait for the test duration to complete.
+    log "[${server_type_upper}] Test started. Waiting for K6 duration (${K6_DURATION}) to complete..."
+    sleep "$K6_DURATION"
 }
 
 collect_prometheus_metrics() {
@@ -119,7 +128,9 @@ run_test_series_for_type() {
         real_start_time=$(date -u --iso-8601=seconds)
         log "[$server_type_upper] Actual test start time: $real_start_time"
 
-        execute_k6_test "$server_type_lower" "$prometheus_url"
+        # Pass the prometheus_url (public) to the execute function,
+        # but it will only be used for metrics collection, not the test itself.
+        execute_k6_test "$server_type_lower"
 
         local real_end_time
         real_end_time=$(date -u --iso-8601=seconds)
