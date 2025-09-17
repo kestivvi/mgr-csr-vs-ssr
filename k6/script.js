@@ -41,6 +41,7 @@ const stressTestScenario = {
 };
 
 const constantTestScenario = {
+  exec: 'default',
   executor: 'constant-arrival-rate',
   rate: K6_RPS,
   timeUnit: '1s',
