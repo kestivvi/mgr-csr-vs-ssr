@@ -69,16 +69,22 @@ variable "prometheus_port" {
 variable "app_server_instance_type" {
   description = "Instance type for all application servers (e.g., 2 vCPUs)."
   type        = string
-  # default     = "t4g.micro"
-  default = "c8g.medium"
+  default     = "t4g.micro"
+  # default = "c8g.medium"
 }
 
 variable "load_generator_instance_type" {
   description = "Instance type for all load generator servers (e.g., 4 vCPUs)."
   type        = string
-  # default     = "t4g.micro"
-  default = "c8g.large"
+  default     = "t4g.micro"
+  # default = "c8g.medium"
 }
+
+# c8g.medium - 1 vCPUs - 2 GB RAM
+# c8g.large - 2 vCPUs - 4 GB RAM
+# c8g.xlarge - 4 vCPUs - 8 GB RAM
+# c8g.2xlarge - 8 vCPUs - 16 GB RAM
+# c8g.4xlarge - 16 vCPUs - 32 GB RAM
 
 variable "test_scenarios" {
   description = "A map of test scenarios to provision. The key is the short name (e.g., 'csr')."
@@ -88,11 +94,11 @@ variable "test_scenarios" {
     app_dir     = string
   }))
   default = {
-    # "React-Nginx" = {
-    #   description = "Application Server (CSR)"
-    #   purpose     = "Hosts Client-Side Rendered application"
-    #   app_dir     = "apps/csr-react"
-    # },
+    "React-Nginx" = {
+      description = "Application Server (CSR)"
+      purpose     = "Hosts Client-Side Rendered application"
+      app_dir     = "apps/csr-react"
+    },
     "SolidJS-Nginx" = {
       description = "Application Server (CSR-SolidJS)"
       purpose     = "Hosts Client-Side Rendered application"

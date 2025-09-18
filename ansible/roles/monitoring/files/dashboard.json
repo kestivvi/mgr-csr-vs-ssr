@@ -38,7 +38,7 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 51,
+            "fillOpacity": 50,
             "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
@@ -47,6 +47,9 @@
             },
             "insertNulls": false,
             "lineInterpolation": "linear",
+            "lineStyle": {
+              "fill": "solid"
+            },
             "lineWidth": 1,
             "pointSize": 5,
             "scaleDistribution": {
@@ -76,8 +79,7 @@
                 "value": 80
               }
             ]
-          },
-          "unit": "percentunit"
+          }
         },
         "overrides": [
           {
@@ -118,7 +120,7 @@
         "x": 0,
         "y": 0
       },
-      "id": 3,
+      "id": 16,
       "options": {
         "legend": {
           "calcs": [],
@@ -138,14 +140,14 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "avg by (server) (1 - rate(node_cpu_seconds_total{mode=\"idle\", server=~\"$server\"}[$my_rate_interval]))",
+          "expr": "# sum by (server) (rate(k6_http_reqs_total{server=~\"$server\", group=\"::Main page\"}[$my_rate_interval]))\r\nsum by (server) (rate(k6_http_reqs_total{server=~\"$server\", error_code=\"\", resource_type=\"html\"}[$my_rate_interval]))",
           "instant": false,
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "System CPU Utilization",
+      "title": "Successful client page requests per second",
       "type": "timeseries"
     },
     {
@@ -393,7 +395,7 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 50,
+            "fillOpacity": 51,
             "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
@@ -402,9 +404,6 @@
             },
             "insertNulls": false,
             "lineInterpolation": "linear",
-            "lineStyle": {
-              "fill": "solid"
-            },
             "lineWidth": 1,
             "pointSize": 5,
             "scaleDistribution": {
@@ -434,7 +433,8 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "percentunit"
         },
         "overrides": [
           {
@@ -475,7 +475,7 @@
         "x": 12,
         "y": 8
       },
-      "id": 16,
+      "id": 3,
       "options": {
         "legend": {
           "calcs": [],
@@ -495,14 +495,14 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "# sum by (server) (rate(k6_http_reqs_total{server=~\"$server\", group=\"::Main page\"}[$my_rate_interval]))\r\nsum by (server) (rate(k6_http_reqs_total{server=~\"$server\", error_code=\"\", resource_type=\"html\"}[$my_rate_interval]))",
+          "expr": "avg by (server) (1 - rate(node_cpu_seconds_total{mode=\"idle\", server=~\"$server\"}[$my_rate_interval]))",
           "instant": false,
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Successful client page requests per second",
+      "title": "System CPU Utilization",
       "type": "timeseries"
     },
     {

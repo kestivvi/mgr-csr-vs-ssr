@@ -34,8 +34,8 @@ const stressTestScenario = {
   maxVUs: 200,
   stages: [
     { target: 10, duration: '1m' },
-    { target: 80000, duration: '20m' },
-    { target: 80000, duration: '5m' },
+    { target: 1000, duration: '20m' },
+    { target: 1000, duration: '5m' },
     { target: 0, duration: '1m' },
   ],
 };
