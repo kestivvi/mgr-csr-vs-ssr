@@ -1,13 +1,13 @@
 # Stage 1: Install dependencies
 FROM node:22-alpine3.22 AS deps
 WORKDIR /app
-COPY package.json ./
+COPY package.json package-lock.json* ./
 RUN npm install --only=production
 
 # Stage 2: Build the application
 FROM node:22-alpine3.22 AS builder
 WORKDIR /app
-COPY package.json ./
+COPY package.json package-lock.json* ./
 RUN npm install
 COPY . .
 RUN npm run build

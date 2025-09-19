@@ -1,0 +1,18 @@
+services:
+  apache:
+    build: .
+    container_name: apache
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "8060:8060"
+      - "9117:9117"
+    volumes:
+      - ./apache.conf:/usr/local/apache2/conf/extra/httpd-vhosts.conf
+      - /var/log/csr-solidjs-apache:/var/log/apache2
+    networks:
+      - app-net
+
+networks:
+  app-net:
+    driver: bridge

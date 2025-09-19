@@ -1,5 +1,4 @@
 # docker-compose.prod-nginx.yml
-version: '3.8'
 
 services:
   # 1. The SvelteKit Application Service

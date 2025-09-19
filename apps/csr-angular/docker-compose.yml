@@ -1,0 +1,17 @@
+services:
+  nginx:
+    build: .
+    container_name: nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "8060:8060"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - /var/log/csr-angular-nginx:/var/log/nginx
+    networks:
+      - app-net
+
+networks:
+  app-net:
+    driver: bridge
