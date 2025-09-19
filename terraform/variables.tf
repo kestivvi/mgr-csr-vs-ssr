@@ -94,11 +94,11 @@ variable "test_scenarios" {
     app_dir     = string
   }))
   default = {
-    "React-Nginx" = {
-      description = "Application Server (CSR)"
-      purpose     = "Hosts Client-Side Rendered application"
-      app_dir     = "apps/csr-react"
-    },
+    # "React-Nginx" = {
+    #   description = "Application Server (CSR)"
+    #   purpose     = "Hosts Client-Side Rendered application"
+    #   app_dir     = "apps/csr-react"
+    # },
     "SolidJS-Nginx" = {
       description = "Application Server (CSR-SolidJS)"
       purpose     = "Hosts Client-Side Rendered application"

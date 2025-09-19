@@ -155,6 +155,10 @@ class PerformanceAnalyzer:
             return False
 
         self.raw_df = pd.concat(all_dfs, ignore_index=True)
+        
+        cpu_mem_mask = self.raw_df['metric'].isin(['cpu', 'memory'])
+        self.raw_df.loc[cpu_mem_mask, 'metric_value'] *= 100
+        
         self.raw_df['timestamp'] = pd.to_datetime(self.raw_df['timestamp'])
         self.raw_df['time_sec'] = self.raw_df.groupby(['server_type', 'run_number', 'metric'])['timestamp'].transform(lambda x: (x - x.min()).dt.total_seconds())
         
@@ -268,7 +272,6 @@ class PerformanceAnalyzer:
         
         md = ["## Experiment Parameters", "This report was generated from data collected using the following parameters:\n"]
         
-        # --- FIX: Read the correct keys from the metadata file ---
         params = self.metadata.get('parameters', {})
         durations = self.metadata.get('calculated_durations_sec', {})
         
@@ -277,7 +280,7 @@ class PerformanceAnalyzer:
             "|-----------------------------|-------|",
             f"| Run Timestamp (UTC)         | `{self.metadata.get('run_timestamp_utc', 'N/A')}` |",
             f"| Runs per Technology         | {params.get('num_runs', 'N/A')} |",
-            f"| Target RPS per Instance     | {params.get('rps', 'N/A')} |",
+            f"| Target RPS per Instance     | {params.get('rate', 'N/A')} |",
             f"| k6 Test Duration            | `{params.get('k6_duration', 'N/A')}` |",
             f"| Warm-up Duration            | `{params.get('warmup_duration', 'N/A')}` |",
             f"| Cooldown Duration           | `{params.get('cooldown_duration', 'N/A')}` |",

@@ -3,28 +3,17 @@ import { check, group } from 'k6';
 import { parseHTML } from 'k6/html';
 import { URL } from 'https://jslib.k6.io/url/1.0.0/index.js';
 
-// Target server URL to load test
+// --- K6 Test Configuration (Init Context) ---
+// This code runs once per VU before the test starts. Keep it minimal.
 const target_url = __ENV.TARGET_URL || 'http://localhost:8080';
-
-// Server type label for test results (e.g., 'SSR', 'CSR')
 const server_type = __ENV.SERVER_TYPE || 'unknown';
-
-// Requests per second for constant load test
-const K6_RPS = __ENV.K6_RPS || 100;
-
-// Duration for constant load test (e.g., '5m', '10m', '1h')
-const K6_DURATION = __ENV.K6_DURATION || '5m';
-
-// Test scenario to run: 'stress_test' or 'constant_test'
+const K6_RATE = parseInt(__ENV.K6_RATE || 100);
+const K6_DURATION = __ENV.SCRIPT_DURATION || '5m';
 const K6_SCENARIO = __ENV.K6_SCENARIO || 'stress_test';
-
-// Test path: 'static' for "/" or 'dynamic' for "/dynamic/{incrementing-number}"
 const TEST_PATH = __ENV.TEST_PATH || 'static';
-
-// Request timeout in seconds (converted to milliseconds)
-const TIMEOUT = (__ENV.TIMEOUT || 0.2) * 1000;
-
+const TIMEOUT = (parseFloat(__ENV.TIMEOUT) || 0.2) * 1000;
 const testId = new Date().toISOString().slice(0, 19).replace('T', ' ');
+// ---------------------------------------------
 
 const stressTestScenario = {
   executor: 'ramping-arrival-rate',
@@ -41,9 +30,8 @@ const stressTestScenario = {
 };
 
 const constantTestScenario = {
-  exec: 'default',
   executor: 'constant-arrival-rate',
-  rate: K6_RPS,
+  rate: K6_RATE,
   timeUnit: '1s',
   duration: K6_DURATION,
   preAllocatedVUs: 200,
@@ -119,9 +107,29 @@ function getAssetUrls(htmlBody, baseUrl) {
 }
 
 export function setup() {
+  // --- All one-time logging moved here, inside setup() ---
+  console.log('[config] Reading environment variables...');
+  console.log(`[config] TARGET_URL: ${target_url}`);
+  console.log(`[config] SERVER_TYPE: ${server_type}`);
+  console.log(`[config] K6_RATE: ${K6_RATE}`);
+  console.log(`[config] SCRIPT_DURATION: ${K6_DURATION}`);
+  console.log(`[config] K6_SCENARIO: ${K6_SCENARIO}`);
+  console.log(`[config] TEST_PATH: ${TEST_PATH}`);
+  console.log(`[config] TIMEOUT (ms): ${TIMEOUT}`);
+  console.log(`[config] Generated Test ID: ${testId}`);
+  console.log('[config] Environment variable processing complete.');
+  
+  console.log('[init] Final k6 options have been assembled.');
+  console.log(`[init] Running scenario: ${K6_SCENARIO}`);
+  console.log(`[init] Test ID Tag: ${options.tags.testid}`);
+  console.log(`[init] Server Tag: ${options.tags.server}`);
+  console.log(`[init] Selected scenario configuration: ${JSON.stringify(options.scenarios[K6_SCENARIO], null, 2)}`);
+  // -------------------------------------------------------
+
+  console.log('--- Running Setup Phase ---');
   const pageToParse = `${target_url}/`;
   
-  console.log(`[setup] Discovering assets from ${pageToParse}...`);
+  console.log(`[setup] Discovering assets by fetching the main page: ${pageToParse}`);
   
   const res = http.get(pageToParse);
   
@@ -177,4 +185,15 @@ export default function (data) {
       });
     }
   });
+}
+
+export function teardown(data) {
+  console.log('--- Running Teardown Phase ---');
+  console.log(`[teardown] Test scenario '${K6_SCENARIO}' has completed.`);
+  if (data && data.assetUrls) {
+    console.log(`[teardown] The test was performed using ${data.assetUrls.length} assets discovered during setup.`);
+  } else {
+    console.log('[teardown] No asset data was passed from setup.');
+  }
+  console.log('----------------------------');
 }

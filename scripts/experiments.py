@@ -143,7 +143,7 @@ def run_single_scenario_lifecycle(
         "target_url": f"http://{scenario['app_server_ip']}",
         "server_type": scenario_name,
         "prometheus_url": f"http://{scenario['monitoring_private_ip']}:9090",
-        "k6_rps": args.rps,
+        "k6_rate": args.rate,
         "k6_duration": args.duration,
     }
 
@@ -198,12 +198,16 @@ def run_single_scenario_lifecycle(
     
     warmup_sec = parse_duration_to_seconds(args.warmup)
     cooldown_sec = parse_duration_to_seconds(args.cooldown)
+    total_duration_sec = parse_duration_to_seconds(args.duration)
     
     metric_start_epoch = timestamps["start"] + warmup_sec
-    metric_end_epoch = timestamps["end"] - cooldown_sec
+    metric_end_epoch = (timestamps["start"] + total_duration_sec) - cooldown_sec
 
     if metric_start_epoch >= metric_end_epoch:
-        logging.error(f"[{run_prefix}:{scenario_name}] Warmup and cooldown period is longer than the test duration ({actual_duration}s). Cannot collect metrics.")
+        logging.error(
+            f"[{run_prefix}:{scenario_name}] Warmup ({warmup_sec}s) and cooldown ({cooldown_sec}s) "
+            f"period is longer than the configured test duration ({total_duration_sec}s). Cannot collect metrics."
+        )
         return scenario_name, False
 
     collector_command = [
@@ -244,7 +248,7 @@ def create_metadata_file(results_dir: Path, args: argparse.Namespace):
         "run_timestamp_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "parameters": {
             "num_runs": args.num_runs,
-            "rps": args.rps,
+            "rate": args.rate,
             "k6_duration": args.duration,
             "warmup_duration": args.warmup,
             "cooldown_duration": args.cooldown,
@@ -264,7 +268,7 @@ def create_metadata_file(results_dir: Path, args: argparse.Namespace):
 def main():
     parser = argparse.ArgumentParser(description="Orchestrate parallel k6 test runs and metric collection.")
     parser.add_argument('--num-runs', type=int, required=True, help="Number of times to repeat the entire experiment.")
-    parser.add_argument('--rps', type=int, required=True, help="Requests per second for the k6 constant arrival rate test.")
+    parser.add_argument('--rate', type=int, required=True, help="Number of iterations to START per second.")
     parser.add_argument('--duration', type=str, required=True, help="Duration for the k6 test (e.g., '5m', '1h').")
     parser.add_argument('--warmup', type=str, default='30s', help="Time to exclude from the start of the test for metrics (e.g., '60s').")
     parser.add_argument('--cooldown', type=str, default='30s', help="Time to exclude from the end of the test for metrics (e.g., '30s').")

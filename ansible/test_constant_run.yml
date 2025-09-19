@@ -16,7 +16,7 @@
     target_url: "undefined"
     server_type: "undefined"
     prometheus_url: "undefined"
-    k6_rps: 100
+    k6_rate: 100
     k6_duration: "5m"
     k6_scenario: "constant_test"
 
@@ -63,8 +63,8 @@
         -e K6_SCENARIO="{{ k6_scenario }}"
         -e SERVER_TYPE="{{ server_type | upper }}"
         -e TARGET_URL="{{ target_url }}"
-        -e K6_RPS="{{ k6_rps | string }}"
-        -e K6_DURATION="{{ k6_duration }}"
+        -e K6_RATE="{{ k6_rate | string }}"
+        -e SCRIPT_DURATION="{{ k6_duration }}"
         -e K6_PROMETHEUS_RW_SERVER_URL="{{ prometheus_url }}/api/v1/write"
         -e K6_PROMETHEUS_RW_TREND_AS_NATIVE_HISTOGRAM="true"
         -e K6_LOG_OUTPUT="stdout"

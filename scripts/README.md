@@ -1,0 +1,1 @@
+Run those scripts from the root directory
