@@ -1,68 +1,114 @@
 ---
-- name: Build k6 test archive locally
+# ansible/test_stress_run.yml
+#
+# This playbook runs a single k6 STRESS test on a target load generator.
+# It is designed to be called by an external orchestrator script, which
+# must provide all necessary variables via --extra-vars.
+#
+# This playbook is synchronous: it waits for the k6 test to complete and
+# will fail if the test returns a non-zero exit code.
+
+# Play 1: Run pre-flight checks on the local machine (where Ansible is run)
+- name: Pre-flight Checks on Localhost
   hosts: localhost
   connection: local
   gather_facts: false
+  vars:
+    local_k6_script_path: "../k6/script.js"
 
   tasks:
-    - name: Build k6 test archive
-      ansible.builtin.command:
-        cmd: ./k6/build.sh
-        chdir: "{{ playbook_dir }}/.."
-      run_once: true # noqa run-once[task]
+    - name: Ensure k6 script exists locally before starting
+      ansible.builtin.stat:
+        path: "{{ local_k6_script_path }}"
+      register: k6_script_file
+      failed_when: not k6_script_file.stat.exists
+
+# Play 2: Deploy and run the test on the remote load generator
+- name: Run k6 Stress Test on a Single Generator
+  hosts: "{{ target_host_group }}"
+  become: true
+  gather_facts: false
+
+  vars:
+    # --- Required variables to be passed by the orchestrator ---
+    target_host_group: "undefined"
+    target_url: "undefined"
+    server_type: "undefined"
+    prometheus_url: "undefined"
+    stress_start_rate: 10
+    stress_peak_rate: 2000
+    stress_ramp_up: "10m"
+    stress_sustain: "5m"
+    stress_ramp_down: "1m"
+    max_vus: 200
+
+    # --- Internal playbook variables ---
+    local_k6_script_path: "../k6/script.js"
+    remote_temp_script_path: "/tmp/script.js"
+    container_name: "k6_stress_test_{{ server_type | lower | replace('-', '_') }}"
+
+  tasks:
+    - name: Copy the raw k6 script to the remote host
+      ansible.builtin.copy:
+        src: "{{ local_k6_script_path }}"
+        dest: "{{ remote_temp_script_path }}"
+        mode: '0644'
+
+    - name: Ensure any previous k6 test container is stopped and removed
+      ansible.builtin.command: "docker rm -f {{ container_name }}"
+      register: docker_rm_result
+      failed_when: "docker_rm_result.rc != 0 and 'No such container' not in docker_rm_result.stderr"
+      changed_when: "docker_rm_result.rc == 0"
+
+    - name: Get start timestamp on remote host
+      ansible.builtin.command: "date +%s"
+      register: start_timestamp_result
       changed_when: false
 
-- name: Deploy and Run k6 Performance Test
-  hosts: role_load_generators
-  gather_facts: false
-  vars:
-    # Define the Prometheus URL once for clarity
-    prometheus_url: "http://{{ hostvars[groups['role_monitoring_server'][0]]['private_ip'] }}:9090"
+    - name: Run k6 stress test synchronously
+      # noqa: command-instead-of-shell
+      # We use 'shell' here to allow for the multi-line YAML syntax, which is not supported by 'command'.
+      # This is a deliberate choice for readability.
+      ansible.builtin.shell:
+        cmd: >-
+          docker run --rm
+          --name {{ container_name }}
+          --network host
+          --volume {{ remote_temp_script_path }}:/test/script.js:ro,z
+          -e K6_SCENARIO="stress_test"
+          -e SERVER_TYPE="{{ server_type | upper }}"
+          -e TARGET_URL="{{ target_url }}"
+          -e K6_PROMETHEUS_RW_SERVER_URL="{{ prometheus_url }}/api/v1/write"
+          -e K6_PROMETHEUS_RW_TREND_AS_NATIVE_HISTOGRAM="true"
+          -e K6_LOG_OUTPUT="stdout"
+          -e STRESS_START_RATE="{{ stress_start_rate }}"
+          -e STRESS_PEAK_RATE="{{ stress_peak_rate }}"
+          -e STRESS_RAMP_UP_DURATION="{{ stress_ramp_up }}"
+          -e STRESS_SUSTAIN_DURATION="{{ stress_sustain }}"
+          -e STRESS_RAMP_DOWN_DURATION="{{ stress_ramp_down }}"
+          -e MAX_VUS="{{ max_vus }}"
+          grafana/k6:latest
+          run
+          --out experimental-prometheus-rw
+          --tag "server={{ server_type | upper }}"
+          /test/script.js
+      register: k6_run_result
+      changed_when: true
 
-  tasks:
-    - name: Define server-specific variables
-      ansible.builtin.set_fact:
-        # Create the uppercase version of the scenario type for use in templates
-        scenario_type_upper: "{{ scenario_type | upper }}"
-        # Dynamically construct the target URL using the private IP of the corresponding app server
-        target_url: "http://{{ hostvars[groups['app_server_' + scenario_type][0]]['private_ip'] }}"
+    - name: Get end timestamp on remote host
+      ansible.builtin.command: "date +%s"
+      register: end_timestamp_result
+      changed_when: false
 
-    - name: Copy k6 test archive to remote host
-      ansible.builtin.copy:
-        src: "{{ playbook_dir }}/../k6/build/k6_archive.tar"
-        dest: /home/ec2-user/k6_archive.tar
-        mode: "0644"
+    - name: Output precise timestamps for orchestrator
+      ansible.builtin.debug:
+        msg: "ORCHESTRATOR_TIMESTAMPS::{\"start\": \"{{ start_timestamp_result.stdout }}\", \"end\": \"{{ end_timestamp_result.stdout }}\"}"
 
-    - name: Ensure k6 Docker image is present
-      community.docker.docker_image:
-        name: "grafana/k6:latest"
-        source: pull
+    - name: Display k6 container logs for debugging
+      ansible.builtin.debug:
+        msg: "{{ k6_run_result.stdout_lines }}"
 
-    - name: Run k6 test using docker_container module (fire-and-forget)
-      community.docker.docker_container:
-        name: "k6_load_test_{{ scenario_type }}"
-        image: "grafana/k6:latest"
-        state: started
-        auto_remove: true
-        network_mode: host
-        interactive: true
-        volumes:
-          - /home/ec2-user/k6_archive.tar:/k6_archive.tar:ro,z
-        env:
-          # Ensure the stress_test scenario is selected from the k6 script
-          K6_SCENARIO: "stress_test"
-          TARGET_URL: "{{ target_url }}"
-          SERVER_TYPE: "{{ scenario_type_upper }}"
-          K6_PROMETHEUS_RW_SERVER_URL: "{{ prometheus_url }}/api/v1/write"
-          K6_PROMETHEUS_RW_TREND_AS_NATIVE_HISTOGRAM: "true"
-          K6_LOG_OUTPUT: "none"
-        command:
-          - "run"
-          - "--out"
-          - "experimental-prometheus-rw"
-          - "--tag"
-          - "server={{ scenario_type_upper }}"
-          - "/k6_archive.tar"
-      # The async/poll directives are preserved to maintain the "fire-and-forget" behavior
-      async: 7200 # 2 hours
-      poll: 0
+    - name: Clean up the remote script
+      ansible.builtin.file:
+        path: "{{ remote_temp_script_path }}"
+        state: absent

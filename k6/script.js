@@ -7,25 +7,35 @@ import { URL } from 'https://jslib.k6.io/url/1.0.0/index.js';
 // This code runs once per VU before the test starts. Keep it minimal.
 const target_url = __ENV.TARGET_URL || 'http://localhost:8080';
 const server_type = __ENV.SERVER_TYPE || 'unknown';
-const K6_RATE = parseInt(__ENV.K6_RATE || 100);
-const K6_DURATION = __ENV.SCRIPT_DURATION || '5m';
 const K6_SCENARIO = __ENV.K6_SCENARIO || 'stress_test';
 const TEST_PATH = __ENV.TEST_PATH || 'static';
-const TIMEOUT = (parseFloat(__ENV.TIMEOUT) || 0.2) * 1000;
+const TIMEOUT = (parseFloat(__ENV.TIMEOUT) || 0.1) * 1000;
 const testId = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+// Constant Test Params
+const K6_RATE = parseInt(__ENV.K6_RATE || 100);
+const K6_DURATION = __ENV.SCRIPT_DURATION || '5m';
+
+// Stress Test Params
+const STRESS_START_RATE = parseInt(__ENV.STRESS_START_RATE || 10);
+const STRESS_PEAK_RATE = parseInt(__ENV.STRESS_PEAK_RATE || 10000);
+const STRESS_RAMP_UP_DURATION = __ENV.STRESS_RAMP_UP_DURATION || '10m';
+const STRESS_SUSTAIN_DURATION = __ENV.STRESS_SUSTAIN_DURATION || '5m';
+const STRESS_RAMP_DOWN_DURATION = __ENV.STRESS_RAMP_DOWN_DURATION || '1m';
+const MAX_VUS = parseInt(__ENV.MAX_VUS || 200);
 // ---------------------------------------------
 
 const stressTestScenario = {
   executor: 'ramping-arrival-rate',
-  startRate: 10,
+  startRate: STRESS_START_RATE,
   timeUnit: '1s',
-  preAllocatedVUs: 200,
-  maxVUs: 200,
+  preAllocatedVUs: MAX_VUS,
+  maxVUs: MAX_VUS,
   stages: [
-    { target: 10, duration: '1m' },
-    { target: 1000, duration: '20m' },
-    { target: 1000, duration: '5m' },
-    { target: 0, duration: '1m' },
+    { target: STRESS_START_RATE, duration: '1m' }, // Brief warm-up/stabilization stage
+    { target: STRESS_PEAK_RATE, duration: STRESS_RAMP_UP_DURATION },
+    { target: STRESS_PEAK_RATE, duration: STRESS_SUSTAIN_DURATION },
+    { target: 0, duration: STRESS_RAMP_DOWN_DURATION },
   ],
 };
 
@@ -34,8 +44,8 @@ const constantTestScenario = {
   rate: K6_RATE,
   timeUnit: '1s',
   duration: K6_DURATION,
-  preAllocatedVUs: 200,
-  maxVUs: 200,
+  preAllocatedVUs: MAX_VUS, // Can reuse MAX_VUS for consistency
+  maxVUs: MAX_VUS,
 };
 
 const selectedScenario = K6_SCENARIO === 'constant_test' 
@@ -111,8 +121,6 @@ export function setup() {
   console.log('[config] Reading environment variables...');
   console.log(`[config] TARGET_URL: ${target_url}`);
   console.log(`[config] SERVER_TYPE: ${server_type}`);
-  console.log(`[config] K6_RATE: ${K6_RATE}`);
-  console.log(`[config] SCRIPT_DURATION: ${K6_DURATION}`);
   console.log(`[config] K6_SCENARIO: ${K6_SCENARIO}`);
   console.log(`[config] TEST_PATH: ${TEST_PATH}`);
   console.log(`[config] TIMEOUT (ms): ${TIMEOUT}`);

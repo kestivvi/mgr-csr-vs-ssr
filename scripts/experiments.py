@@ -6,7 +6,6 @@ import os
 import re
 import subprocess
 import sys
-import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Optional, Dict
@@ -17,7 +16,9 @@ import yaml
 RESULTS_BASE_DIR = Path("results")
 INVENTORY_PATH = Path("ansible/inventory.yml")
 ANSIBLE_CONFIG_PATH = Path("ansible/ansible.cfg")
-K6_PLAYBOOK_PATH = "ansible/test_constant_run.yml"
+# Playbook paths are now selected dynamically
+CONSTANT_PLAYBOOK_PATH = "ansible/test_constant_run.yml"
+STRESS_PLAYBOOK_PATH = "ansible/test_stress_run.yml"
 COLLECTOR_SCRIPT_PATH = "statistics/collector.py"
 TIMESTAMP_MARKER = "ORCHESTRATOR_TIMESTAMPS::"
 
@@ -31,6 +32,8 @@ logging.basicConfig(
 
 def parse_duration_to_seconds(duration_str: str) -> int:
     """Converts a duration string (e.g., '5m', '30s', '1h') to seconds."""
+    if not duration_str:
+        return 0
     match = re.match(r"(\d+)([smh])", duration_str)
     if not match:
         raise ValueError(f"Invalid duration format: {duration_str}. Use 's', 'm', or 'h'.")
@@ -134,23 +137,43 @@ def run_single_scenario_lifecycle(
     scenario_name = scenario["name"]
     run_prefix = f"{run_number:02d}"
     
-    logging.info(f"[{run_prefix}:{scenario_name}] Starting k6 test.")
+    logging.info(f"[{run_prefix}:{scenario_name}] Starting k6 test ({args.test_type} type).")
     
     ansible_log_path = results_dir / f"{run_prefix}_ansible_k6_{scenario_name}.txt"
     
-    extra_vars = {
-        "target_host_group": scenario["load_generator_group"],
-        "target_url": f"http://{scenario['app_server_ip']}",
-        "server_type": scenario_name,
-        "prometheus_url": f"http://{scenario['monitoring_private_ip']}:9090",
-        "k6_rate": args.rate,
-        "k6_duration": args.duration,
-    }
+    # --- DYNAMICALLY build playbook path and extra_vars based on test type ---
+    if args.test_type == 'constant':
+        playbook_path = CONSTANT_PLAYBOOK_PATH
+        extra_vars = {
+            "target_host_group": scenario["load_generator_group"],
+            "target_url": f"http://{scenario['app_server_ip']}",
+            "server_type": scenario_name,
+            "prometheus_url": f"http://{scenario['monitoring_private_ip']}:9090",
+            "k6_rate": args.rate,
+            "k6_duration": args.duration,
+        }
+    elif args.test_type == 'stress':
+        playbook_path = STRESS_PLAYBOOK_PATH
+        extra_vars = {
+            "target_host_group": scenario["load_generator_group"],
+            "target_url": f"http://{scenario['app_server_ip']}",
+            "server_type": scenario_name,
+            "prometheus_url": f"http://{scenario['monitoring_private_ip']}:9090",
+            "stress_start_rate": args.start_rate,
+            "stress_peak_rate": args.peak_rate,
+            "stress_ramp_up": args.ramp_up,
+            "stress_sustain": args.sustain,
+            "stress_ramp_down": args.ramp_down,
+            "max_vus": args.max_vus,
+        }
+    else:
+        logging.error(f"Internal error: Unknown test type '{args.test_type}'")
+        return scenario_name, False
 
     ansible_command = [
         "ansible-playbook",
         "-i", str(INVENTORY_PATH),
-        K6_PLAYBOOK_PATH,
+        playbook_path,
         "--extra-vars",
         json.dumps(extra_vars)
     ]
@@ -192,87 +215,129 @@ def run_single_scenario_lifecycle(
     actual_duration = timestamps["end"] - timestamps["start"]
     logging.info(f"[{run_prefix}:{scenario_name}] k6 test finished successfully after {actual_duration:.1f}s.")
 
-    logging.info(f"[{run_prefix}:{scenario_name}] Starting metric collection.")
-    
-    collector_log_path = results_dir / f"{run_prefix}_collector_{scenario_name}.txt"
-    
-    warmup_sec = parse_duration_to_seconds(args.warmup)
-    cooldown_sec = parse_duration_to_seconds(args.cooldown)
-    total_duration_sec = parse_duration_to_seconds(args.duration)
-    
-    metric_start_epoch = timestamps["start"] + warmup_sec
-    metric_end_epoch = (timestamps["start"] + total_duration_sec) - cooldown_sec
+    # --- Metric collection is only supported for constant tests for now ---
+    if args.test_type == 'constant':
+        logging.info(f"[{run_prefix}:{scenario_name}] Starting metric collection.")
+        
+        collector_log_path = results_dir / f"{run_prefix}_collector_{scenario_name}.txt"
+        
+        warmup_sec = parse_duration_to_seconds(args.warmup)
+        cooldown_sec = parse_duration_to_seconds(args.cooldown)
+        total_duration_sec = parse_duration_to_seconds(args.duration)
+        
+        metric_start_epoch = timestamps["start"] + warmup_sec
+        metric_end_epoch = (timestamps["start"] + total_duration_sec) - cooldown_sec
 
-    if metric_start_epoch >= metric_end_epoch:
-        logging.error(
-            f"[{run_prefix}:{scenario_name}] Warmup ({warmup_sec}s) and cooldown ({cooldown_sec}s) "
-            f"period is longer than the configured test duration ({total_duration_sec}s). Cannot collect metrics."
-        )
-        return scenario_name, False
-
-    collector_command = [
-        sys.executable,
-        str(COLLECTOR_SCRIPT_PATH),
-        "--prometheus-url", f"http://{scenario['monitoring_public_ip']}:9090",
-        "--start-epoch", str(metric_start_epoch),
-        "--end-epoch", str(metric_end_epoch),
-        "--server-type", scenario_name,
-        "--run-number", str(run_number),
-        "--output-dir", str(results_dir)
-    ]
-
-    try:
-        with open(collector_log_path, 'w') as log_file:
-            subprocess.run(
-                collector_command,
-                stdout=log_file,
-                stderr=subprocess.STDOUT,
-                check=True,
-                text=True
+        if metric_start_epoch >= metric_end_epoch:
+            logging.error(
+                f"[{run_prefix}:{scenario_name}] Warmup ({warmup_sec}s) and cooldown ({cooldown_sec}s) "
+                f"period is longer than the configured test duration ({total_duration_sec}s). Cannot collect metrics."
             )
-    except subprocess.CalledProcessError as e:
-        logging.error(f"[{run_prefix}:{scenario_name}] Collector script failed with exit code {e.returncode}. See log: {collector_log_path}")
-        return scenario_name, False
+            return scenario_name, False
 
-    logging.info(f"[{run_prefix}:{scenario_name}] Metric collection finished successfully.")
+        collector_command = [
+            sys.executable,
+            str(COLLECTOR_SCRIPT_PATH),
+            "--prometheus-url", f"http://{scenario['monitoring_public_ip']}:9090",
+            "--start-epoch", str(metric_start_epoch),
+            "--end-epoch", str(metric_end_epoch),
+            "--server-type", scenario_name,
+            "--run-number", str(run_number),
+            "--output-dir", str(results_dir)
+        ]
+
+        try:
+            with open(collector_log_path, 'w') as log_file:
+                subprocess.run(
+                    collector_command,
+                    stdout=log_file,
+                    stderr=subprocess.STDOUT,
+                    check=True,
+                    text=True
+                )
+        except subprocess.CalledProcessError as e:
+            logging.error(f"[{run_prefix}:{scenario_name}] Collector script failed with exit code {e.returncode}. See log: {collector_log_path}")
+            return scenario_name, False
+
+        logging.info(f"[{run_prefix}:{scenario_name}] Metric collection finished successfully.")
+    
     return scenario_name, True
 
 def create_metadata_file(results_dir: Path, args: argparse.Namespace):
     """Creates a metadata.yaml file with the experiment parameters."""
-    total_duration_sec = parse_duration_to_seconds(args.duration)
-    warmup_sec = parse_duration_to_seconds(args.warmup)
-    cooldown_sec = parse_duration_to_seconds(args.cooldown)
-    measurement_sec = total_duration_sec - warmup_sec - cooldown_sec
-
     metadata = {
         "run_timestamp_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "parameters": {
+            "test_type": args.test_type,
             "num_runs": args.num_runs,
+        }
+    }
+
+    if args.test_type == 'constant':
+        total_duration_sec = parse_duration_to_seconds(args.duration)
+        warmup_sec = parse_duration_to_seconds(args.warmup)
+        cooldown_sec = parse_duration_to_seconds(args.cooldown)
+        measurement_sec = total_duration_sec - warmup_sec - cooldown_sec
+        
+        metadata["parameters"].update({
             "rate": args.rate,
             "k6_duration": args.duration,
             "warmup_duration": args.warmup,
             "cooldown_duration": args.cooldown,
-        },
-        "calculated_durations_sec": {
+        })
+        metadata["calculated_durations_sec"] = {
             "total": total_duration_sec,
             "warmup": warmup_sec,
             "cooldown": cooldown_sec,
             "measurement": measurement_sec if measurement_sec > 0 else "Invalid"
         }
-    }
+    elif args.test_type == 'stress':
+        metadata["parameters"].update({
+            "start_rate": args.start_rate,
+            "peak_rate": args.peak_rate,
+            "ramp_up_duration": args.ramp_up,
+            "sustain_duration": args.sustain,
+            "ramp_down_duration": args.ramp_down,
+            "max_vus": args.max_vus,
+        })
+
     metadata_path = results_dir / "metadata.yaml"
     with open(metadata_path, 'w') as f:
         yaml.dump(metadata, f, default_flow_style=False)
     logging.info(f"Experiment metadata saved to {metadata_path}")
 
 def main():
-    parser = argparse.ArgumentParser(description="Orchestrate parallel k6 test runs and metric collection.")
-    parser.add_argument('--num-runs', type=int, required=True, help="Number of times to repeat the entire experiment.")
-    parser.add_argument('--rate', type=int, required=True, help="Number of iterations to START per second.")
-    parser.add_argument('--duration', type=str, required=True, help="Duration for the k6 test (e.g., '5m', '1h').")
-    parser.add_argument('--warmup', type=str, default='30s', help="Time to exclude from the start of the test for metrics (e.g., '60s').")
-    parser.add_argument('--cooldown', type=str, default='30s', help="Time to exclude from the end of the test for metrics (e.g., '30s').")
+    parser = argparse.ArgumentParser(description="Orchestrate k6 test runs and metric collection.", formatter_class=argparse.RawTextHelpFormatter)
+    
+    # --- Main arguments ---
+    parser.add_argument('--test-type', type=str, required=True, choices=['constant', 'stress'], help="The type of test to run.")
+    parser.add_argument('--num-runs', type=int, default=1, help="Number of times to repeat the experiment.")
+
+    # --- Constant test arguments ---
+    constant_group = parser.add_argument_group('constant test options')
+    constant_group.add_argument('--rate', type=int, help="Required for constant test: Number of iterations to START per second.")
+    constant_group.add_argument('--duration', type=str, help="Required for constant test: Duration for the k6 test (e.g., '5m', '1h').")
+    constant_group.add_argument('--warmup', type=str, default='30s', help="For constant test: Time to exclude from the start for metrics.")
+    constant_group.add_argument('--cooldown', type=str, default='15s', help="For constant test: Time to exclude from the end for metrics.")
+
+    # --- Stress test arguments (with defaults) ---
+    stress_group = parser.add_argument_group('stress test options')
+    stress_group.add_argument('--start-rate', type=int, default=10, help="For stress test: The initial arrival rate. (Default: 10)")
+    stress_group.add_argument('--peak-rate', type=int, default=2000, help="For stress test: The peak arrival rate to ramp up to. (Default: 2000)")
+    stress_group.add_argument('--ramp-up', type=str, default='10m', help="For stress test: Duration of the ramp-up phase. (Default: '10m')")
+    stress_group.add_argument('--sustain', type=str, default='5m', help="For stress test: Duration to sustain the peak rate. (Default: '5m')")
+    stress_group.add_argument('--ramp-down', type=str, default='1m', help="For stress test: Duration of the ramp-down phase. (Default: '1m')")
+    stress_group.add_argument('--max-vus', type=int, default=200, help="For stress test: Max VUs to pre-allocate. (Default: 200)")
+
     args = parser.parse_args()
+
+    # --- Argument validation ---
+    if args.test_type == 'constant':
+        if not all([args.rate, args.duration]):
+            parser.error("--rate and --duration are required when --test-type is 'constant'")
+    elif args.test_type == 'stress':
+        if args.num_runs > 1:
+            parser.error("--num-runs cannot be greater than 1 for a 'stress' test.")
 
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     results_dir = RESULTS_BASE_DIR / f"experiment_{timestamp}"
