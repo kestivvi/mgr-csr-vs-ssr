@@ -1,7 +1,6 @@
 services:
   apache:
     build: .
-    container_name: apache
     restart: unless-stopped
     ports:
       - "80:80"

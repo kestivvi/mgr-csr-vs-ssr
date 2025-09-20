@@ -2,7 +2,6 @@ services:
   nuxt-app:
     build: .
     image: ssr-nuxt-nuxt-app
-    container_name: nuxt-app
     restart: unless-stopped
     ports:
       - "80:3000"

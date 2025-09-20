@@ -6,7 +6,6 @@ services:
     build:
       context: .
     image: my-sveltekit-app-prod
-    container_name: sveltekit-prod-container
     restart: unless-stopped
     # NO 'ports' section here. Nginx will handle external traffic.
     networks:
@@ -15,7 +14,6 @@ services:
   # 2. The Nginx Reverse Proxy Service
   nginx:
     image: nginx:1.26.0-alpine # Using a lightweight alpine image
-    container_name: sveltekit-nginx
     restart: unless-stopped
     ports:
       # Expose Nginx's HTTP port to the host

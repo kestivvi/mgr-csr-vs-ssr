@@ -2,7 +2,6 @@ services:
   next-app:
     build: .
     image: ssr-nextjs-next-app
-    container_name: next-app
     restart: unless-stopped
     ports:
       - "80:3000"

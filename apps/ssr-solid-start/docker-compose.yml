@@ -2,7 +2,6 @@ services:
   solid-app:
     build: .
     image: ssr-solid-start-solid-app
-    container_name: solid-app
     restart: unless-stopped
     ports:
       - "80:3000"
