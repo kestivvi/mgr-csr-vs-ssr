@@ -5,7 +5,7 @@ services:
   sveltekit-app:
     build:
       context: .
-    image: my-sveltekit-app-prod
+    image: ssr-svelte-kit-bun-app
     restart: unless-stopped
     # NO 'ports' section here. Nginx will handle external traffic.
     networks:

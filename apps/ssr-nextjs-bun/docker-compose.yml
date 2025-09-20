@@ -1,7 +1,7 @@
 services:
   next-app:
     build: .
-    image: ssr-nextjs-next-app
+    image: ssr-nextjs-bun-app
     restart: unless-stopped
     ports:
       - "80:3000"

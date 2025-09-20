@@ -68,6 +68,7 @@ class PerformanceAnalyzer:
 
         self.metadata: Dict[str, Any] = {}
         self.groups_config: Dict[str, Any] = {}
+        self.chart_order: list = []
         self.raw_df: pd.DataFrame = pd.DataFrame()
         self.summary_df: pd.DataFrame = pd.DataFrame()
         self.ranking_results: Dict[str, pd.DataFrame] = {}
@@ -99,7 +100,7 @@ class PerformanceAnalyzer:
     # --------------------------------------------------------------------------
 
     def _load_configuration(self) -> bool:
-        """Loads metadata.yaml and groups.yaml configurations."""
+        """Loads metadata.yaml and config.yaml configurations."""
         metadata_path = self.input_dir / "metadata.yaml"
         if metadata_path.exists():
             print(f"INFO: Loading experiment metadata from {metadata_path}...")
@@ -108,16 +109,28 @@ class PerformanceAnalyzer:
         else:
             print("WARNING: metadata.yaml not found.")
 
-        groups_config_path = Path(__file__).parent / "groups.yaml"
-        print(f"INFO: Loading group configuration from {groups_config_path}...")
+        config_path = Path(__file__).parent / "config.yaml"
+        print(f"INFO: Loading group and chart order configuration from {config_path}...")
         try:
-            with open(groups_config_path, 'r') as f:
-                self.groups_config = yaml.safe_load(f)
-            shutil.copy(groups_config_path, self.input_dir / "groups.yaml")
-            print(f"INFO: Archived group configuration to {self.input_dir / 'groups.yaml'}")
+            with open(config_path, 'r') as f:
+                config_data = yaml.safe_load(f)
+                if not config_data:
+                    print("ERROR: Configuration file is empty.")
+                    return False
+                
+                self.groups_config = config_data.get('groups', {})
+                self.chart_order = config_data.get('chart_order', [])
+
+                if not self.groups_config:
+                    print("WARNING: 'groups' section not found in config.yaml. All technologies will be 'Uncategorized'.")
+                if not self.chart_order:
+                    print("WARNING: 'chart_order' section not found in config.yaml. Charts will be ordered alphabetically.")
+
+            shutil.copy(config_path, self.input_dir / "config.yaml")
+            print(f"INFO: Archived configuration to {self.input_dir / 'config.yaml'}")
             return True
         except (FileNotFoundError, yaml.YAMLError) as e:
-            print(f"ERROR: Failed to load groups configuration: {e}")
+            print(f"ERROR: Failed to load configuration from {config_path}: {e}")
             return False
 
     def _load_and_prepare_data(self) -> bool:
@@ -355,18 +368,40 @@ class PerformanceAnalyzer:
 
     # --- Plotting Methods ---
 
+    def _get_ordered_tech_list(self, df: pd.DataFrame) -> list:
+        """
+        Gets a list of technologies from the dataframe, ordered according to the
+        'chart_order' list in the config file. Any technologies in the dataframe
+        not present in the config list are appended alphabetically.
+        """
+        if not self.chart_order:
+            return sorted(df['server_type'].unique())
+
+        all_techs_in_data = set(df['server_type'].unique())
+        
+        # Filter chart_order to only include techs present in the current data
+        ordered_techs_from_config = [t for t in self.chart_order if t in all_techs_in_data]
+        
+        # Find techs in data that were not in the config's order list
+        config_techs_set = set(ordered_techs_from_config)
+        remaining_techs = sorted([t for t in all_techs_in_data if t not in config_techs_set])
+        
+        # The final order is the ordered list from config plus the sorted remainder
+        return ordered_techs_from_config + remaining_techs
+
     def _create_comparison_plot(self, df: pd.DataFrame, stat_col: str, metric_name: str, plot_type: str = 'box') -> Path | None:
         """Creates a comparison plot (box or violin)."""
         print(f"INFO: Generating {plot_type} plot for '{metric_name}'...")
         if df.empty: return None
         
+        plot_order = self._get_ordered_tech_list(df)
+        
         plt.figure(figsize=(14, 8))
-        df_sorted = df.sort_values(by=['group', 'server_type'])
         
         if plot_type == 'box':
-            sns.boxplot(data=df_sorted, x='server_type', y=stat_col, hue='group', dodge=False)
+            sns.boxplot(data=df, x='server_type', y=stat_col, hue='group', dodge=False, order=plot_order)
         elif plot_type == 'violin':
-            sns.violinplot(data=df_sorted, x='server_type', y=stat_col, hue='group', dodge=False, inner='quartile', cut=0)
+            sns.violinplot(data=df, x='server_type', y=stat_col, hue='group', dodge=False, inner='quartile', cut=0, order=plot_order)
         
         plt.title(f'{plot_type.capitalize()} Plot Comparison of {metric_name}', fontsize=16)
         plt.ylabel(metric_name)
@@ -413,12 +448,19 @@ class PerformanceAnalyzer:
         
         agg_df = plot_df.groupby(['server_type', 'time_sec'])['metric_value'].agg(['mean', 'min', 'max']).reset_index()
         
+        plot_order = self._get_ordered_tech_list(agg_df)
+
         plt.figure(figsize=(14, 8))
-        palette = sns.color_palette("husl", len(agg_df['server_type'].unique()))
-        for i, tech in enumerate(sorted(agg_df['server_type'].unique())):
+        palette = sns.color_palette("husl", len(plot_order))
+        color_map = {tech: color for tech, color in zip(plot_order, palette)}
+
+        for tech in plot_order:
             tech_df = agg_df[agg_df['server_type'] == tech]
-            plt.plot(tech_df['time_sec'], tech_df['mean'], label=tech, color=palette[i])
-            plt.fill_between(tech_df['time_sec'], tech_df['min'], tech_df['max'], color=palette[i], alpha=0.2)
+            if tech_df.empty:
+                continue
+            color = color_map[tech]
+            plt.plot(tech_df['time_sec'], tech_df['mean'], label=tech, color=color)
+            plt.fill_between(tech_df['time_sec'], tech_df['min'], tech_df['max'], color=color, alpha=0.2)
         
         plt.title(f"Time-Series Analysis: {metric_name}", fontsize=16)
         plt.xlabel('Time (seconds)')

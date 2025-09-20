@@ -27,3 +27,5 @@
 - name: Ensure App Server stack is running
   community.docker.docker_compose_v2:
     project_src: "/home/ec2-user/{{ project_name }}"
+    build: always
+    recreate: always

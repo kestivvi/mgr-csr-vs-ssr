@@ -1,0 +1,49 @@
+# This file defines analytical groups and chart ordering for the performance analysis.
+# The analyzer.py script reads this file to categorize technologies and order plots.
+
+# 'groups' defines the categories for technologies. This is used for grouping
+# in plots and for selecting "champions" for statistical comparison.
+groups:
+  CSR:
+    - csr-angular
+    - csr-react
+    - csr-solidjs
+    - csr-solidjs-apache
+    - csr-sveltekit-static
+    - csr-vue
+
+  SSR:
+    - ssr-analogjs
+    - ssr-nextjs
+    - ssr-nextjs-bun
+    - ssr-nuxtjs
+    - ssr-qwik-city
+    - ssr-solid-start
+    - ssr-sveltekit
+    - ssr-sveltekit-bun
+
+# 'chart_order' defines the specific order in which frameworks should appear
+# on the x-axis of comparison charts and in the legend of time-series charts.
+# This order is completely independent of the groups defined above.
+# Any framework found in the data but not listed here will be appended
+# to the end of the list alphabetically.
+chart_order:
+  - csr-solidjs
+  - csr-react
+  - csr-vue
+  - csr-solidjs-apache
+  - ssr-sveltekit
+  - csr-sveltekit-static
+  - csr-angular
+  - ssr-sveltekit-bun
+  - ssr-analogjs
+  - ssr-qwik-city
+  - ssr-solid-start
+  - ssr-nextjs
+  - ssr-nuxtjs
+  - ssr-nextjs-bun
+  # Svelte Family
+  # NextJS Family
+  # SolidJS Family
+  # Angular Family
+  # Others

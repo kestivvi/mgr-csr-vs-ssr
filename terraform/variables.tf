@@ -102,32 +102,32 @@ variable "test_scenarios" {
     ##########################
     # CSR
     ##########################
-    # "Angular-Nginx" = {
+    # "CSR-Angular" = {
     #   description = "Application Server (CSR-Angular-Nginx)"
     #   purpose     = "Hosts Angular Client-Side Rendered application"
     #   app_dir     = "apps/csr-angular"
     # },
-    # "React-Nginx" = {
+    # "CSR-React" = {
     #   description = "Application Server (CSR-React-Nginx)"
     #   purpose     = "Hosts Client-Side Rendered application"
     #   app_dir     = "apps/csr-react"
     # },
-    # "SolidJS-Nginx" = {
+    # "CSR-SolidJS" = {
     #   description = "Application Server (CSR-SolidJS-Nginx)"
     #   purpose     = "Hosts Client-Side Rendered application"
     #   app_dir     = "apps/csr-solidjs"
     # },
-    # "SolidJS-Apache" = {
+    # "CSR-SolidJS-Apache" = {
     #   description = "Application Server (CSR-SolidJS-Apache)"
     #   purpose     = "Hosts Client-Side Rendered application"
     #   app_dir     = "apps/csr-solidjs-apache"
     # },
-    "SvelteKit-Static-Nginx" = {
-      description = "Application Server (CSR-SvelteKit-Static-Nginx)"
-      purpose     = "Hosts SvelteKit Client-Side Rendered application"
-      app_dir     = "apps/csr-svelte-kit-static"
-    },
-    # "Vue-Nginx" = {
+    # "CSR-SvelteKit-Static" = {
+    #   description = "Application Server (CSR-SvelteKit-Static-Nginx)"
+    #   purpose     = "Hosts SvelteKit Client-Side Rendered application"
+    #   app_dir     = "apps/csr-svelte-kit-static"
+    # },
+    # "CSR-Vue" = {
     #   description = "Application Server (CSR-Vue-Nginx)"
     #   purpose     = "Hosts Vue Client-Side Rendered application"
     #   app_dir     = "apps/csr-vue"
@@ -137,47 +137,47 @@ variable "test_scenarios" {
     # SSR
     ##########################
 
-    # "AnalogJS" = {
+    # "SSR-AnalogJS" = {
     #   description = "Application Server (SSR-AnalogJS)"
     #   purpose     = "Hosts AnalogJS Server-Side Rendered application"
     #   app_dir     = "apps/ssr-analogjs"
     # },
-    # "NextJS" = {
+    # "SSR-NextJS" = {
     #   description = "Application Server (SSR-NextJS)"
     #   purpose     = "Hosts Server-Side Rendered application"
     #   app_dir     = "apps/ssr-nextjs"
     # },
-    # "NextJS-Bun" = {
+    # "SSR-NextJS-Bun" = {
     #   description = "Application Server (SSR-NextJS-Bun)"
     #   purpose     = "Hosts NextJS Server-Side Rendered application"
     #   app_dir     = "apps/ssr-nextjs-bun"
     # },
-    ## "NextJS-Deno" = {
+    ## "SSR-NextJS-Deno" = {
     ##   description = "Application Server (SSR-NextJS-Deno)"
     ##   purpose     = "Hosts NextJS Server-Side Rendered application"
     ##   app_dir     = "apps/ssr-nextjs-deno"
     ## },
-    # "NuxtJS" = {
-    #   description = "Application Server (SSR-NuxtJS)"
-    #   purpose     = "Hosts NuxtJS Server-Side Rendered application"
-    #   app_dir     = "apps/ssr-nuxtjs"
-    # },
-    # "Qwik-City" = {
+    "SSR-NuxtJS" = {
+      description = "Application Server (SSR-NuxtJS)"
+      purpose     = "Hosts NuxtJS Server-Side Rendered application"
+      app_dir     = "apps/ssr-nuxtjs"
+    },
+    # "SSR-Qwik-City" = {
     #   description = "Application Server (SSR-Qwik-City)"
     #   purpose     = "Hosts Qwik-City Server-Side Rendered application"
     #   app_dir     = "apps/ssr-qwik-city"
     # },
-    # "Solid-Start" = {
+    # "SSR-Solid-Start" = {
     #   description = "Application Server (SSR-Solid-Start)"
     #   purpose     = "Hosts Solid-Start Server-Side Rendered application"
     #   app_dir     = "apps/ssr-solid-start"
     # },
-    # "SvelteKit" = {
+    # "SSR-SvelteKit" = {
     #   description = "Application Server (SSR-SvelteKit)"
     #   purpose     = "Hosts SvelteKit Server-Side Rendered application"
     #   app_dir     = "apps/ssr-svelte-kit"
     # },
-    # "SvelteKit-Bun" = {
+    # "SSR-SvelteKit-Bun" = {
     #   description = "Application Server (SSR-SvelteKit-Bun)"
     #   purpose     = "Hosts SvelteKit Server-Side Rendered application"
     #   app_dir     = "apps/ssr-svelte-kit-bun"
