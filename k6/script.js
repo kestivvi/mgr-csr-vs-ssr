@@ -48,8 +48,8 @@ const constantTestScenario = {
   maxVUs: MAX_VUS,
 };
 
-const selectedScenario = K6_SCENARIO === 'constant_test' 
-  ? constantTestScenario 
+const selectedScenario = K6_SCENARIO === 'constant_test'
+  ? constantTestScenario
   : stressTestScenario;
 
 export const options = {
@@ -63,7 +63,7 @@ export const options = {
     testid: testId,
     server: server_type,
   },
-  discardResponseBodies: false,
+  discardResponseBodies: true,
   scenarios: {
     [K6_SCENARIO]: selectedScenario,
   },
@@ -86,12 +86,12 @@ function getAssetUrls(htmlBody, baseUrl) {
     'source[src]',
     'video[src]',
   ];
-  
+
   const foundElements = doc.find(selectors.join(','));
-  
+
   foundElements.each((i, el) => {
     let assetPath = null;
-    
+
     if (el && typeof el.attr === 'function') {
       assetPath = el.attr('href') || el.attr('src');
     }
@@ -101,13 +101,13 @@ function getAssetUrls(htmlBody, baseUrl) {
     if (!assetPath && el && typeof el.getAttribute === 'function') {
       assetPath = el.getAttribute('href') || el.getAttribute('src');
     }
-    
+
     if (!assetPath || assetPath.startsWith('data:') || assetPath.startsWith('#')) {
       return;
     }
 
     const assetUrl = new URL(assetPath, baseUrl).toString();
-    
+
     if (assetUrl.startsWith('http')) {
         assetUrls.add(assetUrl);
     }
@@ -126,7 +126,7 @@ export function setup() {
   console.log(`[config] TIMEOUT (ms): ${TIMEOUT}`);
   console.log(`[config] Generated Test ID: ${testId}`);
   console.log('[config] Environment variable processing complete.');
-  
+
   console.log('[init] Final k6 options have been assembled.');
   console.log(`[init] Running scenario: ${K6_SCENARIO}`);
   console.log(`[init] Test ID Tag: ${options.tags.testid}`);
@@ -136,61 +136,78 @@ export function setup() {
 
   console.log('--- Running Setup Phase ---');
   const pageToParse = `${target_url}/`;
-  
+
   console.log(`[setup] Discovering assets by fetching the main page: ${pageToParse}`);
-  
-  const res = http.get(pageToParse);
-  
+
+  const res = http.get(pageToParse, { responseType: 'text' });
+
   if (res.status !== 200 || !res.body) {
     throw new Error(`[setup] Could not fetch the page to parse assets. Status: ${res.status}. Aborting test.`);
   }
-  
+
   const urls = getAssetUrls(res.body, res.url);
-  
   console.log(`[setup] Discovered ${urls.length} assets to be used for the test.`);
-  
-  return { assetUrls: urls };
+
+  const assetRequests = urls.map(url => {
+    return {
+      method: 'GET',
+      url: url,
+      params: {
+        timeout: TIMEOUT,
+        tags: { resource_type: 'asset' },
+        responseType: 'none' // Explicitly discard asset bodies
+      },
+    };
+  });
+  console.log('[setup] Pre-computed batch requests for all assets.');
+
+  return { assetUrls: urls, assetRequests: assetRequests };
 }
 
 export default function (data) {
-  const testPath = TEST_PATH === 'dynamic' 
+  const testPath = TEST_PATH === 'dynamic'
     ? `/dynamic/${Math.floor(Math.random() * 1000000) + 1}`
     : '/';
-  
+
   const pageUrl = `${target_url}${testPath}`;
 
   group(`Load Page: ${testPath}`, function () {
-    const mainPageRes = http.get(pageUrl, { 
-      timeout: TIMEOUT,
-      tags: { resource_type: 'html' } 
-    });
+    // --- OPTIMIZATION: STRATEGY 1 ---
+    // Create the main page request object to be included in the batch.
+    const mainPageRequest = {
+      method: 'GET',
+      url: pageUrl,
+      params: {
+        timeout: TIMEOUT,
+        tags: { resource_type: 'html' },
+        responseType: 'none'
+      },
+    };
 
+    // Combine the main page request with the pre-computed asset requests.
+    const allRequests = [mainPageRequest];
+    if (data.assetRequests && data.assetRequests.length > 0) {
+        allRequests.push(...data.assetRequests);
+    }
+
+    // Execute all requests in a single batch call.
+    const responses = http.batch(allRequests);
+
+    // The first response is always the main HTML page.
+    const mainPageRes = responses[0];
     check(mainPageRes, {
       [`${server_type}: status is 200`]: (r) => r.status === 200,
     });
 
-    const assetUrls = data.assetUrls;
-
-    const assetRequests = assetUrls.map(url => {
-      return {
-        method: 'GET',
-        url: url,
-        params: { 
-          timeout: TIMEOUT,
-          tags: { resource_type: 'asset' },
-          responseType: 'none' 
-        },
-      };
-    });
-
-    if (assetRequests.length > 0) {
-      const assetResponses = http.batch(assetRequests);
-      
-      assetResponses.forEach((res) => {
-        check(res, {
-          'asset status is 200': (r) => r.status === 200,
-        }, { resource_type: 'asset_check' });
-      });
+    // --- OPTIMIZATION: STRATEGY 2 ---
+    // Use a single, efficient check for all asset responses.
+    if (data.assetRequests && data.assetRequests.length > 0) {
+      check(responses, {
+          'all assets status is 200': (rs) =>
+              // We slice(1) to skip the main page response and check the rest.
+              // .every() is highly efficient for this validation.
+              rs.slice(1).every((r) => r.status === 200),
+      }, { resource_type: 'asset_check' });
     }
   });
 }

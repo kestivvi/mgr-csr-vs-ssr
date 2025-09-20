@@ -69,15 +69,15 @@ variable "prometheus_port" {
 variable "app_server_instance_type" {
   description = "Instance type for all application servers (e.g., 2 vCPUs)."
   type        = string
-  default     = "t4g.micro"
-  # default = "c8g.medium"
+  # default     = "t4g.micro"
+  default = "c8g.medium"
 }
 
 variable "load_generator_instance_type" {
   description = "Instance type for all load generator servers (e.g., 4 vCPUs)."
   type        = string
-  default     = "t4g.micro"
-  # default = "c8g.medium"
+  # default     = "t4g.micro"
+  default = "c8g.xlarge"
 }
 
 # c8g.medium - 1 vCPUs - 2 GB RAM - $0.027/hour
@@ -86,10 +86,10 @@ variable "load_generator_instance_type" {
 # c8g.2xlarge - 8 vCPUs - 16 GB RAM - $0.2159/hour
 # c8g.4xlarge - 16 vCPUs - 32 GB RAM - $0.4318/hour
 
-# 14 Load Generators * 16 vCPUs + 14 App Servers * 1 vCPUs + 1 Monitoring Server * 1 vCPU =
-# 224 vCPUs + 14 vCPUs + 1 vCPU = 239 vCPUs
+# 14 Load Generators * 4 vCPUs + 14 App Servers * 1 vCPUs + 1 Monitoring Server * 1 vCPU =
+# 56 vCPUs + 14 vCPUs + 1 vCPU = 71 vCPUs
 
-# 239 vCPUs * $0.027/hour = $6.453/hour
+# 71 vCPUs * $0.027/hour = $1.917/hour
 
 variable "test_scenarios" {
   description = "A map of test scenarios to provision. The key is the short name (e.g., 'csr')."
@@ -102,85 +102,85 @@ variable "test_scenarios" {
     ##########################
     # CSR
     ##########################
-    "Angular-Nginx" = {
-      description = "Application Server (CSR-Angular-Nginx)"
-      purpose     = "Hosts Angular Client-Side Rendered application"
-      app_dir     = "apps/csr-angular"
-    },
-    "React-Nginx" = {
-      description = "Application Server (CSR-React-Nginx)"
-      purpose     = "Hosts Client-Side Rendered application"
-      app_dir     = "apps/csr-react"
-    },
-    "SolidJS-Nginx" = {
-      description = "Application Server (CSR-SolidJS-Nginx)"
-      purpose     = "Hosts Client-Side Rendered application"
-      app_dir     = "apps/csr-solidjs"
-    },
-    "SolidJS-Apache" = {
-      description = "Application Server (CSR-SolidJS-Apache)"
-      purpose     = "Hosts Client-Side Rendered application"
-      app_dir     = "apps/csr-solidjs-apache"
-    },
+    # "Angular-Nginx" = {
+    #   description = "Application Server (CSR-Angular-Nginx)"
+    #   purpose     = "Hosts Angular Client-Side Rendered application"
+    #   app_dir     = "apps/csr-angular"
+    # },
+    # "React-Nginx" = {
+    #   description = "Application Server (CSR-React-Nginx)"
+    #   purpose     = "Hosts Client-Side Rendered application"
+    #   app_dir     = "apps/csr-react"
+    # },
+    # "SolidJS-Nginx" = {
+    #   description = "Application Server (CSR-SolidJS-Nginx)"
+    #   purpose     = "Hosts Client-Side Rendered application"
+    #   app_dir     = "apps/csr-solidjs"
+    # },
+    # "SolidJS-Apache" = {
+    #   description = "Application Server (CSR-SolidJS-Apache)"
+    #   purpose     = "Hosts Client-Side Rendered application"
+    #   app_dir     = "apps/csr-solidjs-apache"
+    # },
     "SvelteKit-Static-Nginx" = {
       description = "Application Server (CSR-SvelteKit-Static-Nginx)"
       purpose     = "Hosts SvelteKit Client-Side Rendered application"
       app_dir     = "apps/csr-svelte-kit-static"
     },
-    "Vue-Nginx" = {
-      description = "Application Server (CSR-Vue-Nginx)"
-      purpose     = "Hosts Vue Client-Side Rendered application"
-      app_dir     = "apps/csr-vue"
-    },
+    # "Vue-Nginx" = {
+    #   description = "Application Server (CSR-Vue-Nginx)"
+    #   purpose     = "Hosts Vue Client-Side Rendered application"
+    #   app_dir     = "apps/csr-vue"
+    # },
 
     ##########################
     # SSR
     ##########################
 
-    "AnalogJS" = {
-      description = "Application Server (SSR-AnalogJS)"
-      purpose     = "Hosts AnalogJS Server-Side Rendered application"
-      app_dir     = "apps/ssr-analogjs"
-    },
-    "NextJS" = {
-      description = "Application Server (SSR-NextJS)"
-      purpose     = "Hosts Server-Side Rendered application"
-      app_dir     = "apps/ssr-nextjs"
-    },
-    "NextJS-Bun" = {
-      description = "Application Server (SSR-NextJS-Bun)"
-      purpose     = "Hosts NextJS Server-Side Rendered application"
-      app_dir     = "apps/ssr-nextjs-bun"
-    },
-    # "NextJS-Deno" = {
-    #   description = "Application Server (SSR-NextJS-Deno)"
-    #   purpose     = "Hosts NextJS Server-Side Rendered application"
-    #   app_dir     = "apps/ssr-nextjs-deno"
+    # "AnalogJS" = {
+    #   description = "Application Server (SSR-AnalogJS)"
+    #   purpose     = "Hosts AnalogJS Server-Side Rendered application"
+    #   app_dir     = "apps/ssr-analogjs"
     # },
-    "NuxtJS" = {
-      description = "Application Server (SSR-NuxtJS)"
-      purpose     = "Hosts NuxtJS Server-Side Rendered application"
-      app_dir     = "apps/ssr-nuxtjs"
-    },
-    "Qwik-City" = {
-      description = "Application Server (SSR-Qwik-City)"
-      purpose     = "Hosts Qwik-City Server-Side Rendered application"
-      app_dir     = "apps/ssr-qwik-city"
-    },
-    "Solid-Start" = {
-      description = "Application Server (SSR-Solid-Start)"
-      purpose     = "Hosts Solid-Start Server-Side Rendered application"
-      app_dir     = "apps/ssr-solid-start"
-    },
-    "SvelteKit" = {
-      description = "Application Server (SSR-SvelteKit)"
-      purpose     = "Hosts SvelteKit Server-Side Rendered application"
-      app_dir     = "apps/ssr-svelte-kit"
-    },
-    "SvelteKit-Bun" = {
-      description = "Application Server (SSR-SvelteKit-Bun)"
-      purpose     = "Hosts SvelteKit Server-Side Rendered application"
-      app_dir     = "apps/ssr-svelte-kit-bun"
-    }
+    # "NextJS" = {
+    #   description = "Application Server (SSR-NextJS)"
+    #   purpose     = "Hosts Server-Side Rendered application"
+    #   app_dir     = "apps/ssr-nextjs"
+    # },
+    # "NextJS-Bun" = {
+    #   description = "Application Server (SSR-NextJS-Bun)"
+    #   purpose     = "Hosts NextJS Server-Side Rendered application"
+    #   app_dir     = "apps/ssr-nextjs-bun"
+    # },
+    ## "NextJS-Deno" = {
+    ##   description = "Application Server (SSR-NextJS-Deno)"
+    ##   purpose     = "Hosts NextJS Server-Side Rendered application"
+    ##   app_dir     = "apps/ssr-nextjs-deno"
+    ## },
+    # "NuxtJS" = {
+    #   description = "Application Server (SSR-NuxtJS)"
+    #   purpose     = "Hosts NuxtJS Server-Side Rendered application"
+    #   app_dir     = "apps/ssr-nuxtjs"
+    # },
+    # "Qwik-City" = {
+    #   description = "Application Server (SSR-Qwik-City)"
+    #   purpose     = "Hosts Qwik-City Server-Side Rendered application"
+    #   app_dir     = "apps/ssr-qwik-city"
+    # },
+    # "Solid-Start" = {
+    #   description = "Application Server (SSR-Solid-Start)"
+    #   purpose     = "Hosts Solid-Start Server-Side Rendered application"
+    #   app_dir     = "apps/ssr-solid-start"
+    # },
+    # "SvelteKit" = {
+    #   description = "Application Server (SSR-SvelteKit)"
+    #   purpose     = "Hosts SvelteKit Server-Side Rendered application"
+    #   app_dir     = "apps/ssr-svelte-kit"
+    # },
+    # "SvelteKit-Bun" = {
+    #   description = "Application Server (SSR-SvelteKit-Bun)"
+    #   purpose     = "Hosts SvelteKit Server-Side Rendered application"
+    #   app_dir     = "apps/ssr-svelte-kit-bun"
+    # }
   }
 }
