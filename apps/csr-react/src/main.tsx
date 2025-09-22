@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import App from './App.tsx'
 import Dynamic from './pages/Dynamic.tsx';
+import './global.css';
 
 const router = createBrowserRouter([
   {

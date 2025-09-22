@@ -2,7 +2,7 @@
 FROM node:22-alpine3.22 AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm install --omit=dev
+RUN npm ci --omit=dev
 
 # Stage 2: Build the application
 FROM node:22-alpine3.22 AS builder
@@ -17,7 +17,6 @@ FROM node:22-alpine3.22 AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV PORT 3000
 
 # Copy the built application
 COPY --from=builder /app/.output ./

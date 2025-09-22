@@ -1,33 +1,17 @@
-# docker-compose.prod-nginx.yml
+# docker-compose.prod.yml
 
 services:
-  # 1. The SvelteKit Application Service
+  # The SvelteKit Application Service - running directly without nginx
   sveltekit-app:
     build:
       context: .
     image: ssr-svelte-kit-bun-app
     restart: unless-stopped
-    # NO 'ports' section here. Nginx will handle external traffic.
-    networks:
-      - app-net
-
-  # 2. The Nginx Reverse Proxy Service
-  nginx:
-    image: nginx:1.26.0-alpine # Using a lightweight alpine image
-    restart: unless-stopped
     ports:
-      # Expose Nginx's HTTP port to the host
-      - "80:80"
-      # Expose the Nginx status port to the host
-      - "8060:8060"
-    volumes:
-      # Mount our custom nginx config
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf
-      # Mount a volume for Nginx logs (optional but good practice)
-      # We'll create a 'logs' directory in our project
-      - ./logs/nginx:/var/log/nginx
-    depends_on:
-      - sveltekit-app # Nginx will wait for the app to start
+      # Expose the SvelteKit app directly on port 80
+      - "80:3000"
+    environment:
+      - NODE_ENV=production
     networks:
       - app-net
 

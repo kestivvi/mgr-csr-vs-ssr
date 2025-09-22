@@ -32,8 +32,6 @@ WORKDIR /app
 
 # Set environment variables for the server
 ENV NODE_ENV=production
-# The adapter-node will listen on port 3000 by default, or the PORT env var
-ENV PORT=3000
 
 # Copy the pre-installed production dependencies from the 'deps' stage
 COPY --from=deps /app/node_modules ./node_modules

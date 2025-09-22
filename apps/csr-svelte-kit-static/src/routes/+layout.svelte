@@ -8,6 +8,8 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
+    <link rel="stylesheet" href="/global.css" />
+    <title>SvelteKit</title>
 </svelte:head>
 
 {@render children?.()}

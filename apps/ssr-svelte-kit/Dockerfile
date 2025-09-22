@@ -6,8 +6,8 @@
 FROM node:22-alpine3.22 AS deps
 WORKDIR /app
 COPY package*.json ./
-# Use --omit=dev which is the modern equivalent of --only=production
-RUN npm install --omit=dev
+# Use npm ci for reproducible installs; only production deps in this layer
+RUN npm ci --omit=dev
 
 
 # ---- Stage 2: Build the SvelteKit Application ----
@@ -16,7 +16,7 @@ RUN npm install --omit=dev
 FROM node:22-alpine3.22 AS builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 COPY . .
 RUN npm run build
 
@@ -29,8 +29,6 @@ WORKDIR /app
 
 # Set environment variables for the Node.js server
 ENV NODE_ENV=production
-# The adapter-node will listen on port 3000 by default, or the PORT env var
-ENV PORT=3000
 
 # Copy the pre-installed production dependencies from the 'deps' stage
 COPY --from=deps /app/package*.json ./

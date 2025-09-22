@@ -20,7 +20,6 @@ FROM oven/bun:1-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV PORT 3000
 
 # Copy only the necessary standalone output from the builder stage
 COPY --from=builder /app/.next/standalone ./
