@@ -152,6 +152,10 @@ def run_single_scenario_lifecycle(
             "k6_rate": args.rate,
             "k6_duration": args.duration,
         }
+        if args.backoff_timeout_s is not None:
+            extra_vars["k6_backoff_timeout_s"] = args.backoff_timeout_s
+        if args.backoff_5xx_s is not None:
+            extra_vars["k6_backoff_5xx_s"] = args.backoff_5xx_s
     elif args.test_type == 'stress':
         playbook_path = STRESS_PLAYBOOK_PATH
         extra_vars = {
@@ -166,6 +170,10 @@ def run_single_scenario_lifecycle(
             "stress_ramp_down": args.ramp_down,
             "max_vus": args.max_vus,
         }
+        if args.backoff_timeout_s is not None:
+            extra_vars["k6_backoff_timeout_s"] = args.backoff_timeout_s
+        if args.backoff_5xx_s is not None:
+            extra_vars["k6_backoff_5xx_s"] = args.backoff_5xx_s
     else:
         logging.error(f"Internal error: Unknown test type '{args.test_type}'")
         return scenario_name, False
@@ -285,6 +293,10 @@ def create_metadata_file(results_dir: Path, args: argparse.Namespace):
             "warmup_duration": args.warmup,
             "cooldown_duration": args.cooldown,
         })
+        if args.backoff_timeout_s is not None:
+            metadata["parameters"]["backoff_timeout_s"] = args.backoff_timeout_s
+        if args.backoff_5xx_s is not None:
+            metadata["parameters"]["backoff_5xx_s"] = args.backoff_5xx_s
         metadata["calculated_durations_sec"] = {
             "total": total_duration_sec,
             "warmup": warmup_sec,
@@ -300,6 +312,10 @@ def create_metadata_file(results_dir: Path, args: argparse.Namespace):
             "ramp_down_duration": args.ramp_down,
             "max_vus": args.max_vus,
         })
+        if args.backoff_timeout_s is not None:
+            metadata["parameters"]["backoff_timeout_s"] = args.backoff_timeout_s
+        if args.backoff_5xx_s is not None:
+            metadata["parameters"]["backoff_5xx_s"] = args.backoff_5xx_s
 
     metadata_path = results_dir / "metadata.yaml"
     with open(metadata_path, 'w') as f:
@@ -328,6 +344,11 @@ def main():
     stress_group.add_argument('--sustain', type=str, default='5m', help="For stress test: Duration to sustain the peak rate. (Default: '5m')")
     stress_group.add_argument('--ramp-down', type=str, default='1m', help="For stress test: Duration of the ramp-down phase. (Default: '1m')")
     stress_group.add_argument('--max-vus', type=int, default=200, help="For stress test: Max VUs to pre-allocate. (Default: 200)")
+
+    # --- Backoff options (apply to both test types) ---
+    backoff_group = parser.add_argument_group('backoff options')
+    backoff_group.add_argument('--backoff-timeout-s', dest='backoff_timeout_s', type=float, help="Sleep seconds after timeout/network error (default 0.5 if unset)")
+    backoff_group.add_argument('--backoff-5xx-s', dest='backoff_5xx_s', type=float, help="Sleep seconds after 5xx/server errors (default 0.2 if unset)")
 
     args = parser.parse_args()
 

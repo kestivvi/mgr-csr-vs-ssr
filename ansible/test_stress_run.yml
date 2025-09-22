@@ -74,6 +74,7 @@
           docker run --rm
           --name {{ container_name }}
           --network host
+          --ulimit nofile=250000:250000
           --volume {{ remote_temp_script_path }}:/test/script.js:ro,z
           -e K6_SCENARIO="stress_test"
           -e SERVER_TYPE="{{ server_type | upper }}"
@@ -81,6 +82,8 @@
           -e K6_PROMETHEUS_RW_SERVER_URL="{{ prometheus_url }}/api/v1/write"
           -e K6_PROMETHEUS_RW_TREND_AS_NATIVE_HISTOGRAM="true"
           -e K6_LOG_OUTPUT="stdout"
+          -e K6_BACKOFF_TIMEOUT_S="{{ k6_backoff_timeout_s | default(omit) }}"
+          -e K6_BACKOFF_5XX_S="{{ k6_backoff_5xx_s | default(omit) }}"
           -e STRESS_START_RATE="{{ stress_start_rate }}"
           -e STRESS_PEAK_RATE="{{ stress_peak_rate }}"
           -e STRESS_RAMP_UP_DURATION="{{ stress_ramp_up }}"

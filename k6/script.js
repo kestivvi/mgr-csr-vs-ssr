@@ -1,5 +1,5 @@
 import http from 'k6/http';
-import { check, group } from 'k6';
+import { check, group, sleep } from 'k6';
 import { parseHTML } from 'k6/html';
 import { URL } from 'https://jslib.k6.io/url/1.0.0/index.js';
 
@@ -10,6 +10,9 @@ const server_type = __ENV.SERVER_TYPE || 'unknown';
 const K6_SCENARIO = __ENV.K6_SCENARIO || 'stress_test';
 const TEST_PATH = __ENV.TEST_PATH || 'static';
 const TIMEOUT = (parseFloat(__ENV.TIMEOUT) || 0.1) * 1000;
+// Backoff sleep durations in seconds, configurable via env
+const BACKOFF_TIMEOUT_S = parseFloat(__ENV.K6_BACKOFF_TIMEOUT_S) || 0.5;
+const BACKOFF_5XX_S = parseFloat(__ENV.K6_BACKOFF_5XX_S) || 0.2;
 const testId = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
 // Constant Test Params
@@ -125,6 +128,8 @@ export function setup() {
   console.log(`[config] TEST_PATH: ${TEST_PATH}`);
   console.log(`[config] TIMEOUT (ms): ${TIMEOUT}`);
   console.log(`[config] Generated Test ID: ${testId}`);
+  console.log(`[config] BACKOFF_TIMEOUT_S: ${BACKOFF_TIMEOUT_S}`);
+  console.log(`[config] BACKOFF_5XX_S: ${BACKOFF_5XX_S}`);
   console.log('[config] Environment variable processing complete.');
 
   console.log('[init] Final k6 options have been assembled.');
@@ -139,7 +144,7 @@ export function setup() {
 
   console.log(`[setup] Discovering assets by fetching the main page: ${pageToParse}`);
 
-  const res = http.get(pageToParse, { responseType: 'text' });
+  const res = http.get(pageToParse, { responseType: 'text', timeout: TIMEOUT });
 
   if (res.status !== 200 || !res.body) {
     throw new Error(`[setup] Could not fetch the page to parse assets. Status: ${res.status}. Aborting test.`);
@@ -199,15 +204,30 @@ export default function (data) {
       [`${server_type}: status is 200`]: (r) => r.status === 200,
     });
 
+    // Basic error handling and gentle backoff to avoid compounding failures
+    if (mainPageRes.status === 0) {
+      // timeout or network error
+      sleep(BACKOFF_TIMEOUT_S);
+    } else if (mainPageRes.status >= 500) {
+      // server error
+      sleep(BACKOFF_5XX_S);
+    }
+
     // --- OPTIMIZATION: STRATEGY 2 ---
     // Use a single, efficient check for all asset responses.
     if (data.assetRequests && data.assetRequests.length > 0) {
+      const assetStatusesOk = responses.slice(1).every((r) => r.status === 200);
       check(responses, {
-          'all assets status is 200': (rs) =>
-              // We slice(1) to skip the main page response and check the rest.
-              // .every() is highly efficient for this validation.
-              rs.slice(1).every((r) => r.status === 200),
+        'all assets status is 200': () => assetStatusesOk,
       }, { resource_type: 'asset_check' });
+
+      // If assets show widespread failures/timeouts, add a small backoff
+      if (!assetStatusesOk) {
+        const hasTimeoutsOrErrors = responses.slice(1).some((r) => r.status === 0 || r.status >= 500);
+        if (hasTimeoutsOrErrors) {
+          sleep(BACKOFF_5XX_S);
+        }
+      }
     }
   });
 }

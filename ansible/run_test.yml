@@ -45,6 +45,8 @@
         state: started
         auto_remove: true
         network_mode: host
+        ulimits:
+          - nofile:250000:250000
         interactive: true
         volumes:
           - /home/ec2-user/k6_archive.tar:/k6_archive.tar:ro
