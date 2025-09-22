@@ -100,6 +100,20 @@ variable "test_scenarios" {
   }))
   default = {
     ##########################
+    # Static Site
+    ##########################
+    "CSR-Vanilla" = {
+      description = "Application Server (CSR-Vanilla)"
+      purpose     = "Hosts Client-Side Rendered application"
+      app_dir     = "apps/csr-vanilla-nginx"
+    },
+    # "CSR-Vanilla-Apache" = {
+    #   description = "Application Server (CSR-Vanilla-Apache)"
+    #   purpose     = "Hosts Client-Side Rendered application"
+    #   app_dir     = "apps/csr-vanilla-apache"
+    # },
+
+    ##########################
     # CSR
     ##########################
     # "CSR-Angular" = {
@@ -112,11 +126,11 @@ variable "test_scenarios" {
     #   purpose     = "Hosts Client-Side Rendered application"
     #   app_dir     = "apps/csr-react"
     # },
-    # "CSR-SolidJS" = {
-    #   description = "Application Server (CSR-SolidJS-Nginx)"
-    #   purpose     = "Hosts Client-Side Rendered application"
-    #   app_dir     = "apps/csr-solidjs"
-    # },
+    "CSR-SolidJS" = {
+      description = "Application Server (CSR-SolidJS-Nginx)"
+      purpose     = "Hosts Client-Side Rendered application"
+      app_dir     = "apps/csr-solidjs"
+    },
     # "CSR-SolidJS-Apache" = {
     #   description = "Application Server (CSR-SolidJS-Apache)"
     #   purpose     = "Hosts Client-Side Rendered application"
