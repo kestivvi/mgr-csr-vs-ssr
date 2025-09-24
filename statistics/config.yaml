@@ -31,21 +31,21 @@ groups:
 # to the end of the list alphabetically.
 chart_order:
   - csr-vanilla
-  - csr-vanilla-apache
   - csr-solidjs
-  - csr-react
   - csr-vue
+  - csr-react
+  - csr-vanilla-apache
   - csr-solidjs-apache
-  - ssr-sveltekit
-  - csr-sveltekit-static
   - csr-angular
+  - csr-sveltekit-static
   - ssr-sveltekit-bun
-  - ssr-analogjs
-  - ssr-qwik-city
+  - ssr-sveltekit
   - ssr-solid-start
-  - ssr-nextjs
+  - ssr-qwik-city
   - ssr-nuxtjs
   - ssr-nextjs-bun
+  - ssr-nextjs
+  - ssr-analogjs
   # Svelte Family
   # NextJS Family
   # SolidJS Family

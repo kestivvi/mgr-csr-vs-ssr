@@ -150,8 +150,22 @@ export function setup() {
     throw new Error(`[setup] Could not fetch the page to parse assets. Status: ${res.status}. Aborting test.`);
   }
 
-  const urls = getAssetUrls(res.body, res.url);
-  console.log(`[setup] Discovered ${urls.length} assets to be used for the test.`);
+  const allUrls = getAssetUrls(res.body, res.url);
+  // Filter out the base HTML URL to avoid duplicate requests
+  const urls = allUrls.filter(url => url !== res.url);
+  
+  console.log(`[setup] Base HTML URL: ${res.url}`);
+  console.log(`[setup] Discovered ${allUrls.length} total URLs, ${urls.length} unique assets to be used for the test.`);
+  
+  // List all assets that will be downloaded
+  if (urls.length > 0) {
+    console.log('[setup] Assets to be downloaded:');
+    urls.forEach((url, index) => {
+      console.log(`[setup]   ${index + 1}. ${url}`);
+    });
+  } else {
+    console.log('[setup] No assets found to download.');
+  }
 
   const assetRequests = urls.map(url => {
     return {
