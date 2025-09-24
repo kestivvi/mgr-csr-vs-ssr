@@ -69,15 +69,15 @@ variable "prometheus_port" {
 variable "app_server_instance_type" {
   description = "Instance type for all application servers (e.g., 2 vCPUs)."
   type        = string
-  # default     = "t4g.micro"
-  default = "c8g.medium"
+  default     = "t4g.micro"
+  # default = "c8g.medium"
 }
 
 variable "load_generator_instance_type" {
   description = "Instance type for all load generator servers (e.g., 4 vCPUs)."
   type        = string
-  # default     = "t4g.micro"
-  default = "c8g.xlarge"
+  default     = "t4g.micro"
+  # default = "c8g.medium"
 }
 
 # c8g.medium - 1 vCPUs - 2 GB RAM - $0.027/hour
@@ -126,11 +126,11 @@ variable "test_scenarios" {
     #   purpose     = "Hosts Client-Side Rendered application"
     #   app_dir     = "apps/csr-react"
     # },
-    "CSR-SolidJS" = {
-      description = "Application Server (CSR-SolidJS-Nginx)"
-      purpose     = "Hosts Client-Side Rendered application"
-      app_dir     = "apps/csr-solidjs"
-    },
+    # "CSR-SolidJS" = {
+    #   description = "Application Server (CSR-SolidJS-Nginx)"
+    #   purpose     = "Hosts Client-Side Rendered application"
+    #   app_dir     = "apps/csr-solidjs"
+    # },
     # "CSR-SolidJS-Apache" = {
     #   description = "Application Server (CSR-SolidJS-Apache)"
     #   purpose     = "Hosts Client-Side Rendered application"

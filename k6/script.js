@@ -8,7 +8,7 @@ import { URL } from 'https://jslib.k6.io/url/1.0.0/index.js';
 const target_url = __ENV.TARGET_URL || 'http://localhost:8080';
 const server_type = __ENV.SERVER_TYPE || 'unknown';
 const K6_SCENARIO = __ENV.K6_SCENARIO || 'stress_test';
-const TEST_PATH = __ENV.TEST_PATH || 'static';
+const K6_TEST_PATH = __ENV.K6_TEST_PATH || 'dynamic'; // 'static' or 'dynamic'
 const TIMEOUT = (parseFloat(__ENV.TIMEOUT) || 0.1) * 1000;
 // Backoff sleep durations in seconds, configurable via env
 const BACKOFF_TIMEOUT_S = parseFloat(__ENV.K6_BACKOFF_TIMEOUT_S) || 0.5;
@@ -125,7 +125,7 @@ export function setup() {
   console.log(`[config] TARGET_URL: ${target_url}`);
   console.log(`[config] SERVER_TYPE: ${server_type}`);
   console.log(`[config] K6_SCENARIO: ${K6_SCENARIO}`);
-  console.log(`[config] TEST_PATH: ${TEST_PATH}`);
+  console.log(`[config] K6_TEST_PATH: ${K6_TEST_PATH}`);
   console.log(`[config] TIMEOUT (ms): ${TIMEOUT}`);
   console.log(`[config] Generated Test ID: ${testId}`);
   console.log(`[config] BACKOFF_TIMEOUT_S: ${BACKOFF_TIMEOUT_S}`);
@@ -144,7 +144,7 @@ export function setup() {
 
   console.log(`[setup] Discovering assets by fetching the main page: ${pageToParse}`);
 
-  const res = http.get(pageToParse, { responseType: 'text', timeout: TIMEOUT });
+  const res = http.get(pageToParse, { responseType: 'text' });
 
   if (res.status !== 200 || !res.body) {
     throw new Error(`[setup] Could not fetch the page to parse assets. Status: ${res.status}. Aborting test.`);
@@ -170,21 +170,26 @@ export function setup() {
 }
 
 export default function (data) {
-  const testPath = TEST_PATH === 'dynamic'
+  const isDynamic = K6_TEST_PATH === 'dynamic';
+
+  const testPath = isDynamic
     ? `/dynamic/${Math.floor(Math.random() * 1000000) + 1}`
     : '/';
-
   const pageUrl = `${target_url}${testPath}`;
 
-  group(`Load Page: ${testPath}`, function () {
-    // --- OPTIMIZATION: STRATEGY 1 ---
-    // Create the main page request object to be included in the batch.
+  const groupName = isDynamic ? '/dynamic/:id' : '/';
+
+  // Use the static `groupName` here to prevent high cardinality in the 'group' tag
+  group(`Load Page: ${groupName}`, function () {
     const mainPageRequest = {
       method: 'GET',
       url: pageUrl,
       params: {
         timeout: TIMEOUT,
-        tags: { resource_type: 'html' },
+        tags: {
+          resource_type: 'html',
+          name: groupName,
+        },
         responseType: 'none'
       },
     };
@@ -213,7 +218,6 @@ export default function (data) {
       sleep(BACKOFF_5XX_S);
     }
 
-    // --- OPTIMIZATION: STRATEGY 2 ---
     // Use a single, efficient check for all asset responses.
     if (data.assetRequests && data.assetRequests.length > 0) {
       const assetStatusesOk = responses.slice(1).every((r) => r.status === 200);

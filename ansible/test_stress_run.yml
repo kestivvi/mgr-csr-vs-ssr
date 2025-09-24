@@ -4,9 +4,6 @@
 # This playbook runs a single k6 STRESS test on a target load generator.
 # It is designed to be called by an external orchestrator script, which
 # must provide all necessary variables via --extra-vars.
-#
-# This playbook is synchronous: it waits for the k6 test to complete and
-# will fail if the test returns a non-zero exit code.
 
 # Play 1: Run pre-flight checks on the local machine (where Ansible is run)
 - name: Pre-flight Checks on Localhost
@@ -35,6 +32,7 @@
     target_url: "undefined"
     server_type: "undefined"
     prometheus_url: "undefined"
+    k6_path_type: "dynamic" # 'static' or 'dynamic'
     stress_start_rate: 10
     stress_peak_rate: 2000
     stress_ramp_up: "10m"
@@ -42,10 +40,11 @@
     stress_ramp_down: "1m"
     max_vus: 200
 
-    # --- Internal playbook variables ---
+    # --- Standardized variables (MUST MATCH teardown playbook) ---
     local_k6_script_path: "../k6/script.js"
     remote_temp_script_path: "/tmp/script.js"
-    container_name: "k6_stress_test_{{ server_type | lower | replace('-', '_') }}"
+    container_name: "k6_run_{{ server_type | lower | replace('-', '_') }}"
+    remote_state_file: "/tmp/k6_state_{{ server_type | lower | replace('-', '_') }}.json"
 
   tasks:
     - name: Copy the raw k6 script to the remote host
@@ -65,10 +64,14 @@
       register: start_timestamp_result
       changed_when: false
 
+    - name: (NEW) Create remote state file for graceful shutdown
+      ansible.builtin.copy:
+        content: '{"start_time": {{ start_timestamp_result.stdout }} }'
+        dest: "{{ remote_state_file }}"
+        mode: '0644'
+
     - name: Run k6 stress test synchronously
       # noqa: command-instead-of-shell
-      # We use 'shell' here to allow for the multi-line YAML syntax, which is not supported by 'command'.
-      # This is a deliberate choice for readability.
       ansible.builtin.shell:
         cmd: >-
           docker run --rm
@@ -79,6 +82,7 @@
           -e K6_SCENARIO="stress_test"
           -e SERVER_TYPE="{{ server_type | upper }}"
           -e TARGET_URL="{{ target_url }}"
+          -e K6_TEST_PATH="{{ k6_path_type }}"
           -e K6_PROMETHEUS_RW_SERVER_URL="{{ prometheus_url }}/api/v1/write"
           -e K6_PROMETHEUS_RW_TREND_AS_NATIVE_HISTOGRAM="true"
           -e K6_LOG_OUTPUT="stdout"
@@ -110,6 +114,11 @@
     - name: Display k6 container logs for debugging
       ansible.builtin.debug:
         msg: "{{ k6_run_result.stdout_lines }}"
+
+    - name: (NEW) Clean up the remote state file on successful completion
+      ansible.builtin.file:
+        path: "{{ remote_state_file }}"
+        state: absent
 
     - name: Clean up the remote script
       ansible.builtin.file:

@@ -1,0 +1,71 @@
+---
+# ansible/test_teardown.yml
+#
+# This playbook performs a graceful shutdown of a specific k6 test run.
+# It is designed to be called by the orchestrator when a test is interrupted.
+# It reads a state file to get the test's start time, captures the current
+# time as the end time, stops the container, and reports the final timestamps.
+
+- name: Gracefully Stop and Finalize a k6 Test Run
+  hosts: "{{ target_host_group }}"
+  become: true
+  gather_facts: false
+
+  vars:
+    # --- Required variables to be passed by the orchestrator ---
+    target_host_group: "undefined"
+    server_type: "undefined"
+
+    # --- Standardized variables (MUST MATCH run playbooks) ---
+    container_name: "k6_run_{{ server_type | lower | replace('-', '_') }}"
+    remote_state_file: "/tmp/k6_state_{{ server_type | lower | replace('-', '_') }}.json"
+
+  tasks:
+    - name: Check for the existence of the state file
+      ansible.builtin.stat:
+        path: "{{ remote_state_file }}"
+      register: state_file_stat
+
+    - name: Fail if state file is missing (cannot determine start time)
+      when: not state_file_stat.stat.exists
+      ansible.builtin.fail:
+        msg: >-
+          Teardown failed: State file '{{ remote_state_file }}' not found.
+          Cannot determine the test start time for metric collection.
+
+    - name: Read the start time from the state file
+      # 'slurp' reads the file and base64-encodes it
+      ansible.builtin.slurp:
+        src: "{{ remote_state_file }}"
+      register: state_file_content
+
+    - name: Decode state file and get end timestamp
+      # This block runs on the Ansible controller, not the remote host
+      delegate_to: localhost
+      become: false
+      block:
+        - name: Decode and parse start time
+          ansible.builtin.set_fact:
+            start_timestamp: "{{ (state_file_content.content | b64decode | from_json).start_time }}"
+
+        - name: Get end timestamp on remote host
+          ansible.builtin.command: "date +%s"
+          delegate_to: "{{ inventory_hostname }}" # Run command on the remote host
+          become: true
+          register: end_timestamp_result
+          changed_when: false # This is a read-only command
+
+    - name: Ensure the k6 test container is stopped and removed
+      ansible.builtin.command: "docker rm -f {{ container_name }}"
+      register: docker_rm_result
+      failed_when: "docker_rm_result.rc != 0 and 'No such container' not in docker_rm_result.stderr"
+      changed_when: "docker_rm_result.rc == 0"
+
+    - name: Output precise timestamps for orchestrator
+      ansible.builtin.debug:
+        msg: "ORCHESTRATOR_TIMESTAMPS::{\"start\": \"{{ start_timestamp }}\", \"end\": \"{{ end_timestamp_result.stdout }}\"}"
+
+    - name: Clean up the remote state file
+      ansible.builtin.file:
+        path: "{{ remote_state_file }}"
+        state: absent

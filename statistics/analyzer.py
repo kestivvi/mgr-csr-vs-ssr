@@ -42,7 +42,13 @@ def calculate_confidence_interval(data: pd.Series) -> Tuple[float, float]:
     std_err = stats.sem(data)
     if std_err == 0:
         return (mean, mean)
-    return stats.t.interval(0.95, df=n-1, loc=mean, scale=std_err)
+    
+    interval = stats.t.interval(0.95, df=n-1, loc=mean, scale=std_err)
+    
+    # --- FIX #2: Clamp the lower bound at 0 for non-negative metrics ---
+    # This prevents nonsensical negative CIs for metrics like standard deviation.
+    ci_lower = max(0, interval[0])
+    return (ci_lower, interval[1])
 
 def cohen_d(group1: pd.Series, group2: pd.Series) -> float:
     if len(group1) < 2 or len(group2) < 2: return np.nan
@@ -324,18 +330,35 @@ class PerformanceAnalyzer:
 
     def _render_ranking_tables_md(self) -> str:
         md = ["\n## Stage 3: Intra-Group Rankings", "Tables ranking each technology within its group. The metric shown is the mean across all runs, with the 95% confidence interval.\n"]
-        for metric_name, ranking_df in self.ranking_results.items():
-            md.append(f"### {metric_name}")
-            sort_ascending = any(c['name'] == metric_name and c['sort_ascending'] for s in METRIC_CONFIG.values() for c in s.values())
-            
-            for group_name in sorted(ranking_df['group'].unique()):
-                md.append(f"\n#### Group: {group_name}\n")
-                group_data = ranking_df[ranking_df['group'] == group_name].sort_values(by='mean', ascending=sort_ascending)
-                group_data['formatted_metric'] = group_data.apply(
-                    lambda r: f"{r['mean']:.4f} [{r['ci_lower']:.4f}, {r['ci_upper']:.4f}]" if pd.notna(r['ci_lower']) else f"{r['mean']:.4f}", axis=1)
+        
+        # --- FIX #3: Refactor loop to generate dynamic headers ---
+        stat_name_map = {
+            'mean': 'Mean',
+            'std': 'Mean of Std Devs',
+            'p95': 'Mean of p95s'
+        }
+
+        for stat_col, metrics in METRIC_CONFIG.items():
+            for metric, config in metrics.items():
+                metric_name = config['name']
+                if metric_name not in self.ranking_results:
+                    continue
                 
-                output_df = group_data[['server_type', 'formatted_metric']].rename(columns={'formatted_metric': 'Mean (95% CI)'})
-                md.append(output_df.to_markdown(index=False))
+                ranking_df = self.ranking_results[metric_name]
+                md.append(f"### {metric_name}")
+                
+                sort_ascending = config['sort_ascending']
+                header_name = f"{stat_name_map.get(stat_col, stat_col.title())} (95% CI)"
+
+                for group_name in sorted(ranking_df['group'].unique()):
+                    md.append(f"\n#### Group: {group_name}\n")
+                    group_data = ranking_df[ranking_df['group'] == group_name].sort_values(by='mean', ascending=sort_ascending)
+                    group_data['formatted_metric'] = group_data.apply(
+                        lambda r: f"{r['mean']:.4f} [{r['ci_lower']:.4f}, {r['ci_upper']:.4f}]" if pd.notna(r['ci_lower']) else f"{r['mean']:.4f}", axis=1)
+                    
+                    output_df = group_data[['server_type', 'formatted_metric']].rename(columns={'formatted_metric': header_name})
+                    md.append(output_df.to_markdown(index=False))
+        # --- END FIX ---
         return "\n".join(md)
 
     def _render_champion_analysis_md(self) -> str:

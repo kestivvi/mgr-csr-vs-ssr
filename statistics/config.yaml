@@ -11,6 +11,8 @@ groups:
     - csr-solidjs-apache
     - csr-sveltekit-static
     - csr-vue
+    - csr-vanilla
+    - csr-vanilla-apache
 
   SSR:
     - ssr-analogjs
@@ -28,6 +30,8 @@ groups:
 # Any framework found in the data but not listed here will be appended
 # to the end of the list alphabetically.
 chart_order:
+  - csr-vanilla
+  - csr-vanilla-apache
   - csr-solidjs
   - csr-react
   - csr-vue

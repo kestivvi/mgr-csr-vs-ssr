@@ -4,7 +4,23 @@
 # This playbook runs a single k6 load test on a target load generator.
 # It is designed to be called by an external orchestrator script, which
 # must provide all necessary variables via --extra-vars.
-#
+
+# Play 1: Run pre-flight checks on the local machine (where Ansible is run)
+- name: Pre-flight Checks on Localhost
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    local_k6_script_path: "../k6/script.js"
+
+  tasks:
+    - name: Ensure k6 script exists locally before starting
+      ansible.builtin.stat:
+        path: "{{ local_k6_script_path }}"
+      register: k6_script_file
+      failed_when: not k6_script_file.stat.exists
+
+# Play 2: Deploy and run the test on the remote load generator
 - name: Run k6 Load Test on a Single Generator
   hosts: "{{ target_host_group }}"
   become: true
@@ -18,25 +34,17 @@
     prometheus_url: "undefined"
     k6_rate: 100
     k6_duration: "5m"
+    k6_path_type: "dynamic" # 'static' or 'dynamic'
     k6_scenario: "constant_test"
 
-    # --- Internal playbook variables ---
+    # --- Standardized variables (MUST MATCH teardown playbook) ---
     local_k6_script_path: "../k6/script.js"
     remote_temp_script_path: "/tmp/script.js"
-    container_name: "k6_test_{{ server_type | lower | replace('-', '_') }}"
+    container_name: "k6_run_{{ server_type | lower | replace('-', '_') }}"
+    remote_state_file: "/tmp/k6_state_{{ server_type | lower | replace('-', '_') }}.json"
 
   tasks:
-    - name: Ensure k6 script exists locally before starting
-      ansible.builtin.stat:
-        path: "{{ local_k6_script_path }}"
-      delegate_to: localhost
-      run_once: true  # noqa: run-once[task]
-      register: k6_script_file
-      failed_when: not k6_script_file.stat.exists
-      check_mode: false
-      become: false
-
-    - name: 1. Copy the raw k6 script to the remote host
+    - name: Copy the raw k6 script to the remote host
       ansible.builtin.copy:
         src: "{{ local_k6_script_path }}"
         dest: "{{ remote_temp_script_path }}"
@@ -53,6 +61,12 @@
       register: start_timestamp_result
       changed_when: false
 
+    - name: Create remote state file for graceful shutdown
+      ansible.builtin.copy:
+        content: '{"start_time": {{ start_timestamp_result.stdout }} }'
+        dest: "{{ remote_state_file }}"
+        mode: '0644'
+
     - name: Run k6 test by mounting the script file directly
       # noqa: command-instead-of-shell
       ansible.builtin.shell: >-
@@ -64,6 +78,7 @@
         -e K6_SCENARIO="{{ k6_scenario }}"
         -e SERVER_TYPE="{{ server_type | upper }}"
         -e TARGET_URL="{{ target_url }}"
+        -e K6_TEST_PATH="{{ k6_path_type }}"
         -e K6_RATE="{{ k6_rate | string }}"
         -e SCRIPT_DURATION="{{ k6_duration }}"
         -e K6_PROMETHEUS_RW_SERVER_URL="{{ prometheus_url }}/api/v1/write"
@@ -91,6 +106,11 @@
     - name: Display k6 container logs for debugging
       ansible.builtin.debug:
         msg: "{{ k6_run_result.stdout_lines }}"
+
+    - name: Clean up the remote state file on successful completion
+      ansible.builtin.file:
+        path: "{{ remote_state_file }}"
+        state: absent
 
     - name: Clean up the remote script
       ansible.builtin.file:
