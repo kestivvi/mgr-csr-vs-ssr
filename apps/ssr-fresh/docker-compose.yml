@@ -1,0 +1,12 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        GIT_REVISION: ${GIT_REVISION:-dev}
+    ports:
+      - "80:8000"
+    environment:
+      - DENO_DEPLOYMENT_ID=${GIT_REVISION:-dev}
+    command: ["deno", "serve", "-A", "_fresh/server.js"]

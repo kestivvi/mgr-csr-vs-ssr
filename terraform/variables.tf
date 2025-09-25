@@ -196,10 +196,15 @@ variable "test_scenarios" {
     #   purpose     = "Hosts SvelteKit Server-Side Rendered application"
     #   app_dir     = "apps/ssr-svelte-kit-bun"
     # },
-    "SSR-React-Router" = {
-      description = "Application Server (SSR-React-Router)"
-      purpose     = "Hosts React-Router Server-Side Rendered application"
-      app_dir     = "apps/ssr-react-router"
+    # "SSR-React-Router" = {
+    #   description = "Application Server (SSR-React-Router)"
+    #   purpose     = "Hosts React-Router Server-Side Rendered application"
+    #   app_dir     = "apps/ssr-react-router"
+    # }
+    "SSR-Fresh" = {
+      description = "Application Server (SSR-Fresh)"
+      purpose     = "Hosts Fresh Server-Side Rendered application"
+      app_dir     = "apps/ssr-fresh"
     }
   }
 }
