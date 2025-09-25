@@ -1,9 +1,12 @@
+# statistics/analyzer.py
 import argparse
 import glob
 import shutil
+import sys
 from pathlib import Path
 import re
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, List, Optional
+from collections import Counter
 
 import pandas as pd
 import numpy as np
@@ -15,19 +18,22 @@ import yaml
 # --- CONFIGURATION (Global) ---
 METRIC_CONFIG = {
     'mean': {
-        'cpu':     {'name': 'Mean CPU Usage (%)', 'sort_ascending': True},
-        'memory':  {'name': 'Mean Memory Usage (%)', 'sort_ascending': True},
-        'latency': {'name': 'Mean p95 Latency (ms)', 'sort_ascending': True}
+        'cpu':        {'name': 'Mean CPU Usage (%)', 'sort_ascending': True},
+        'memory':     {'name': 'Mean Memory Usage (%)', 'sort_ascending': True},
+        'latency':    {'name': 'Mean p95 Latency (ms)', 'sort_ascending': True},
+        'network_tx': {'name': 'Mean Network Transmit Rate (B/s)', 'sort_ascending': True}
     },
     'std': {
-        'cpu':     {'name': 'CPU Usage Stability (Std Dev)', 'sort_ascending': True},
-        'memory':  {'name': 'Memory Usage Stability (Std Dev)', 'sort_ascending': True},
-        'latency': {'name': 'Latency Stability (Std Dev)', 'sort_ascending': True}
+        'cpu':        {'name': 'CPU Usage Stability (Std Dev)', 'sort_ascending': True},
+        'memory':     {'name': 'Memory Usage Stability (Std Dev)', 'sort_ascending': True},
+        'latency':    {'name': 'Latency Stability (Std Dev)', 'sort_ascending': True},
+        'network_tx': {'name': 'Network Transmit Stability (Std Dev)', 'sort_ascending': True}
     },
     'p95': {
-        'cpu':     {'name': 'Peak CPU Usage (95th Percentile)', 'sort_ascending': True},
-        'memory':  {'name': 'Peak Memory Usage (95th Percentile)', 'sort_ascending': True},
-        'latency': {'name': 'Peak Latency (95th Percentile)', 'sort_ascending': True}
+        'cpu':        {'name': 'Peak CPU Usage (95th Percentile)', 'sort_ascending': True},
+        'memory':     {'name': 'Peak Memory Usage (95th Percentile)', 'sort_ascending': True},
+        'latency':    {'name': 'Peak Latency (95th Percentile)', 'sort_ascending': True},
+        'network_tx': {'name': 'Peak Network Transmit Rate (95th Percentile)', 'sort_ascending': True}
     }
 }
 
@@ -40,13 +46,11 @@ def calculate_confidence_interval(data: pd.Series) -> Tuple[float, float]:
         return (np.nan, np.nan)
     mean = np.mean(data)
     std_err = stats.sem(data)
-    if std_err == 0:
+    if std_err == 0 or np.isnan(std_err):
         return (mean, mean)
     
     interval = stats.t.interval(0.95, df=n-1, loc=mean, scale=std_err)
     
-    # --- FIX #2: Clamp the lower bound at 0 for non-negative metrics ---
-    # This prevents nonsensical negative CIs for metrics like standard deviation.
     ci_lower = max(0, interval[0])
     return (ci_lower, interval[1])
 
@@ -56,7 +60,7 @@ def cohen_d(group1: pd.Series, group2: pd.Series) -> float:
     s1, s2 = np.var(group1, ddof=1), np.var(group2, ddof=1)
     if (n1 + n2 - 2) == 0: return np.nan
     pooled_std = np.sqrt(((n1 - 1) * s1 + (n2 - 1) * s2) / (n1 + n2 - 2))
-    if pooled_std == 0: return np.nan
+    if pooled_std == 0 or np.isnan(pooled_std): return np.nan
     mean1, mean2 = np.mean(group1), np.mean(group2)
     return (mean1 - mean2) / pooled_std
 
@@ -66,11 +70,13 @@ class PerformanceAnalyzer:
     """
     Orchestrates the entire performance analysis pipeline from data loading to report generation.
     """
-    def __init__(self, input_dir: Path, primary_metric: str):
+    def __init__(self, input_dir: Path, report_type: str, champions: Optional[List[str]] = None):
         self.input_dir = input_dir
-        self.primary_metric_str = primary_metric
+        self.report_type = report_type
+        self.champions_list = champions or []
+        
         self.plots_dir = self.input_dir / "plots"
-        self.report_path = self.input_dir / "report.md"
+        self.report_path = self.input_dir / f"report_{self.report_type}.md"
 
         self.metadata: Dict[str, Any] = {}
         self.groups_config: Dict[str, Any] = {}
@@ -78,23 +84,33 @@ class PerformanceAnalyzer:
         self.raw_df: pd.DataFrame = pd.DataFrame()
         self.summary_df: pd.DataFrame = pd.DataFrame()
         self.ranking_results: Dict[str, pd.DataFrame] = {}
-        self.champions: Dict[str, str] = {}
         self.champion_results: Dict[str, Dict[str, Any]] = {}
+        
+        # --- NEW: State for executive summary ---
+        self.scorecard_ranks_df = pd.DataFrame()
+        self.scorecard_values_df = pd.DataFrame()
+        self.executive_summary_text = ""
 
     def run(self):
-        """Executes the full analysis pipeline."""
+        """Executes the full analysis pipeline based on the report type."""
         print(f"Starting analysis for directory: {self.input_dir}")
+        print(f"Report Type: {self.report_type}")
         self.plots_dir.mkdir(exist_ok=True)
 
-        if not self._load_configuration():
+        if not self._load_configuration(): return
+        if not self._load_and_prepare_data(): return
+
+        if self.report_type == 'all_apps':
+            self._compute_rankings()
+            self._compute_scorecard_and_winner()
+            report_content = self._generate_all_apps_report()
+        elif self.report_type == 'champions':
+            self._compute_champion_stats()
+            report_content = self._generate_champions_report()
+        else:
+            print(f"ERROR: Unknown report type '{self.report_type}'")
             return
 
-        if not self._load_and_prepare_data():
-            return
-
-        self._compute_statistical_summaries()
-        
-        report_content = self._generate_report()
         self._write_report(report_content)
 
         print(f"\n\n{'='*25} ANALYSIS COMPLETE {'='*26}")
@@ -146,7 +162,7 @@ class PerformanceAnalyzer:
             print(f"ERROR: No valid CSV data files found in {self.input_dir} matching the pattern 'NN_...'.")
             return False
 
-        filename_regex = re.compile(r"^(\d+)_([a-zA-Z0-9_-]+)_(cpu|memory|latency)$")
+        filename_regex = re.compile(r"^(\d+)_([a-zA-Z0-9_-]+)_(cpu|memory|latency|network_tx)$")
         
         tech_to_group = {tech: group for group, techs in self.groups_config.items() for tech in techs}
         all_dfs = []
@@ -191,15 +207,9 @@ class PerformanceAnalyzer:
     # STAGE 2: STATISTICAL COMPUTATION
     # --------------------------------------------------------------------------
 
-    def _compute_statistical_summaries(self):
-        """Performs all statistical calculations and stores them in instance attributes."""
-        print("INFO: Computing statistical summaries...")
-        self._compute_rankings()
-        self._compute_champion_stats()
-        print("INFO: Statistical computations complete.")
-
     def _compute_rankings(self):
         """Calculates rankings with confidence intervals for all metrics."""
+        print("INFO: Computing statistical rankings...")
         for stat_col, metrics in METRIC_CONFIG.items():
             for metric, config in metrics.items():
                 metric_df = self.summary_df[self.summary_df['metric'] == metric]
@@ -209,43 +219,79 @@ class PerformanceAnalyzer:
                 agg_df = metric_df.groupby(['group', 'server_type'])[stat_col].agg(['mean', calculate_confidence_interval]).reset_index()
                 agg_df[['ci_lower', 'ci_upper']] = pd.DataFrame(agg_df['calculate_confidence_interval'].tolist(), index=agg_df.index)
                 self.ranking_results[config['name']] = agg_df.drop(columns=['calculate_confidence_interval'])
+        print("INFO: Ranking computation complete.")
+
+    def _compute_scorecard_and_winner(self):
+        """Computes ranks for all metrics to build a scorecard and determine an overall winner."""
+        print("INFO: Computing scorecard and determining winner...")
+        all_ranks = {}
+        all_values = {}
+        
+        for metric_name, df in self.ranking_results.items():
+            sort_asc = True
+            for stat_metrics in METRIC_CONFIG.values():
+                for m_config in stat_metrics.values():
+                    if m_config['name'] == metric_name:
+                        sort_asc = m_config['sort_ascending']
+                        break
+            
+            ranked_df = df.sort_values('mean', ascending=sort_asc).reset_index(drop=True)
+            ranked_df['rank'] = ranked_df.index + 1
+            
+            all_ranks[metric_name] = ranked_df.set_index('server_type')['rank']
+            all_values[metric_name] = ranked_df.set_index('server_type')['mean']
+
+        self.scorecard_ranks_df = pd.DataFrame(all_ranks).transpose()
+        self.scorecard_values_df = pd.DataFrame(all_values).transpose()
+
+        if self.scorecard_ranks_df.empty:
+            self.executive_summary_text = "Could not generate a summary as no ranking data was available."
+            return
+
+        first_place_ranks = self.scorecard_ranks_df[self.scorecard_ranks_df == 1].count()
+        if first_place_ranks.sum() == 0:
+            self.executive_summary_text = "No technology achieved a #1 rank in any category, so no overall winner could be determined."
+            return
+            
+        winner_counts = Counter(first_place_ranks[first_place_ranks > 0].to_dict())
+        winners = winner_counts.most_common()
+        
+        num_metrics = len(self.scorecard_ranks_df)
+        num_runs = self.metadata.get('parameters', {}).get('num_runs', 'multiple')
+
+        if len(winners) > 0 and (len(winners) == 1 or winners[0][1] > winners[1][1]):
+            winner_tech, win_count = winners[0]
+            self.executive_summary_text = (
+                f"Based on an analysis of **{num_metrics} key metrics** across **{num_runs} runs**, "
+                f"**`{winner_tech}`** emerges as the top overall performer, achieving the #1 rank in **{win_count} categories**. "
+                "The performance scorecard below provides a detailed breakdown of all technologies."
+            )
+        else:
+            top_contenders = [tech for tech, count in winners if count == winners[0][1]]
+            contender_str = "`, `".join(top_contenders)
+            self.executive_summary_text = (
+                f"The analysis of **{num_metrics} key metrics** across **{num_runs} runs** did not yield a single clear winner. "
+                f"Several technologies showed top-tier performance in different areas, with **`{contender_str}`** leading in an equal number of categories. "
+                "This suggests a performance trade-off, which can be explored in the detailed scorecard and analysis below."
+            )
 
     def _compute_champion_stats(self):
-        """Selects champions and computes all pairwise statistical tests between them."""
-        try:
-            primary_stat, primary_metric = self.primary_metric_str.split('_')
-            primary_metric_name = METRIC_CONFIG[primary_stat][primary_metric]['name']
-        except (ValueError, KeyError):
-            print(f"ERROR: Invalid --primary-metric format '{self.primary_metric_str}'.")
+        """Computes all pairwise statistical tests between the two provided champions."""
+        print("INFO: Computing champion statistics...")
+        if len(self.champions_list) != 2:
+            print("ERROR: Champion comparison requires exactly two technologies.")
             return
 
-        primary_df = self.ranking_results.get(primary_metric_name)
-        if primary_df is None or primary_df.empty:
-            print(f"ERROR: No data for primary metric '{primary_metric_name}'. Cannot select champions.")
-            return
-
-        for group in self.groups_config.keys():
-            group_techs = primary_df[primary_df['group'] == group]
-            if not group_techs.empty:
-                sort_asc = METRIC_CONFIG[primary_stat][primary_metric]['sort_ascending']
-                best = group_techs.loc[group_techs['mean'].idxmin() if sort_asc else group_techs['mean'].idxmax()]
-                self.champions[group] = best['server_type']
-        
-        if len(self.champions) < 2:
-            print("INFO: Fewer than two groups have champions. Skipping champion vs. champion analysis.")
-            return
-        
-        champ_keys = list(self.champions.keys())
-        champ1_group, champ2_group = champ_keys[0], champ_keys[1]
-        champ1_tech, champ2_tech = self.champions[champ1_group], self.champions[champ2_group]
+        champ1_tech, champ2_tech = self.champions_list[0], self.champions_list[1]
+        print(f"INFO: Comparing '{champ1_tech}' vs '{champ2_tech}'")
 
         for stat_col, metrics in METRIC_CONFIG.items():
             for metric, config in metrics.items():
                 metric_df = self.summary_df[self.summary_df['metric'] == metric]
                 if metric_df.empty: continue
 
-                group1 = metric_df[metric_df['server_type'] == champ1_tech][stat_col]
-                group2 = metric_df[metric_df['server_type'] == champ2_tech][stat_col]
+                group1 = metric_df[metric_df['server_type'] == champ1_tech][stat_col].dropna()
+                group2 = metric_df[metric_df['server_type'] == champ2_tech][stat_col].dropna()
                 
                 results = {'name': config['name'], 'champ1': champ1_tech, 'champ2': champ2_tech}
                 if len(group1) > 1 and len(group2) > 1:
@@ -262,20 +308,31 @@ class PerformanceAnalyzer:
                 
                 results['cohen_d'] = cohen_d(group1, group2)
                 self.champion_results[config['name']] = results
+        print("INFO: Champion statistics complete.")
 
     # --------------------------------------------------------------------------
     # STAGE 3: REPORT GENERATION
     # --------------------------------------------------------------------------
 
-    def _generate_report(self) -> str:
-        """Assembles all parts of the Markdown report."""
-        print("INFO: Generating report content...")
+    def _generate_all_apps_report(self) -> str:
+        """Assembles all parts of the main comparison report in a new top-down structure."""
+        print("INFO: Generating 'all_apps' report content...")
         report_parts = [f"# Performance Analysis Report for `{self.input_dir.name}`"]
-        report_parts.append(self._render_metadata_md())
+        report_parts.append(self._render_executive_summary_md())
+        report_parts.append("\n## Detailed Analysis")
+        report_parts.append("The following sections provide a detailed breakdown of each performance metric through rankings, distributions, and time-series analysis.")
+        report_parts.append(self._render_ranking_tables_md())
         report_parts.append(self._render_visual_overview_md())
         report_parts.append(self._render_temporal_analysis_md())
-        report_parts.append(self._render_ranking_tables_md())
+        report_parts.append(self._render_metadata_md())
+        return "\n".join(report_parts)
+
+    def _generate_champions_report(self) -> str:
+        """Assembles the focused champion vs. champion report."""
+        print("INFO: Generating 'champions' report content...")
+        report_parts = [f"# Champion Comparison Report for `{self.input_dir.name}`"]
         report_parts.append(self._render_champion_analysis_md())
+        report_parts.append(self._render_metadata_md())
         return "\n".join(report_parts)
 
     def _write_report(self, content: str):
@@ -285,11 +342,24 @@ class PerformanceAnalyzer:
 
     # --- "Render" Methods for Markdown Sections ---
 
-    def _render_metadata_md(self) -> str:
-        if not self.metadata:
-            return "## Experiment Parameters\n\n*Metadata file (metadata.yaml) not found.*\n"
+    def _render_executive_summary_md(self) -> str:
+        """Renders the high-level summary and scorecard heatmap."""
+        md = ["\n## Executive Summary", self.executive_summary_text]
         
-        md = ["## Experiment Parameters", "This report was generated from data collected using the following parameters:\n"]
+        path = self._create_scorecard_heatmap()
+        if path:
+            md.append(f"\n### Performance Scorecard")
+            md.append("The table below shows the performance of each technology across all metrics, ordered from best to worst overall. The color indicates the rank (Green = Best, Red = Worst), and the number in the cell is the measured value.")
+            md.append(f"![Performance Scorecard]({path.relative_to(self.input_dir)})")
+        
+        return "\n".join(md)
+
+    def _render_metadata_md(self) -> str:
+        """Renders the experiment parameters as an appendix."""
+        if not self.metadata:
+            return "\n## Appendix: Experiment Parameters\n\n*Metadata file (metadata.yaml) not found.*\n"
+        
+        md = ["\n## Appendix: Experiment Parameters", "This report was generated from data collected using the following parameters:\n"]
         
         params = self.metadata.get('parameters', {})
         durations = self.metadata.get('calculated_durations_sec', {})
@@ -308,84 +378,119 @@ class PerformanceAnalyzer:
         return "\n".join(md)
 
     def _render_visual_overview_md(self) -> str:
-        md = ["\n## Stage 1: Visual Overview", "These plots show the distribution of performance metrics across all technologies and runs.\n"]
+        md = ["\n### Metric Distributions", "These plots show the distribution of performance metrics across all technologies and runs.\n"]
         for stat_col, metrics in METRIC_CONFIG.items():
             for metric, config in metrics.items():
                 metric_df = self.summary_df[self.summary_df['metric'] == metric]
                 if metric_df.empty: continue
                 
-                md.append(f"### {config['name']}")
+                md.append(f"#### {config['name']}")
                 path = self._create_comparison_plot(metric_df, stat_col, config['name'], plot_type='violin')
                 if path: md.append(f"![Violin Plot: {config['name']}]({path.relative_to(self.input_dir)})")
         return "\n".join(md)
 
     def _render_temporal_analysis_md(self) -> str:
-        md = ["\n## Stage 2: Temporal Analysis", "Time-series plots showing the mean metric value over the duration of the test runs.\n"]
-        for metric, config in METRIC_CONFIG['mean'].items():
-            path = self._create_timeseries_plot(metric, config['name'])
-            if path:
-                md.append(f"### {config['name']}")
-                md.append(f"![{config['name']} Time-Series]({path.relative_to(self.input_dir)})")
+        """MODIFIED: Splits charts by group."""
+        md = ["\n### Temporal Analysis", "Time-series plots showing the mean metric value over the duration of the test runs, separated by technology group.\n"]
+        
+        groups = sorted(self.raw_df['group'].unique())
+        for group in groups:
+            md.append(f"#### Group: {group}")
+            group_has_plot = False
+            for metric, config in METRIC_CONFIG['mean'].items():
+                path = self._create_timeseries_plot(metric, config['name'], group_filter=group)
+                if path:
+                    md.append(f"![{config['name']} Time-Series for {group}]({path.relative_to(self.input_dir)})")
+                    group_has_plot = True
+            if not group_has_plot:
+                md.append("*No time-series data available for this group.*")
+            md.append("\n")
         return "\n".join(md)
 
     def _render_ranking_tables_md(self) -> str:
-        md = ["\n## Stage 3: Intra-Group Rankings", "Tables ranking each technology within its group. The metric shown is the mean across all runs, with the 95% confidence interval.\n"]
+        """MODIFIED: Adds 🥇, 🥈, 🥉 emojis."""
+        md = ["\n### Intra-Group Rankings", "Tables ranking each technology within its group. The metric shown is the mean across all runs, with the 95% confidence interval.\n"]
         
-        # --- FIX #3: Refactor loop to generate dynamic headers ---
-        stat_name_map = {
-            'mean': 'Mean',
-            'std': 'Mean of Std Devs',
-            'p95': 'Mean of p95s'
-        }
+        stat_name_map = {'mean': 'Mean', 'std': 'Mean of Std Devs', 'p95': 'Mean of p95s'}
+        emoji_map = {1: '🥇', 2: '🥈', 3: '🥉'}
 
         for stat_col, metrics in METRIC_CONFIG.items():
             for metric, config in metrics.items():
                 metric_name = config['name']
-                if metric_name not in self.ranking_results:
-                    continue
+                if metric_name not in self.ranking_results: continue
                 
                 ranking_df = self.ranking_results[metric_name]
-                md.append(f"### {metric_name}")
+                md.append(f"#### {metric_name}")
                 
                 sort_ascending = config['sort_ascending']
                 header_name = f"{stat_name_map.get(stat_col, stat_col.title())} (95% CI)"
 
                 for group_name in sorted(ranking_df['group'].unique()):
-                    md.append(f"\n#### Group: {group_name}\n")
-                    group_data = ranking_df[ranking_df['group'] == group_name].sort_values(by='mean', ascending=sort_ascending)
+                    md.append(f"\n##### Group: {group_name}\n")
+                    group_data = ranking_df[ranking_df['group'] == group_name].sort_values(by='mean', ascending=sort_ascending).reset_index()
+                    
+                    if group_data.empty: continue
+
+                    def add_emoji(row):
+                        rank = row.name + 1
+                        emoji = emoji_map.get(rank, '')
+                        return f"{row['server_type']} {emoji}".strip()
+
+                    group_data['Technology'] = group_data.apply(add_emoji, axis=1)
                     group_data['formatted_metric'] = group_data.apply(
                         lambda r: f"{r['mean']:.4f} [{r['ci_lower']:.4f}, {r['ci_upper']:.4f}]" if pd.notna(r['ci_lower']) else f"{r['mean']:.4f}", axis=1)
                     
-                    output_df = group_data[['server_type', 'formatted_metric']].rename(columns={'formatted_metric': header_name})
+                    output_df = group_data[['Technology', 'formatted_metric']].rename(columns={'formatted_metric': header_name})
                     md.append(output_df.to_markdown(index=False))
-        # --- END FIX ---
         return "\n".join(md)
 
-    def _render_champion_analysis_md(self) -> str:
-        if len(self.champions) < 2:
-            return "\n## Stage 4: Champion vs. Champion Analysis\n\n*This analysis is skipped because data from fewer than two distinct technology groups was found.*\n"
-        
-        champ_keys = list(self.champions.keys())
-        champ1_group, champ2_group = champ_keys[0], champ_keys[1]
-        champ1_tech, champ2_tech = self.champions[champ1_group], self.champions[champ2_group]
+    def _interpret_stats(self, p_value: Optional[float], cohen_d: Optional[float]) -> str:
+        """Helper to translate statistical results into English."""
+        if p_value is None or np.isnan(p_value):
+            return "Statistical test could not be performed (e.g., insufficient data)."
 
-        md = ["\n## Stage 4: Champion vs. Champion Analysis"]
-        md.append(f"Champions are selected based on the primary metric: **{self.primary_metric_str}**.\n")
-        md.append(f"*   **{champ1_group} Champion:** `{champ1_tech}`")
-        md.append(f"*   **{champ2_group} Champion:** `{champ2_tech}`\n")
+        if p_value < 0.05:
+            significance = "The observed difference is **statistically significant**."
+        else:
+            significance = "The observed difference is **not statistically significant**."
+
+        if cohen_d is None or np.isnan(cohen_d):
+            effect = "Effect size could not be calculated."
+        else:
+            d = abs(cohen_d)
+            if d < 0.2: effect_label = "negligible"
+            elif d < 0.5: effect_label = "small"
+            elif d < 0.8: effect_label = "medium"
+            else: effect_label = "large"
+            effect = f"The magnitude of this difference is considered **{effect_label}**."
+
+        return f"{significance} {effect}"
+
+    def _render_champion_analysis_md(self) -> str:
+        if not self.champion_results:
+            return "\n## Champion vs. Champion Analysis\n\n*Statistical comparison could not be completed. Ensure data exists for the specified champions.*\n"
+        
+        champ1_tech, champ2_tech = self.champions_list[0], self.champions_list[1]
+
+        md = ["\n## Champion vs. Champion Analysis"]
+        md.append(f"This report provides a direct statistical comparison between two selected technologies:\n")
+        md.append(f"*   **Technology 1:** `{champ1_tech}`")
+        md.append(f"*   **Technology 2:** `{champ2_tech}`\n")
 
         for metric_name, results in self.champion_results.items():
             md.append(f"### Statistical Comparison: {metric_name}")
             md.append(f"**Comparison:** `{results.get('champ1', 'N/A')}` vs. `{results.get('champ2', 'N/A')}`\n")
-            md.append("#### Assumption Checks")
-            md.append(f"*   Shapiro-Wilk p-values: `{results.get('shapiro_p1', 0):.4f}` ({champ1_group}), `{results.get('shapiro_p2', 0):.4f}` ({champ2_group})")
-            md.append(f"*   Levene's Test p-value: `{results.get('levene_p', 0):.4f}`\n")
-            md.append("#### Hypothesis Testing")
-            md.append(f"Using **{results.get('test_name', 'N/A')}**:")
-            md.append(f"*   Statistic: `{results.get('statistic', 0):.4f}`")
-            md.append(f"*   p-value: `{results.get('p_value', 0):.4f}`\n")
-            md.append("#### Effect Size")
-            md.append(f"*   Cohen's d: `{results.get('cohen_d', 0):.4f}`")
+            md.append("| Test | Value |")
+            md.append("|---|---|")
+            md.append(f"| Normality (Shapiro-Wilk p-value) | `{results.get('shapiro_p1', 0):.4f}` (Tech 1), `{results.get('shapiro_p2', 0):.4f}` (Tech 2) |")
+            md.append(f"| Variance (Levene's p-value) | `{results.get('levene_p', 0):.4f}` |")
+            md.append(f"| Hypothesis Test Used | **{results.get('test_name', 'N/A')}** |")
+            md.append(f"| Test Statistic | `{results.get('statistic', 0):.4f}` |")
+            md.append(f"| p-value | `{results.get('p_value', 0):.4f}` |")
+            md.append(f"| Effect Size (Cohen's d) | `{results.get('cohen_d', 0):.4f}` |")
+            
+            interpretation = self._interpret_stats(results.get('p_value'), results.get('cohen_d'))
+            md.append(f"\n**Interpretation:** {interpretation}\n")
         
         return "\n".join(md)
 
@@ -401,16 +506,43 @@ class PerformanceAnalyzer:
             return sorted(df['server_type'].unique())
 
         all_techs_in_data = set(df['server_type'].unique())
-        
-        # Filter chart_order to only include techs present in the current data
         ordered_techs_from_config = [t for t in self.chart_order if t in all_techs_in_data]
-        
-        # Find techs in data that were not in the config's order list
         config_techs_set = set(ordered_techs_from_config)
         remaining_techs = sorted([t for t in all_techs_in_data if t not in config_techs_set])
-        
-        # The final order is the ordered list from config plus the sorted remainder
         return ordered_techs_from_config + remaining_techs
+
+    def _create_scorecard_heatmap(self) -> Path | None:
+        """MODIFIED: Creates a heatmap with columns ordered by average rank."""
+        print("INFO: Generating scorecard heatmap...")
+        if self.scorecard_ranks_df.empty or self.scorecard_values_df.empty:
+            return None
+        
+        plt.figure(figsize=(12, 8))
+        
+        # MODIFIED: Order columns by average rank (best to worst)
+        avg_ranks = self.scorecard_ranks_df.mean().sort_values()
+        ordered_techs = avg_ranks.index.tolist()
+        
+        ordered_metrics = self.scorecard_ranks_df.index
+        ranks_ordered = self.scorecard_ranks_df.reindex(index=ordered_metrics, columns=ordered_techs)
+        values_ordered = self.scorecard_values_df.reindex(index=ordered_metrics, columns=ordered_techs)
+
+        sns.heatmap(
+            ranks_ordered, annot=values_ordered, fmt=".2f", cmap="RdYlGn_r",
+            linewidths=.5, cbar_kws={'label': 'Performance Rank (1 is best)'}
+        )
+        
+        plt.title('Performance Scorecard', fontsize=16)
+        plt.xlabel('Technology (Ordered Best to Worst Overall)')
+        plt.ylabel('Metric')
+        plt.xticks(rotation=45, ha='right')
+        plt.yticks(rotation=0)
+        plt.tight_layout()
+        
+        filepath = self.plots_dir / "performance_scorecard.png"
+        plt.savefig(filepath)
+        plt.close()
+        return filepath
 
     def _create_comparison_plot(self, df: pd.DataFrame, stat_col: str, metric_name: str, plot_type: str = 'box') -> Path | None:
         """Creates a comparison plot (box or violin)."""
@@ -426,7 +558,7 @@ class PerformanceAnalyzer:
         elif plot_type == 'violin':
             sns.violinplot(data=df, x='server_type', y=stat_col, hue='group', dodge=False, inner='quartile', cut=0, order=plot_order)
         
-        plt.title(f'{plot_type.capitalize()} Plot Comparison of {metric_name}', fontsize=16)
+        plt.title(f'Distribution of {metric_name}', fontsize=16)
         plt.ylabel(metric_name)
         plt.xlabel('Technology')
         plt.xticks(rotation=45, ha='right')
@@ -439,15 +571,22 @@ class PerformanceAnalyzer:
         plt.close()
         return filepath
 
-    def _create_timeseries_plot(self, metric: str, metric_name: str) -> Path | None:
-        """Creates a time-series plot for a given metric."""
-        print(f"INFO: Generating time-series plot for '{metric_name}'...")
-        df_metric = self.raw_df[self.raw_df['metric'] == metric]
+    def _create_timeseries_plot(self, metric: str, metric_name: str, group_filter: Optional[str] = None) -> Path | None:
+        """MODIFIED: Creates a time-series plot, optionally filtered by group."""
+        title_suffix = f" ({group_filter})" if group_filter else ""
+        print(f"INFO: Generating time-series plot for '{metric_name}{title_suffix}'...")
+        
+        # MODIFIED: Filter by group if specified
+        if group_filter:
+            df_metric = self.raw_df[(self.raw_df['metric'] == metric) & (self.raw_df['group'] == group_filter)]
+        else:
+            df_metric = self.raw_df[self.raw_df['metric'] == metric]
+            
         if df_metric.empty: return None
 
         max_time = df_metric['time_sec'].max()
         if pd.isna(max_time):
-            print(f"WARNING: No valid time data for metric '{metric_name}'. Skipping time-series plot.")
+            print(f"WARNING: No valid time data for metric '{metric_name}{title_suffix}'. Skipping plot.")
             return None
             
         full_time_index = pd.to_timedelta(np.arange(int(max_time) + 1), unit='s')
@@ -455,22 +594,18 @@ class PerformanceAnalyzer:
         processed_dfs = []
         for group, group_df in df_metric.groupby(['server_type', 'run_number']):
             temp_df = group_df.set_index(pd.to_timedelta(group_df['time_sec'], unit='s'))
-            temp_df = temp_df.reindex(full_time_index)
-            temp_df['metric_value'] = temp_df['metric_value'].ffill()
-            temp_df['metric_value'] = temp_df['metric_value'].bfill()
+            temp_df = temp_df.reindex(full_time_index).ffill().bfill()
             temp_df['server_type'] = group[0]
             temp_df['run_number'] = group[1]
             temp_df['time_sec'] = temp_df.index.total_seconds()
             processed_dfs.append(temp_df.reset_index(drop=True))
         
         if not processed_dfs:
-            print(f"WARNING: Could not process time-series data for metric '{metric_name}'.")
+            print(f"WARNING: Could not process time-series data for metric '{metric_name}{title_suffix}'.")
             return None
 
         plot_df = pd.concat(processed_dfs, ignore_index=True)
-        
         agg_df = plot_df.groupby(['server_type', 'time_sec'])['metric_value'].agg(['mean', 'min', 'max']).reset_index()
-        
         plot_order = self._get_ordered_tech_list(agg_df)
 
         plt.figure(figsize=(14, 8))
@@ -479,21 +614,22 @@ class PerformanceAnalyzer:
 
         for tech in plot_order:
             tech_df = agg_df[agg_df['server_type'] == tech]
-            if tech_df.empty:
-                continue
+            if tech_df.empty: continue
             color = color_map[tech]
             plt.plot(tech_df['time_sec'], tech_df['mean'], label=tech, color=color)
             plt.fill_between(tech_df['time_sec'], tech_df['min'], tech_df['max'], color=color, alpha=0.2)
         
-        plt.title(f"Time-Series Analysis: {metric_name}", fontsize=16)
+        plt.title(f"Time-Series Analysis: {metric_name}{title_suffix}", fontsize=16)
         plt.xlabel('Time (seconds)')
         plt.ylabel(metric_name)
         plt.legend(title='Technology')
         plt.grid(True, which='both', linestyle='--', linewidth=0.5)
         plt.tight_layout()
         
-        filename = f"{metric_name.lower().replace(' ', '_')}_timeseries_overview.png"
-        filepath = self.plots_dir / re.sub(r'[^a-z0-9_.-]', '', filename)
+        # MODIFIED: Update filename to include group
+        group_suffix = f"_{group_filter.lower().replace('-', '_')}" if group_filter else ""
+        base_filename = f"{metric_name.lower().replace(' ', '_')}{group_suffix}_timeseries_overview.png"
+        filepath = self.plots_dir / re.sub(r'[^a-z0-9_.-]', '', base_filename)
         plt.savefig(filepath)
         plt.close()
         return filepath
@@ -506,18 +642,25 @@ if __name__ == "__main__":
         formatter_class=argparse.RawTextHelpFormatter
     )
     parser.add_argument('--input-dir', required=True, type=Path, help="Directory containing the CSV data files.")
-    parser.add_argument('--primary-metric', default='mean_cpu', 
-                        help="Metric for champion selection (e.g., 'mean_cpu', 'p95_latency').")
+    parser.add_argument('--report-type', required=True, choices=['all_apps', 'champions'],
+                        help="Choose the type of report to generate.")
+    parser.add_argument('--champions', nargs=2, metavar=('TECH1', 'TECH2'),
+                        help="Specify two technologies to compare. Required for '--report-type champions'.")
     args = parser.parse_args()
+
+    if args.report_type == 'champions' and not args.champions:
+        parser.error("--champions is required when --report-type is 'champions'.")
 
     if not args.input_dir.exists() or not args.input_dir.is_dir():
         print(f"ERROR: Input directory not found: {args.input_dir}")
-    else:
-        try:
-            import pandas, numpy, scipy, matplotlib, seaborn, yaml
-        except ImportError as e:
-            print(f"ERROR: Missing dependency - {e.name}. Please install it.")
-            print("You can install all dependencies with: pip install pandas numpy scipy matplotlib seaborn pyyaml")
-        else:
-            analyzer = PerformanceAnalyzer(args.input_dir, args.primary_metric)
-            analyzer.run()
+        sys.exit(1)
+        
+    try:
+        import pandas, numpy, scipy, matplotlib, seaborn, yaml
+    except ImportError as e:
+        print(f"ERROR: Missing dependency - {e.name}. Please install it.", file=sys.stderr)
+        print("You can install all dependencies with: pip install pandas numpy scipy matplotlib seaborn pyyaml", file=sys.stderr)
+        sys.exit(1)
+    
+    analyzer = PerformanceAnalyzer(args.input_dir, args.report_type, args.champions)
+    analyzer.run()

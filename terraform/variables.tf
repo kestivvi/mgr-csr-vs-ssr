@@ -77,7 +77,7 @@ variable "load_generator_instance_type" {
   description = "Instance type for all load generator servers (e.g., 4 vCPUs)."
   type        = string
   default     = "t4g.micro"
-  # default = "c8g.medium"
+  # default = "c8g.xlarge"
 }
 
 # c8g.medium - 1 vCPUs - 2 GB RAM - $0.027/hour
@@ -86,10 +86,10 @@ variable "load_generator_instance_type" {
 # c8g.2xlarge - 8 vCPUs - 16 GB RAM - $0.2159/hour
 # c8g.4xlarge - 16 vCPUs - 32 GB RAM - $0.4318/hour
 
-# 14 Load Generators * 4 vCPUs + 14 App Servers * 1 vCPUs + 1 Monitoring Server * 1 vCPU =
-# 56 vCPUs + 14 vCPUs + 1 vCPU = 71 vCPUs
+# 16 Load Generators * 4 vCPUs + 16 App Servers * 1 vCPUs + 1 Monitoring Server * 1 vCPU =
+# 64 vCPUs + 16 vCPUs + 1 vCPU = 81 vCPUs
 
-# 71 vCPUs * $0.027/hour = $1.917/hour
+# 81 vCPUs * $0.027/hour = $2.187/hour
 
 variable "test_scenarios" {
   description = "A map of test scenarios to provision. The key is the short name (e.g., 'csr')."
@@ -102,11 +102,11 @@ variable "test_scenarios" {
     ##########################
     # Static Site
     ##########################
-    "CSR-Vanilla" = {
-      description = "Application Server (CSR-Vanilla)"
-      purpose     = "Hosts Client-Side Rendered application"
-      app_dir     = "apps/csr-vanilla-nginx"
-    },
+    # "CSR-Vanilla" = {
+    #   description = "Application Server (CSR-Vanilla)"
+    #   purpose     = "Hosts Client-Side Rendered application"
+    #   app_dir     = "apps/csr-vanilla-nginx"
+    # },
     # "CSR-Vanilla-Apache" = {
     #   description = "Application Server (CSR-Vanilla-Apache)"
     #   purpose     = "Hosts Client-Side Rendered application"
@@ -166,16 +166,16 @@ variable "test_scenarios" {
     #   purpose     = "Hosts NextJS Server-Side Rendered application"
     #   app_dir     = "apps/ssr-nextjs-bun"
     # },
-    ## "SSR-NextJS-Deno" = {
-    ##   description = "Application Server (SSR-NextJS-Deno)"
-    ##   purpose     = "Hosts NextJS Server-Side Rendered application"
-    ##   app_dir     = "apps/ssr-nextjs-deno"
-    ## },
-    "SSR-NuxtJS" = {
-      description = "Application Server (SSR-NuxtJS)"
-      purpose     = "Hosts NuxtJS Server-Side Rendered application"
-      app_dir     = "apps/ssr-nuxtjs"
-    },
+    # "SSR-NextJS-Deno" = {
+    #   description = "Application Server (SSR-NextJS-Deno)"
+    #   purpose     = "Hosts NextJS Server-Side Rendered application"
+    #   app_dir     = "apps/ssr-nextjs-deno"
+    # },
+    # "SSR-NuxtJS" = {
+    #   description = "Application Server (SSR-NuxtJS)"
+    #   purpose     = "Hosts NuxtJS Server-Side Rendered application"
+    #   app_dir     = "apps/ssr-nuxtjs"
+    # },
     # "SSR-Qwik-City" = {
     #   description = "Application Server (SSR-Qwik-City)"
     #   purpose     = "Hosts Qwik-City Server-Side Rendered application"
@@ -195,6 +195,11 @@ variable "test_scenarios" {
     #   description = "Application Server (SSR-SvelteKit-Bun)"
     #   purpose     = "Hosts SvelteKit Server-Side Rendered application"
     #   app_dir     = "apps/ssr-svelte-kit-bun"
-    # }
+    # },
+    "SSR-React-Router" = {
+      description = "Application Server (SSR-React-Router)"
+      purpose     = "Hosts React-Router Server-Side Rendered application"
+      app_dir     = "apps/ssr-react-router"
+    }
   }
 }

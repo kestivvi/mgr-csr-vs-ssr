@@ -20,6 +20,10 @@ METRIC_CONFIG = {
     'latency': {
         'name': 'p95 Request Latency',
         'query': 'histogram_quantile(0.95, sum by (le, server) (rate(k6_http_req_duration_seconds{{server="{server_label}"}}[15s]))) * 1000',
+    },
+    'network_tx': {
+        'name': 'Network Transmit Rate',
+        'query': 'sum by (server) (rate(node_network_transmit_bytes_total{{server="{server_label}"}}[15s]))',
     }
 }
 
