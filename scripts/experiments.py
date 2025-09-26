@@ -353,7 +353,7 @@ def main():
         
         tasks = [(run, scenario, results_dir, args) for scenario in scenarios]
         run_results = []
-        with ProcessPoolExecutor(initializer=init_worker, initargs=(shutdown_event,)) as executor:
+        with ProcessPoolExecutor(max_workers=len(tasks), initializer=init_worker, initargs=(shutdown_event,)) as executor:
             futures = {executor.submit(run_single_scenario_lifecycle, *task): task for task in tasks}
             for future in as_completed(futures):
                 try:
