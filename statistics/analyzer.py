@@ -435,7 +435,42 @@ class PerformanceAnalyzer:
         if ram_plot_path:
             report_parts.append(f"![Zużycie RAM]({ram_plot_path.relative_to(self.input_dir)})")
 
-        report_parts.append("\n## 4. Załącznik: Metodologia Obliczeń")
+        # --- START: DODANA SEKCJA 4 ---
+        report_parts.append("\n## 4. Analiza Temporalna (Szeregi Czasowe)")
+        report_parts.append("Poniższe wykresy przedstawiają przebieg kluczowych metryk na przestrzeni czasu, co pozwala zidentyfikować momenty nasycenia zasobów i awarii systemu.")
+
+        # 4a. RPS Time Series
+        rps_ts_path = self._create_timeseries_plot(
+            'k6_successful_html_reqs_rate', 
+            'Udana Przepustowość (RPS)', 
+            group_filter=None
+        )
+        if rps_ts_path:
+            report_parts.append(f"### Przebieg Przepustowości (RPS)\n")
+            report_parts.append(f"![Przebieg RPS]({rps_ts_path.relative_to(self.input_dir)})")
+
+        # 4b. CPU Time Series
+        cpu_ts_path = self._create_timeseries_plot(
+            'cpu', 
+            'Zużycie CPU', 
+            group_filter=None
+        )
+        if cpu_ts_path:
+            report_parts.append(f"### Przebieg Zużycia CPU\n")
+            report_parts.append(f"![Przebieg CPU]({cpu_ts_path.relative_to(self.input_dir)})")
+
+        # 4c. RAM Time Series
+        ram_ts_path = self._create_timeseries_plot(
+            'memory', 
+            'Zużycie RAM', 
+            group_filter=None
+        )
+        if ram_ts_path:
+            report_parts.append(f"### Przebieg Zużycia RAM\n")
+            report_parts.append(f"![Przebieg RAM]({ram_ts_path.relative_to(self.input_dir)})")
+        # --- END: DODANA SEKCJA 4 ---
+
+        report_parts.append("\n## 5. Załącznik: Metodologia Obliczeń")
         report_parts.append(self._render_capacity_methodology_md())
         
         return "\n".join(report_parts)
@@ -622,19 +657,19 @@ class PerformanceAnalyzer:
             return "Statistical test could not be performed (e.g., insufficient data)."
 
         if p_value < 0.05:
-            significance = "The observed difference is **statistically significant**."
+            significance = "The observed difference is **statystycznie istotna**."
         else:
-            significance = "The observed difference is **not statistically significant**."
+            significance = "The observed difference is **statystycznie nieistotna**."
 
         if cohen_d is None or np.isnan(cohen_d):
             effect = "Effect size could not be calculated."
         else:
             d = abs(cohen_d)
-            if d < 0.2: effect_label = "negligible"
-            elif d < 0.5: effect_label = "small"
-            elif d < 0.8: effect_label = "medium"
-            else: effect_label = "large"
-            effect = f"The magnitude of this difference is considered **{effect_label}**."
+            if d < 0.2: effect_label = "znikoma"
+            elif d < 0.5: effect_label = "mała"
+            elif d < 0.8: effect_label = "średnia"
+            else: effect_label = "duża"
+            effect = f"Wielkość tej różnicy (effect size) jest **{effect_label}**."
 
         return f"{significance} {effect}"
 
