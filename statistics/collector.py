@@ -1,8 +1,11 @@
+# statistics/collector.py
+
 import argparse
 import sys
 from pathlib import Path
 from datetime import datetime, timezone
 import pandas as pd
+from functools import reduce
 
 # --- CONFIGURATION ---
 
@@ -24,13 +27,21 @@ METRIC_CONFIG = {
     'network_tx': {
         'name': 'Network Transmit Rate',
         'query': 'sum by (server) (rate(node_network_transmit_bytes_total{{server="{server_label}"}}[15s]))',
+    },
+    'k6_successful_html_reqs_rate': {
+        'name': 'Successful HTML Requests Rate',
+        'query': 'sum by (server) (rate(k6_http_reqs_total{{server="{server_label}", resource_type="html", status="200", error_code=""}}[15s]))',
+    },
+    'k6_total_html_reqs_rate': {
+        'name': 'Total HTML Requests Rate',
+        'query': 'sum by (server) (rate(k6_http_reqs_total{{server="{server_label}", resource_type="html"}}[15s]))',
     }
 }
 
 def download_metric(prom, metric_name, server_type, start_time_dt, end_time_dt):
     """
-    Downloads a single metric for a given time range and aligns it to the
-    exact start/end times using a robust resampling strategy with debugging.
+    Downloads a single metric, processes it, and returns a DataFrame
+    ready for merging (timestamp index, single metric column).
     """
     config = METRIC_CONFIG[metric_name]
     print(f"\n--- Downloading {config['name']} ---")
@@ -45,7 +56,7 @@ def download_metric(prom, metric_name, server_type, start_time_dt, end_time_dt):
         prom = PrometheusConnect(url=prom.url, disable_ssl=True)
     except Exception as e:
         print(f"ERROR: Could not re-connect to Prometheus: {e}", file=sys.stderr)
-        return pd.DataFrame()
+        return None
 
     metric_data = prom.custom_query_range(
         query=promql,
@@ -56,88 +67,41 @@ def download_metric(prom, metric_name, server_type, start_time_dt, end_time_dt):
 
     if not metric_data:
         print("WARNING: Prometheus returned no data for this query.")
-        # Create an empty DataFrame with the correct structure to avoid errors downstream
-        df = pd.DataFrame(columns=['timestamp', 'metric_value', 'server_label'])
-        return df
+        return None
 
-    # --- DATA PROCESSING PIPELINE WITH DEBUGGING ---
-
-    # STEP 1: Load raw data from Prometheus into a DataFrame
     all_dfs = []
     for series in metric_data:
         if not series.get('values'):
             continue
         df = pd.DataFrame(series['values'])
         df.columns = ['timestamp', 'metric_value']
-        # --- SOLUTION 1 APPLIED HERE ---
-        # Convert to datetime and immediately make it timezone-aware (UTC).
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s', utc=True)
         df['metric_value'] = pd.to_numeric(df['metric_value'], errors='coerce')
         all_dfs.append(df)
 
     if not all_dfs:
         print("WARNING: Prometheus returned data, but all series had empty 'values'.")
-        return pd.DataFrame(columns=['timestamp', 'metric_value', 'server_label'])
+        return None
 
     combined_df = pd.concat(all_dfs, ignore_index=True).dropna()
     combined_df = combined_df.sort_values('timestamp').drop_duplicates(subset=['timestamp'], keep='first')
     
-    print(f"--- DEBUG: STEP 1 (Raw Data) ---")
-    print(f"Shape: {combined_df.shape}")
-    print("Head:\n", combined_df.head(3))
-    print("Tail:\n", combined_df.tail(3))
-    
     if combined_df.empty:
         print("WARNING: DataFrame is empty after loading. No data to process.")
-        return pd.DataFrame(columns=['timestamp', 'metric_value', 'server_label'])
+        return None
 
-    # STEP 2: Resample data to a 1-second frequency to handle irregular timestamps
+    # --- START: MODIFIED SECTION ---
+    # Prepare DataFrame for merging: set index and rename metric column
     combined_df.set_index('timestamp', inplace=True)
-    resampled_df = combined_df.resample('1s').mean()
-
-    print(f"\n--- DEBUG: STEP 2 (Resampled Data) ---")
-    print(f"Shape: {resampled_df.shape}")
-    print("Head:\n", resampled_df.head(3))
-    print("Tail:\n", resampled_df.tail(3))
-
-    # STEP 3: Reindex to the ideal, synchronized window to create a complete grid
-    ideal_index = pd.date_range(start=start_time_dt, end=end_time_dt, freq='s')
-    aligned_df = resampled_df.reindex(ideal_index)
-
-    print(f"\n--- DEBUG: STEP 3 (Aligned to Ideal Index) ---")
-    print(f"Shape: {aligned_df.shape}")
-    print("Head:\n", aligned_df.head(3))
-    print("Tail:\n", aligned_df.tail(3))
-
-    # STEP 4: Fill all gaps robustly
-    aligned_df['metric_value'] = aligned_df['metric_value'].ffill().bfill()
-
-    print(f"\n--- DEBUG: STEP 4 (Gaps Filled) ---")
-    print(f"Shape: {aligned_df.shape}")
-    print("Head:\n", aligned_df.head(3))
-    print("Tail:\n", aligned_df.tail(3))
-
-    # If the entire series is still NaN (i.e., no data at all), fill with 0.
-    if aligned_df['metric_value'].isnull().all():
-        print("WARNING: No valid data points found in the window. Filling with 0.")
-        aligned_df['metric_value'].fillna(0, inplace=True)
-
-    # STEP 5: Reconstruct the final DataFrame
-    aligned_df['server_label'] = server_type
-    aligned_df.reset_index(inplace=True)
-    aligned_df.rename(columns={'index': 'timestamp'}, inplace=True)
-
-    print(f"\n--- DEBUG: STEP 5 (Final DataFrame) ---")
-    print(f"Shape: {aligned_df.shape}")
-    print("Head:\n", aligned_df.head(3))
-    print("Tail:\n", aligned_df.tail(3))
+    combined_df.rename(columns={'metric_value': metric_name}, inplace=True)
+    # --- END: MODIFIED SECTION ---
     
-    return aligned_df
+    return combined_df
 
 
 def main():
     """Main function to parse arguments and orchestrate the data download."""
-    parser = argparse.ArgumentParser(description="Download metrics from Prometheus for a specific test run.")
+    parser = argparse.ArgumentParser(description="Download and aggregate metrics from Prometheus for a specific test run.")
     parser.add_argument('--prometheus-url', required=True, help="URL of the Prometheus server (e.g., http://localhost:9090)")
     parser.add_argument('--start-epoch', required=True, type=int, help="Start time for the query as a Unix epoch timestamp.")
     parser.add_argument('--end-epoch', required=True, type=int, help="End time for the query as a Unix epoch timestamp.")
@@ -146,7 +110,11 @@ def main():
     parser.add_argument('--output-dir', required=True, type=Path, help="Directory to save the output CSV files")
     args = parser.parse_args()
 
-    args.output_dir.mkdir(parents=True, exist_ok=True)
+    # --- START: MODIFIED SECTION ---
+    # Create a dedicated subdirectory for metric files
+    metrics_dir = args.output_dir / "metrics"
+    metrics_dir.mkdir(parents=True, exist_ok=True)
+    # --- END: MODIFIED SECTION ---
 
     print(f"INFO: Connecting to Prometheus at {args.prometheus_url}...")
     try:
@@ -161,16 +129,40 @@ def main():
 
     print(f"INFO: Querying data for synchronized window: {start_time.isoformat()} to {end_time.isoformat()}")
 
+    # --- START: MODIFIED SECTION ---
+    # Phase 1: Download all metrics into a list of DataFrames
+    all_metric_dfs = []
     for metric_name in METRIC_CONFIG.keys():
         df = download_metric(prom, metric_name, args.server_type, start_time, end_time)
+        if df is not None and not df.empty:
+            all_metric_dfs.append(df)
 
-        if not df.empty:
-            sanitized_server_type = args.server_type.lower().replace('-', '_')
-            filename = f"{args.run_number:02d}_{sanitized_server_type}_{metric_name}.csv"
-            
-            output_path = args.output_dir / filename
-            df.to_csv(output_path, index=False)
-            print(f"INFO: Successfully saved {metric_name} data to {output_path}")
+    if not all_metric_dfs:
+        print("ERROR: Failed to download any metrics. No output file will be generated.", file=sys.stderr)
+        sys.exit(1)
+
+    # Phase 2: Merge all DataFrames into a single wide-format DataFrame
+    # Using reduce for a robust merge of multiple dataframes
+    merged_df = reduce(lambda left, right: pd.merge(left, right, on='timestamp', how='outer'), all_metric_dfs)
+
+    # Phase 3: Post-processing
+    # Create a full 1-second interval time range to ensure no gaps
+    ideal_index = pd.date_range(start=start_time, end=end_time, freq='s')
+    merged_df = merged_df.reindex(ideal_index)
+    
+    # Fill any gaps that might have occurred during merging or reindexing
+    merged_df.ffill(inplace=True)
+    merged_df.bfill(inplace=True)
+    merged_df.fillna(0, inplace=True) # Fill any remaining NaNs with 0
+
+    # Phase 4: Save the aggregated file
+    sanitized_server_type = args.server_type.lower().replace('-', '_')
+    filename = f"{args.run_number:02d}_{sanitized_server_type}.csv"
+    
+    output_path = metrics_dir / filename
+    merged_df.to_csv(output_path, index=True, index_label='timestamp')
+    print(f"\nINFO: Successfully saved aggregated metrics to {output_path}")
+    # --- END: MODIFIED SECTION ---
 
 
 if __name__ == "__main__":

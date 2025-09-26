@@ -76,7 +76,10 @@ class PerformanceAnalyzer:
         self.champions_list = champions or []
         
         self.plots_dir = self.input_dir / "plots"
-        self.report_path = self.input_dir / f"report_{self.report_type}.md"
+        if self.report_type == 'capacity':
+            self.report_path = self.input_dir / "capacity_report.md"
+        else:
+            self.report_path = self.input_dir / f"report_{self.report_type}.md"
 
         self.metadata: Dict[str, Any] = {}
         self.groups_config: Dict[str, Any] = {}
@@ -86,7 +89,6 @@ class PerformanceAnalyzer:
         self.ranking_results: Dict[str, pd.DataFrame] = {}
         self.champion_results: Dict[str, Dict[str, Any]] = {}
         
-        # --- NEW: State for executive summary ---
         self.scorecard_ranks_df = pd.DataFrame()
         self.scorecard_values_df = pd.DataFrame()
         self.executive_summary_text = ""
@@ -100,6 +102,7 @@ class PerformanceAnalyzer:
         if not self._load_configuration(): return
         if not self._load_and_prepare_data(): return
 
+        report_content = ""
         if self.report_type == 'all_apps':
             self._compute_rankings()
             self._compute_scorecard_and_winner()
@@ -107,6 +110,13 @@ class PerformanceAnalyzer:
         elif self.report_type == 'champions':
             self._compute_champion_stats()
             report_content = self._generate_champions_report()
+        elif self.report_type == 'capacity':
+            capacity_summary_df = self._run_capacity_analysis()
+            if capacity_summary_df is not None and not capacity_summary_df.empty:
+                report_content = self._generate_capacity_report(capacity_summary_df)
+            else:
+                print("ERROR: Capacity analysis did not produce a summary. Report generation skipped.")
+                return
         else:
             print(f"ERROR: Unknown report type '{self.report_type}'")
             return
@@ -156,16 +166,24 @@ class PerformanceAnalyzer:
             return False
 
     def _load_and_prepare_data(self) -> bool:
-        """Loads all CSV files and creates the initial raw and summary DataFrames."""
-        all_files = glob.glob(str(self.input_dir / "[0-9][0-9]_*_*.csv"))
-        if not all_files:
-            print(f"ERROR: No valid CSV data files found in {self.input_dir} matching the pattern 'NN_...'.")
+        """
+        Loads aggregated wide-format CSV files from the 'metrics' subdirectory,
+        converts them to a long-format DataFrame, and performs initial processing.
+        """
+        metrics_dir = self.input_dir / "metrics"
+        if not metrics_dir.is_dir():
+            print(f"ERROR: 'metrics' subdirectory not found in {self.input_dir}.")
             return False
 
-        filename_regex = re.compile(r"^(\d+)_([a-zA-Z0-9_-]+)_(cpu|memory|latency|network_tx)$")
+        all_files = glob.glob(str(metrics_dir / "*.csv"))
+        if not all_files:
+            print(f"ERROR: No CSV data files found in {metrics_dir}.")
+            return False
+
+        filename_regex = re.compile(r"^(\d+)_(.*)$")
         
         tech_to_group = {tech: group for group, techs in self.groups_config.items() for tech in techs}
-        all_dfs = []
+        all_long_dfs = []
         
         for f in all_files:
             p = Path(f)
@@ -175,31 +193,35 @@ class PerformanceAnalyzer:
                 print(f"WARNING: Skipping file with unexpected name format: {p.name}")
                 continue
 
-            run_number, server_type_raw, metric = match.groups()
+            run_number, server_type_raw = match.groups()
             
-            df = pd.read_csv(f)
-            df['run_number'] = int(run_number)
+            wide_df = pd.read_csv(f)
+            
+            long_df = pd.melt(
+                wide_df,
+                id_vars=['timestamp'],
+                var_name='metric',
+                value_name='metric_value'
+            )
+            
+            long_df['run_number'] = int(run_number)
             server_type = server_type_raw.replace('_', '-')
-            df['server_type'] = server_type
-            df['metric'] = metric
-            df['group'] = df['server_type'].map(tech_to_group).fillna('Uncategorized')
-            all_dfs.append(df)
+            long_df['server_type'] = server_type
+            long_df['group'] = long_df['server_type'].map(tech_to_group).fillna('Uncategorized')
+            all_long_dfs.append(long_df)
         
-        if not all_dfs:
-            print("ERROR: No data could be loaded from CSV files.")
+        if not all_long_dfs:
+            print("ERROR: No data could be loaded and processed from CSV files.")
             return False
 
-        self.raw_df = pd.concat(all_dfs, ignore_index=True)
+        self.raw_df = pd.concat(all_long_dfs, ignore_index=True)
         
-        # Convert CPU to percentage (multiply by 100)
         cpu_mask = self.raw_df['metric'] == 'cpu'
         self.raw_df.loc[cpu_mask, 'metric_value'] *= 100
         
-        # Convert memory from bytes to megabytes
         memory_mask = self.raw_df['metric'] == 'memory'
         self.raw_df.loc[memory_mask, 'metric_value'] /= (1024 * 1024)
         
-        # Convert network_tx from bytes to megabytes
         network_mask = self.raw_df['metric'] == 'network_tx'
         self.raw_df.loc[network_mask, 'metric_value'] /= (1024 * 1024)
         
@@ -215,6 +237,59 @@ class PerformanceAnalyzer:
     # --------------------------------------------------------------------------
     # STAGE 2: STATISTICAL COMPUTATION
     # --------------------------------------------------------------------------
+
+    def _run_capacity_analysis(self) -> Optional[pd.DataFrame]:
+        """
+        Performs the entire analysis for the capacity test (stress test) data.
+        """
+        print("INFO: Starting capacity test analysis...")
+
+        required_metrics = [
+            'k6_successful_html_reqs_rate', 'k6_total_html_reqs_rate',
+            'cpu', 'memory'
+        ]
+        available_metrics = self.raw_df['metric'].unique()
+        if not all(m in available_metrics for m in required_metrics):
+            print("ERROR: Missing required metrics for capacity analysis.", file=sys.stderr)
+            print(f"Required: {required_metrics}", file=sys.stderr)
+            print(f"Found: {list(available_metrics)}", file=sys.stderr)
+            return None
+
+        all_run_results = []
+        for (server_type, run_number), run_df in self.raw_df.groupby(['server_type', 'run_number']):
+            print(f"  -> Analyzing {server_type} (Run {run_number})...")
+
+            pivot_df = run_df.pivot_table(
+                index='time_sec', columns='metric', values='metric_value'
+            ).reindex(columns=required_metrics).fillna(0)
+
+            # --- 1. Calculate Sustained RPS (Max of rolling 30s minimums) ---
+            rolling_mins = pivot_df['k6_successful_html_reqs_rate'].rolling(window=30, min_periods=1).min()
+            sustained_rps = rolling_mins.max() if not rolling_mins.empty else 0
+
+            # --- 2. Calculate Peak RPS (Absolute maximum over the entire run) ---
+            peak_rps = pivot_df['k6_successful_html_reqs_rate'].max() if not pivot_df.empty else 0
+
+            # --- 3. Extract Resource Usage at the Sustained RPS point ---
+            sustained_rps_time = rolling_mins.idxmax() if not rolling_mins.empty else 0
+            cpu_at_sustained = pivot_df.loc[sustained_rps_time, 'cpu'] if sustained_rps_time in pivot_df.index else 0
+            ram_at_sustained = pivot_df.loc[sustained_rps_time, 'memory'] if sustained_rps_time in pivot_df.index else 0
+
+            all_run_results.append({
+                'server_type': server_type, 'run_number': run_number,
+                'sustained_rps': sustained_rps, 'peak_rps': peak_rps,
+                'cpu_at_sustained': cpu_at_sustained, 'ram_at_sustained': ram_at_sustained,
+            })
+
+        if not all_run_results:
+            print("ERROR: No capacity results could be calculated.")
+            return None
+
+        results_df = pd.DataFrame(all_run_results)
+        final_summary_df = results_df.groupby('server_type').mean().drop(columns='run_number').reset_index()
+        
+        print("INFO: Capacity analysis computation complete.")
+        return final_summary_df
 
     def _compute_rankings(self):
         """Calculates rankings with confidence intervals for all metrics."""
@@ -296,7 +371,6 @@ class PerformanceAnalyzer:
             if champ not in all_techs:
                 print(f"\nERROR: Champion technology '{champ}' not found in the dataset.", file=sys.stderr)
                 print("Please check for typos. Available technologies are:", file=sys.stderr)
-                # Print available techs in a readable format
                 for tech in sorted(list(all_techs)):
                     print(f"  - {tech}", file=sys.stderr)
                 sys.exit(1)
@@ -333,8 +407,41 @@ class PerformanceAnalyzer:
     # STAGE 3: REPORT GENERATION
     # --------------------------------------------------------------------------
 
+    def _generate_capacity_report(self, summary_df: pd.DataFrame) -> str:
+        """Assembles all parts of the capacity test report."""
+        print("INFO: Generating 'capacity' report content...")
+        
+        report_parts = [
+            f"# Raport z Testu Pojemnościowego dla `{self.input_dir.name}`",
+            "\nRaport prezentuje maksymalną wydajność systemów pod rosnącym obciążeniem. Analiza rozróżnia dwie kluczowe metryki:",
+            "- **Utrzymana Przepustowość (Sustained RPS):** Najwyższy poziom zapytań, który system był w stanie obsługiwać w sposób stabilny i ciągły.",
+            "- **Szczytowa Przepustowość (Peak RPS):** Chwilowe, absolutne maksimum wydajności zarejestrowane w stabilnym okresie pracy.",
+            "\n## 1. Wizualne Porównanie Przepustowości"
+        ]
+
+        rps_plot_path = self._create_capacity_rps_plot(summary_df)
+        if rps_plot_path:
+            report_parts.append(f"![Porównanie Przepustowości]({rps_plot_path.relative_to(self.input_dir)})")
+
+        report_parts.append("\n## 2. Szczegółowe Wyniki Numeryczne")
+        report_parts.append(self._render_capacity_tables_md(summary_df))
+
+        report_parts.append("\n## 3. Analiza Kosztu Zasobowego")
+        cpu_plot_path = self._create_capacity_resource_plot(summary_df, 'cpu_at_sustained', 'Zużycie CPU przy Utrzymanej Przepustowości', 'Średnie Zużycie CPU (%)')
+        if cpu_plot_path:
+            report_parts.append(f"![Zużycie CPU]({cpu_plot_path.relative_to(self.input_dir)})")
+        
+        ram_plot_path = self._create_capacity_resource_plot(summary_df, 'ram_at_sustained', 'Zużycie RAM przy Utrzymanej Przepustowości', 'Średnie Zużycie RAM (MB)')
+        if ram_plot_path:
+            report_parts.append(f"![Zużycie RAM]({ram_plot_path.relative_to(self.input_dir)})")
+
+        report_parts.append("\n## 4. Załącznik: Metodologia Obliczeń")
+        report_parts.append(self._render_capacity_methodology_md())
+        
+        return "\n".join(report_parts)
+
     def _generate_all_apps_report(self) -> str:
-        """Assembles all parts of the main comparison report in a new top-down structure."""
+        """Assembles all parts of the main comparison report."""
         print("INFO: Generating 'all_apps' report content...")
         report_parts = [f"# Performance Analysis Report for `{self.input_dir.name}`"]
         report_parts.append(self._render_executive_summary_md())
@@ -360,6 +467,54 @@ class PerformanceAnalyzer:
             f.write(content)
 
     # --- "Render" Methods for Markdown Sections ---
+
+    def _render_capacity_tables_md(self, summary_df: pd.DataFrame) -> str:
+        """Generates Markdown tables for the capacity report."""
+        
+        sorted_df = summary_df.sort_values('sustained_rps', ascending=False)
+
+        rps_table = sorted_df[['server_type', 'sustained_rps', 'peak_rps']].copy()
+        # Ensure we don't divide by zero if sustained_rps is 0
+        rps_table['difference_perc'] = np.divide(
+            (rps_table['peak_rps'] - rps_table['sustained_rps']),
+            rps_table['sustained_rps'],
+            out=np.zeros_like(rps_table['sustained_rps'], dtype=float),
+            where=(rps_table['sustained_rps'] != 0)
+        ) * 100
+        
+        rps_table.rename(columns={
+            'server_type': 'Technologia',
+            'sustained_rps': 'Utrzymany RPS (Sustained)',
+            'peak_rps': 'Szczytowy RPS (Peak)',
+            'difference_perc': 'Różnica (%)'
+        }, inplace=True)
+        
+        resource_table = sorted_df[['server_type', 'cpu_at_sustained', 'ram_at_sustained']].copy()
+        resource_table.rename(columns={
+            'server_type': 'Technologia',
+            'cpu_at_sustained': 'CPU @ Sustained RPS (%)',
+            'ram_at_sustained': 'RAM @ Sustained RPS (MB)'
+        }, inplace=True)
+
+        md_parts = [
+            "### Tabela 1: Ranking Przepustowości (RPS dla zapytań HTML)",
+            rps_table.to_markdown(index=False, floatfmt=".2f"),
+            "\n### Tabela 2: Koszt Zasobowy przy Utrzymanej Przepustowości",
+            resource_table.to_markdown(index=False, floatfmt=".2f")
+        ]
+        return "\n".join(md_parts)
+
+    def _render_capacity_methodology_md(self) -> str:
+        """Returns a static string explaining the capacity calculation methodology."""
+        return (
+            "Metryki w tym raporcie zostały obliczone na podstawie surowych danych szeregów czasowych z Prometheus w następujący sposób:\n\n"
+            "**Utrzymany RPS (Sustained):**\n"
+            "1. Na całym szeregu czasowym udanych zapytań HTML na sekundę zastosowano 30-sekundowe, przesuwane okno.\n"
+            "2. W każdym oknie znaleziono wartość **minimalną**.\n"
+            "3. Finalny wynik to **najwyższa (maksymalna)** wartość znaleziona spośród wszystkich minimów z okien. Reprezentuje to najwyższą przepustowość, jaką system mógł zagwarantować w dowolnym 30-sekundowym okresie.\n\n"
+            "**Szczytowy RPS (Peak):**\n"
+            "1. Finalny wynik to **absolutnie najwyższa (maksymalna)** wartość udanych zapytań HTML na sekundę, zarejestrowana w dowolnym, jednosekundowym momencie całego testu."
+        )
 
     def _render_executive_summary_md(self) -> str:
         """Renders the high-level summary and scorecard heatmap."""
@@ -409,7 +564,6 @@ class PerformanceAnalyzer:
         return "\n".join(md)
 
     def _render_temporal_analysis_md(self) -> str:
-        """MODIFIED: Splits charts by group."""
         md = ["\n### Temporal Analysis", "Time-series plots showing the mean metric value over the duration of the test runs, separated by technology group.\n"]
         
         groups = sorted(self.raw_df['group'].unique())
@@ -427,7 +581,6 @@ class PerformanceAnalyzer:
         return "\n".join(md)
 
     def _render_ranking_tables_md(self) -> str:
-        """MODIFIED: Adds 🥇, 🥈, 🥉 emojis."""
         md = ["\n### Intra-Group Rankings", "Tables ranking each technology within its group. The metric shown is the mean across all runs, with the 95% confidence interval.\n"]
         
         stat_name_map = {'mean': 'Mean', 'std': 'Mean of Std Devs', 'p95': 'Mean of p95s'}
@@ -515,11 +668,59 @@ class PerformanceAnalyzer:
 
     # --- Plotting Methods ---
 
+    def _create_capacity_rps_plot(self, summary_df: pd.DataFrame) -> Optional[Path]:
+        """Creates the main capacity bar chart with sustained and peak RPS."""
+        print("INFO: Generating capacity RPS comparison plot...")
+        if summary_df.empty: return None
+
+        sorted_df = summary_df.sort_values('sustained_rps', ascending=True)
+        
+        plt.figure(figsize=(12, 10))
+        
+        bars = plt.barh(sorted_df['server_type'], sorted_df['sustained_rps'], color='skyblue', label='Utrzymany RPS (Sustained)')
+        
+        # Use scatter plot for peak markers for robustness
+        plt.scatter(y=sorted_df['server_type'], x=sorted_df['peak_rps'], color='salmon', 
+                    marker='|', s=100, zorder=10, label='Szczytowy RPS (Peak)')
+
+        plt.xlabel('Requests Per Second (dla zapytań HTML)')
+        plt.ylabel('Technologia')
+        plt.title('Porównanie Przepustowości w Teście Pojemnościowym')
+        plt.legend()
+        plt.grid(axis='x', linestyle='--', alpha=0.7)
+        plt.tight_layout()
+
+        filepath = self.plots_dir / "capacity_rps_comparison.png"
+        plt.savefig(filepath)
+        plt.close()
+        return filepath
+
+    def _create_capacity_resource_plot(self, summary_df: pd.DataFrame, metric: str, title: str, xlabel: str) -> Optional[Path]:
+        """Creates a bar chart for resource usage at sustained RPS."""
+        print(f"INFO: Generating capacity resource plot for {metric}...")
+        if summary_df.empty or metric not in summary_df.columns: return None
+
+        sorted_df = summary_df.sort_values('sustained_rps', ascending=True)
+
+        plt.figure(figsize=(12, 10))
+        plt.barh(sorted_df['server_type'], sorted_df[metric], color='lightgreen')
+        
+        plt.xlabel(xlabel)
+        plt.ylabel('Technologia')
+        plt.title(title)
+        plt.grid(axis='x', linestyle='--', alpha=0.7)
+        plt.tight_layout()
+
+        filename = f"capacity_{metric}_usage.png"
+        filepath = self.plots_dir / filename
+        plt.savefig(filepath)
+        plt.close()
+        return filepath
+
     def _get_ordered_tech_list(self, df: pd.DataFrame) -> list:
         """
         Gets a list of technologies from the dataframe, ordered according to the
-        'chart_order' list in the config file. Any technologies in the dataframe
-        not present in the config list are appended alphabetically.
+        'chart_order' list in the config file.
         """
         if not self.chart_order:
             return sorted(df['server_type'].unique())
@@ -531,14 +732,13 @@ class PerformanceAnalyzer:
         return ordered_techs_from_config + remaining_techs
 
     def _create_scorecard_heatmap(self) -> Path | None:
-        """MODIFIED: Creates a heatmap with columns ordered by average rank."""
+        """Creates a heatmap with columns ordered by average rank."""
         print("INFO: Generating scorecard heatmap...")
         if self.scorecard_ranks_df.empty or self.scorecard_values_df.empty:
             return None
         
         plt.figure(figsize=(16, 10))
         
-        # MODIFIED: Order columns by average rank (best to worst)
         avg_ranks = self.scorecard_ranks_df.mean().sort_values()
         ordered_techs = avg_ranks.index.tolist()
         
@@ -548,8 +748,7 @@ class PerformanceAnalyzer:
 
         sns.heatmap(
             ranks_ordered, annot=values_ordered, fmt=".2f", cmap="RdYlGn_r",
-            linewidths=.5, cbar_kws={'label': 'Performance Rank (1 is best)'},
-            # annot_kws={'size': 8}
+            linewidths=.5, cbar_kws={'label': 'Performance Rank (1 is best)'}
         )
         
         plt.title('Performance Scorecard', fontsize=16)
@@ -592,11 +791,10 @@ class PerformanceAnalyzer:
         return filepath
 
     def _create_timeseries_plot(self, metric: str, metric_name: str, group_filter: Optional[str] = None) -> Path | None:
-        """MODIFIED: Creates a time-series plot, optionally filtered by group."""
+        """Creates a time-series plot, optionally filtered by group."""
         title_suffix = f" ({group_filter})" if group_filter else ""
         print(f"INFO: Generating time-series plot for '{metric_name}{title_suffix}'...")
         
-        # MODIFIED: Filter by group if specified
         if group_filter:
             df_metric = self.raw_df[(self.raw_df['metric'] == metric) & (self.raw_df['group'] == group_filter)]
         else:
@@ -646,7 +844,6 @@ class PerformanceAnalyzer:
         plt.grid(True, which='both', linestyle='--', linewidth=0.5)
         plt.tight_layout()
         
-        # MODIFIED: Update filename to include group
         group_suffix = f"_{group_filter.lower().replace('-', '_')}" if group_filter else ""
         base_filename = f"{metric_name.lower().replace(' ', '_')}{group_suffix}_timeseries_overview.png"
         filepath = self.plots_dir / re.sub(r'[^a-z0-9_.-]', '', base_filename)
@@ -662,8 +859,8 @@ if __name__ == "__main__":
         formatter_class=argparse.RawTextHelpFormatter
     )
     parser.add_argument('--input-dir', required=True, type=Path, help="Directory containing the CSV data files.")
-    parser.add_argument('--report-type', required=True, choices=['all_apps', 'champions'],
-                        help="Choose the type of report to generate.")
+    parser.add_argument('--report-type', required=True, choices=['all_apps', 'champions', 'capacity'],
+                        help="Choose the type of report to generate: 'all_apps' (load test), 'champions' (statistical comparison), 'capacity' (stress test).")
     parser.add_argument('--champions', nargs=2, metavar=('TECH1', 'TECH2'),
                         help="Specify two technologies to compare. Required for '--report-type champions'.")
     args = parser.parse_args()
