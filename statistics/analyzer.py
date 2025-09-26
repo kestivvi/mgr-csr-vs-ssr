@@ -19,9 +19,9 @@ import yaml
 METRIC_CONFIG = {
     'mean': {
         'cpu':        {'name': 'Mean CPU Usage (%)', 'sort_ascending': True},
-        'memory':     {'name': 'Mean Memory Usage (%)', 'sort_ascending': True},
+        'memory':     {'name': 'Mean Memory Usage (MB)', 'sort_ascending': True},
         'latency':    {'name': 'Mean p95 Latency (ms)', 'sort_ascending': True},
-        'network_tx': {'name': 'Mean Network Transmit Rate (B/s)', 'sort_ascending': True}
+        'network_tx': {'name': 'Mean Network Transmit Rate (MB/s)', 'sort_ascending': True}
     },
     'std': {
         'cpu':        {'name': 'CPU Usage Stability (Std Dev)', 'sort_ascending': True},
@@ -33,7 +33,7 @@ METRIC_CONFIG = {
         'cpu':        {'name': 'Peak CPU Usage (95th Percentile)', 'sort_ascending': True},
         'memory':     {'name': 'Peak Memory Usage (95th Percentile)', 'sort_ascending': True},
         'latency':    {'name': 'Peak Latency (95th Percentile)', 'sort_ascending': True},
-        'network_tx': {'name': 'Peak Network Transmit Rate (95th Percentile)', 'sort_ascending': True}
+        'network_tx': {'name': 'Peak Network Transmit Rate (95th Percentile) (MB/s)', 'sort_ascending': True}
     }
 }
 
@@ -191,8 +191,17 @@ class PerformanceAnalyzer:
 
         self.raw_df = pd.concat(all_dfs, ignore_index=True)
         
-        cpu_mem_mask = self.raw_df['metric'].isin(['cpu', 'memory'])
-        self.raw_df.loc[cpu_mem_mask, 'metric_value'] *= 100
+        # Convert CPU to percentage (multiply by 100)
+        cpu_mask = self.raw_df['metric'] == 'cpu'
+        self.raw_df.loc[cpu_mask, 'metric_value'] *= 100
+        
+        # Convert memory from bytes to megabytes
+        memory_mask = self.raw_df['metric'] == 'memory'
+        self.raw_df.loc[memory_mask, 'metric_value'] /= (1024 * 1024)
+        
+        # Convert network_tx from bytes to megabytes
+        network_mask = self.raw_df['metric'] == 'network_tx'
+        self.raw_df.loc[network_mask, 'metric_value'] /= (1024 * 1024)
         
         self.raw_df['timestamp'] = pd.to_datetime(self.raw_df['timestamp'])
         self.raw_df['time_sec'] = self.raw_df.groupby(['server_type', 'run_number', 'metric'])['timestamp'].transform(lambda x: (x - x.min()).dt.total_seconds())
@@ -281,6 +290,16 @@ class PerformanceAnalyzer:
         if len(self.champions_list) != 2:
             print("ERROR: Champion comparison requires exactly two technologies.")
             return
+
+        all_techs = set(self.summary_df['server_type'].unique())
+        for champ in self.champions_list:
+            if champ not in all_techs:
+                print(f"\nERROR: Champion technology '{champ}' not found in the dataset.", file=sys.stderr)
+                print("Please check for typos. Available technologies are:", file=sys.stderr)
+                # Print available techs in a readable format
+                for tech in sorted(list(all_techs)):
+                    print(f"  - {tech}", file=sys.stderr)
+                sys.exit(1)
 
         champ1_tech, champ2_tech = self.champions_list[0], self.champions_list[1]
         print(f"INFO: Comparing '{champ1_tech}' vs '{champ2_tech}'")
@@ -517,7 +536,7 @@ class PerformanceAnalyzer:
         if self.scorecard_ranks_df.empty or self.scorecard_values_df.empty:
             return None
         
-        plt.figure(figsize=(12, 8))
+        plt.figure(figsize=(16, 10))
         
         # MODIFIED: Order columns by average rank (best to worst)
         avg_ranks = self.scorecard_ranks_df.mean().sort_values()
@@ -529,7 +548,8 @@ class PerformanceAnalyzer:
 
         sns.heatmap(
             ranks_ordered, annot=values_ordered, fmt=".2f", cmap="RdYlGn_r",
-            linewidths=.5, cbar_kws={'label': 'Performance Rank (1 is best)'}
+            linewidths=.5, cbar_kws={'label': 'Performance Rank (1 is best)'},
+            # annot_kws={'size': 8}
         )
         
         plt.title('Performance Scorecard', fontsize=16)

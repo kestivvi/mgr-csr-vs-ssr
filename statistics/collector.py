@@ -14,8 +14,8 @@ METRIC_CONFIG = {
         'query': 'avg by (server) (1 - rate(node_cpu_seconds_total{{mode="idle", server="{server_label}"}}[15s]))',
     },
     'memory': {
-        'name': 'Memory Utilization',
-        'query': 'sum by (server) (1 - (node_memory_MemAvailable_bytes{{server="{server_label}"}} / node_memory_MemTotal_bytes{{server="{server_label}"}}))',
+        'name': 'Memory Usage',
+        'query': 'sum by (server) (node_memory_MemTotal_bytes{{server="{server_label}"}} - node_memory_MemAvailable_bytes{{server="{server_label}"}})',
     },
     'latency': {
         'name': 'p95 Request Latency',
