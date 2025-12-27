@@ -2,10 +2,10 @@
 /// <reference types="vite/client" />
 import * as Solid from 'solid-js'
 import {
-  Outlet,
-  createRootRoute,
   HeadContent,
+  Outlet,
   Scripts,
+  createRootRoute,
 } from '@tanstack/solid-router'
 import { HydrationScript } from 'solid-js/web'
 
@@ -57,4 +57,3 @@ function RootDocument({ children }: Readonly<{ children: Solid.JSX.Element }>) {
     </html>
   )
 }
-

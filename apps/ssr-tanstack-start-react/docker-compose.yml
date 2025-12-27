@@ -4,12 +4,10 @@ services:
     image: ssr-tanstack-start-react-tanstack-app
     restart: unless-stopped
     ports:
-      - "80:3000"
+      - '80:3000'
     networks:
       - app-net
 
 networks:
   app-net:
     driver: bridge
-
-
