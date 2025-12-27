@@ -1,0 +1,14 @@
+services:
+  tanstack-app:
+    build: .
+    image: ssr-tanstack-start-solid-tanstack-app
+    restart: unless-stopped
+    ports:
+      - "80:3000"
+    networks:
+      - app-net
+
+networks:
+  app-net:
+    driver: bridge
+
