@@ -1,0 +1,14 @@
+services:
+  angular-app:
+    build: .
+    image: ssr-angular-app
+    restart: unless-stopped
+    ports:
+      - "80:3000"
+    networks:
+      - app-net
+
+networks:
+  app-net:
+    driver: bridge
+

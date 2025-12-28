@@ -200,7 +200,22 @@ variable "test_scenarios" {
       description = "Application Server (SSR-React-Router)"
       purpose     = "Hosts React-Router Server-Side Rendered application"
       app_dir     = "apps/ssr-react-router"
-    }
+    },
+    "SSR-Angular" = {
+      description = "Application Server (SSR-Angular)"
+      purpose     = "Hosts Angular Server-Side Rendered application"
+      app_dir     = "apps/ssr-angular"
+    },
+    "SSR-Tanstack-Start-React" = {
+      description = "Application Server (SSR-Tanstack-Start-React)"
+      purpose     = "Hosts TanStack Start React Server-Side Rendered application"
+      app_dir     = "apps/ssr-tanstack-start-react"
+    },
+    "SSR-Tanstack-Start-Solid" = {
+      description = "Application Server (SSR-Tanstack-Start-Solid)"
+      purpose     = "Hosts TanStack Start Solid Server-Side Rendered application"
+      app_dir     = "apps/ssr-tanstack-start-solid"
+    },
     "SSR-Fresh" = {
       description = "Application Server (SSR-Fresh)"
       purpose     = "Hosts Fresh Server-Side Rendered application"
