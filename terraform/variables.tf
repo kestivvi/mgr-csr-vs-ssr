@@ -36,6 +36,12 @@ variable "app_port" {
   default     = 80
 }
 
+variable "app_port_https" {
+  description = "Application HTTPS port"
+  type        = number
+  default     = 443
+}
+
 variable "node_exporter_port" {
   description = "Port for Node Exporter"
   type        = number

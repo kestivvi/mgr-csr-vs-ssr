@@ -5,7 +5,15 @@ import { URL } from 'https://jslib.k6.io/url/1.0.0/index.js';
 
 // --- K6 Test Configuration (Init Context) ---
 // This code runs once per VU before the test starts. Keep it minimal.
-const target_url = __ENV.TARGET_URL || 'http://localhost:8080';
+// Set to true for HTTPS/HTTP2, false for HTTP/1. Flip to compare performance.
+const K6_USE_HTTPS = false;
+
+let target_url = __ENV.TARGET_URL || 'http://localhost:8080';
+if (K6_USE_HTTPS) {
+  target_url = target_url.replace(/^http:\/\//, 'https://').replace(/:80(?=\/|$)/, ':443');
+} else {
+  target_url = target_url.replace(/^https:\/\//, 'http://').replace(/:443(?=\/|$)/, ':80');
+}
 const server_type = __ENV.SERVER_TYPE || 'unknown';
 const K6_SCENARIO = __ENV.K6_SCENARIO || 'stress_test';
 const K6_TEST_PATH = __ENV.K6_TEST_PATH || 'dynamic'; // 'static' or 'dynamic'
@@ -67,6 +75,7 @@ export const options = {
     server: server_type,
   },
   discardResponseBodies: true,
+  insecureSkipTLSVerify: K6_USE_HTTPS,
   scenarios: {
     [K6_SCENARIO]: selectedScenario,
   },
@@ -122,6 +131,7 @@ function getAssetUrls(htmlBody, baseUrl) {
 export function setup() {
   // --- All one-time logging moved here, inside setup() ---
   console.log('[config] Reading environment variables...');
+  console.log(`[config] K6_USE_HTTPS: ${K6_USE_HTTPS}`);
   console.log(`[config] TARGET_URL: ${target_url}`);
   console.log(`[config] SERVER_TYPE: ${server_type}`);
   console.log(`[config] K6_SCENARIO: ${K6_SCENARIO}`);

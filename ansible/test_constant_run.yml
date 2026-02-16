@@ -88,6 +88,7 @@
         -e K6_BACKOFF_5XX_S="{{ k6_backoff_5xx_s | default(omit) }}"
         grafana/k6:latest
         run
+        --insecure-skip-tls-verify
         --out experimental-prometheus-rw
         --tag "server={{ server_type | upper }}"
         /test/script.js
