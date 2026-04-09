@@ -50,6 +50,39 @@ Visual exploration test:
 
 To remove the infrastructure, run `./destroy.sh`.
 
+## Frequent Commands
+
+### 🏗️ Infrastructure (Terraform)
+*Run inside `terraform/` directory.*
+- **Initial setup**: `terraform init`
+- **Preview changes**: `terraform plan`
+- **Deploy infrastructure**: `terraform apply -auto-approve`
+- **Deploy with custom instances**: `terraform apply -var="app_server_instance_type=c8g.large" -var="load_generator_instance_type=c8g.2xlarge"`
+- **Destroy everything**: `terraform destroy`
+
+### ⚙️ Configuration (Ansible)
+*Run inside `ansible/` directory.*
+- **Check connectivity**: `ansible-playbook ping.yml`
+- **Full configuration (Setup containers/exporters)**: `ansible-playbook site.yml`
+- **Clean all containers**: `ansible-playbook test_teardown.yml`
+
+### 🧪 Running Experiments (Orchestrator)
+*Run from the project root with the Python virtual environment activated.*
+
+- **Capacity Test (Stress)**:
+  ```bash
+  python3 ./scripts/experiments.py --test-type stress --num-runs 3 --peak-rate 2000 --ramp-up 10m --sustain 5m
+  ```
+- **Load Test (Constant 100 RPS)**:
+  ```bash
+  python3 ./scripts/experiments.py --test-type constant --rate 100 --duration 10m --num-runs 5
+  ```
+- **Emergency Stop**: `ansible-playbook ./ansible/test_stop_all.yml`
+
+### 📊 Analysis
+*Run from the project root.*
+- **Generate reports**: `python3 ./statistics/analyzer.py`
+
 ## Statistics Module Setup
 
 To run the performance analysis scripts located in the `statistics/` directory, you need to set up the Python environment correctly.
