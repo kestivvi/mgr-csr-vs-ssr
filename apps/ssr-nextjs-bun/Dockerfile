@@ -1,11 +1,11 @@
 # Stage 1: Build the application with Bun
 # Use the official Bun image. The default is based on Debian, which is fine for building.
-FROM oven/bun:1 AS builder
+FROM oven/bun:1.3.13 AS builder
 WORKDIR /app
 
-# Bun automatically uses a binary lockfile (bun.lockb) for faster installs.
+# Bun automatically uses a binary lockfile (bun.lock) for faster installs.
 # Using --frozen-lockfile is the best practice for CI/build environments.
-COPY package.json bun.lockb* ./
+COPY package.json bun.lock* ./
 RUN bun install --frozen-lockfile
 
 # Copy the rest of the application source code
@@ -16,7 +16,7 @@ RUN bun --bun run build
 
 # Stage 2: Production image
 # Use the lightweight Alpine variant of the Bun image for the final stage
-FROM oven/bun:1-alpine AS runner
+FROM oven/bun:1.3.13-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
