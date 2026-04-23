@@ -1,4 +1,4 @@
-# MGR_REPO
+# MGR Code
 
 Repository for Master's Thesis project.
 
@@ -12,23 +12,27 @@ Repository for Master's Thesis project.
 ### Required Tools
 
 #### Core Infrastructure
+
 - **Terraform** - Infrastructure as Code (AWS provider ~> 5.0)
 - **Ansible** - Configuration management
 - **ansible-lint** - Ansible code linting
 - **AWS CLI** - AWS authentication and configuration
 
 #### Development and Testing
+
 - **Docker** - Containerization platform
 - **Docker Compose** - Multi-container orchestration
 - **yq** - YAML processor for inventory parsing
 - **k6** - Load testing tool (via Docker)
 
 #### Python Environment
+
 - **Python 3** - Runtime environment
 
 ### Configuration Requirements
 
 #### AWS Setup
+
 - AWS credentials configured (`aws configure`)
 - EC2 key pair named "MGR1" with proper file permissions
 - Terraform variables updated in `terraform/variables.tf`:
@@ -38,22 +42,33 @@ Repository for Master's Thesis project.
 
 ## Workflow
 
-1. Install locally terraform and ansible
-2. Configure terraform with your AWS credentials
-3. Run `./setup.sh` to create the infrastructure
+1. Install locally Terraform and Ansible.
+2. Configure AWS CLI and Terraform variables (see [Configuration Requirements](#configuration-requirements)).
+3. Setup Python virtual environment for experiments:
+   ```bash
+   # Note: If you moved the project directory, delete the old venv first:
+   # rm -rf statistics/venv
+   python3 -m venv statistics/venv
+   source statistics/venv/bin/activate
+   pip install -r statistics/requirements.txt
+   ```
+4. Run the setup script to provision infrastructure and configure servers:
+   ```bash
+   ./scripts/setup.sh
+   ```
 
+To remove all provisioned infrastructure, run:
 
-Visual exploration test:
-1. Make sure docker is installed and running
-2. cd into `ansible` directory and run `ansible-playbook ./run_test.yml` to run the test
-3. To stop the test, run `ansible-playbook ./stop_test.yml`
-
-To remove the infrastructure, run `./destroy.sh`.
+```bash
+./scripts/destroy.sh
+```
 
 ## Frequent Commands
 
 ### 🏗️ Infrastructure (Terraform)
-*Run inside `terraform/` directory.*
+
+_Run inside `terraform/` directory._
+
 - **Initial setup**: `terraform init`
 - **Preview changes**: `terraform plan`
 - **Deploy infrastructure**: `terraform apply -auto-approve`
@@ -61,50 +76,77 @@ To remove the infrastructure, run `./destroy.sh`.
 - **Destroy everything**: `terraform destroy`
 
 ### ⚙️ Configuration (Ansible)
-*Run inside `ansible/` directory.*
+
+_Run inside `ansible/` directory._
+
 - **Check connectivity**: `ansible-playbook ping.yml`
 - **Full configuration (Setup containers/exporters)**: `ansible-playbook site.yml`
 - **Clean all containers**: `ansible-playbook test_teardown.yml`
 
 ### 🧪 Running Experiments (Orchestrator)
-*Run from the project root with the Python virtual environment activated.*
 
-- **Capacity Test (Stress)**:
-  ```bash
-  python3 ./scripts/experiments.py --test-type stress --num-runs 3 --peak-rate 2000 --ramp-up 10m --sustain 5m
-  ```
-- **Load Test (Constant 100 RPS)**:
-  ```bash
-  python3 ./scripts/experiments.py --test-type constant --rate 100 --duration 10m --num-runs 5
-  ```
-- **Emergency Stop**: `ansible-playbook ./ansible/test_stop_all.yml`
+The main tool for conducting research is the `scripts/experiments.py` orchestrator. It automates the process of running tests across all defined application servers and collecting metrics from Prometheus.
 
-### 📊 Analysis
-*Run from the project root.*
-- **Generate reports**: `python3 ./statistics/analyzer.py`
+#### Prerequisites
 
-## Statistics Module Setup
-
-To run the performance analysis scripts located in the `statistics/` directory, you need to set up the Python environment correctly.
-
-1.  **Create and Activate Virtual Environment**:
-    The project uses a Python virtual environment to manage dependencies. If it's not already created, you can set it up:
-    ```bash
-    python3 -m venv statistics/venv
-    ```
-    Activate the environment before running any scripts:
+1.  **Infrastructure**: Ensure AWS resources are deployed (`terraform apply`) and configured (`ansible-playbook site.yml`).
+2.  **Environment**: Activate the Python virtual environment:
     ```bash
     source statistics/venv/bin/activate
     ```
 
-2.  **Install Dependencies**:
-    With the virtual environment activated, install the required Python packages:
-    ```bash
-    pip install -r statistics/requirements.txt
-    ```
+#### 1. Capacity Test (Stress Test)
 
-3.  **Deactivate Environment**:
-    When you are finished working, you can deactivate the environment:
-    ```bash
-    deactivate
-    ``` 
+This test implements the **ramping-arrival-rate** executor in k6. It gradually increases the load to identify the server's breaking point (maximum throughput).
+
+```bash
+python ./scripts/experiments.py --test-type stress \
+  --num-runs 3 \
+  --peak-rate 2000 \
+  --ramp-up 10m \
+  --sustain 5m \
+  --ramp-down 1m
+```
+
+**Parameters:**
+
+- `--peak-rate`: The target requests per second (RPS) at the peak of the ramp-up.
+- `--ramp-up`: Duration to linearly increase load from 0 to `peak-rate`.
+- `--sustain`: How long to maintain the `peak-rate` before ramping down.
+- `--max-vus`: (Optional) Maximum number of pre-allocated Virtual Users (default: 200). Increase if you hit VU limits at high RPS.
+
+#### 2. Load Test (Constant Rate)
+
+This test implements the **constant-arrival-rate** executor. It maintains a steady load to analyze stability, latency percentiles, and resource consumption under a known "safe" load.
+
+```bash
+python ./scripts/experiments.py --test-type constant \
+  --rate 100 \
+  --duration 10m \
+  --warmup 30s \
+  --cooldown 15s
+```
+
+**Parameters:**
+
+- `--rate`: Constant requests per second.
+- `--duration`: Total duration of the test.
+- `--warmup/--cooldown`: Time windows at the beginning and end of the test that will be excluded from the final metric analysis to ensure steady-state data.
+
+#### 📊 Results and Monitoring
+
+- **Results Directory**: Every experiment creates a unique folder in `results/experiment_YYYY-MM-DD_HH-MM-SS/`.
+- **Artifacts**:
+  - `metadata.yaml`: Parameters used for the run.
+  - `orchestrator.txt`: Detailed logs of the orchestration process.
+  - `[run]_[type]_[server].csv`: Raw metrics collected from Prometheus for each instance.
+- **Emergency Stop**: To immediately terminate all running k6 containers on all load generators:
+  ```bash
+  ansible-playbook ./ansible/test_stop_all.yml
+  ```
+
+### 📊 Analysis
+
+_Run from the project root._
+
+- **Generate reports**: `python ./statistics/analyzer.py`
