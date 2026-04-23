@@ -416,64 +416,63 @@ class PerformanceAnalyzer:
             "\nRaport prezentuje maksymalną wydajność systemów pod rosnącym obciążeniem. Analiza rozróżnia dwie kluczowe metryki:",
             "- **Utrzymana Przepustowość (Sustained RPS):** Najwyższy poziom zapytań, który system był w stanie obsługiwać w sposób stabilny i ciągły.",
             "- **Szczytowa Przepustowość (Peak RPS):** Chwilowe, absolutne maksimum wydajności zarejestrowane w stabilnym okresie pracy.",
-            "\n## 1. Wizualne Porównanie Przepustowości"
+            "\n## 1. Przepustowość Systemu (RPS)"
         ]
 
         rps_plot_path = self._create_capacity_rps_plot(summary_df)
         if rps_plot_path:
+            report_parts.append(f"### 1.1. Wizualne Porównanie Przepustowości")
             report_parts.append(f"![Porównanie Przepustowości]({rps_plot_path.relative_to(self.input_dir)})")
+        
+        report_parts.append("\n### 1.2. Wyniki Numeryczne Przepustowości")
+        report_parts.append(self._render_capacity_rps_table_md(summary_df))
 
-        report_parts.append("\n## 2. Szczegółowe Wyniki Numeryczne")
-        report_parts.append(self._render_capacity_tables_md(summary_df))
+        report_parts.append("\n## 2. Analiza Kosztu Zasobowego")
+        report_parts.append("Analiza zasobów zużywanych w punkcie osiągnięcia Utrzymanej Przepustowości (Sustained RPS).")
 
-        report_parts.append("\n## 3. Analiza Kosztu Zasobowego")
         cpu_plot_path = self._create_capacity_resource_plot(summary_df, 'cpu_at_sustained', 'Zużycie CPU przy Utrzymanej Przepustowości', 'Średnie Zużycie CPU (%)')
         if cpu_plot_path:
+            report_parts.append("\n### 2.1. Zużycie CPU")
             report_parts.append(f"![Zużycie CPU]({cpu_plot_path.relative_to(self.input_dir)})")
         
         ram_plot_path = self._create_capacity_resource_plot(summary_df, 'ram_at_sustained', 'Zużycie RAM przy Utrzymanej Przepustowości', 'Średnie Zużycie RAM (MB)')
         if ram_plot_path:
+            report_parts.append("\n### 2.2. Zużycie RAM")
             report_parts.append(f"![Zużycie RAM]({ram_plot_path.relative_to(self.input_dir)})")
 
-        # --- START: DODANA SEKCJA 4 ---
-        report_parts.append("\n## 4. Analiza Temporalna (Szeregi Czasowe)")
-        report_parts.append("Poniższe wykresy przedstawiają przebieg kluczowych metryk na przestrzeni czasu, co pozwala zidentyfikować momenty nasycenia zasobów i awarii systemu.")
+        report_parts.append("\n### 2.3. Tabela Porównawcza Zasobów")
+        report_parts.append(self._render_capacity_resource_table_md(summary_df))
 
-        # 4a. RPS Time Series
-        rps_ts_path = self._create_timeseries_plot(
-            'k6_successful_html_reqs_rate', 
-            'Udana Przepustowość (RPS)', 
-            group_filter=None
-        )
+        report_parts.append("\n## 3. Analiza Temporalna (Szeregi Czasowe)")
+        report_parts.append("Poniższe wykresy i tabele przedstawiają przebieg kluczowych metryk na przestrzeni czasu.")
+
+        # 3a. RPS Time Series
+        report_parts.append("\n### 3.1. Przebieg Przepustowości (RPS)")
+        rps_ts_path = self._create_timeseries_plot('k6_successful_html_reqs_rate', 'Udana Przepustowość (RPS)', group_filter=None)
         if rps_ts_path:
-            report_parts.append(f"### Przebieg Przepustowości (RPS)\n")
             report_parts.append(f"![Przebieg RPS]({rps_ts_path.relative_to(self.input_dir)})")
+        report_parts.append(self._render_timeseries_raw_table_md('k6_successful_html_reqs_rate', 'Udana Przepustowość (RPS)'))
 
-        # 4b. CPU Time Series
-        cpu_ts_path = self._create_timeseries_plot(
-            'cpu', 
-            'Zużycie CPU', 
-            group_filter=None
-        )
+        # 3b. CPU Time Series
+        report_parts.append("\n### 3.2. Przebieg Zużycia CPU")
+        cpu_ts_path = self._create_timeseries_plot('cpu', 'Zużycie CPU', group_filter=None)
         if cpu_ts_path:
-            report_parts.append(f"### Przebieg Zużycia CPU\n")
             report_parts.append(f"![Przebieg CPU]({cpu_ts_path.relative_to(self.input_dir)})")
+        report_parts.append(self._render_timeseries_raw_table_md('cpu', 'Zużycie CPU (%)'))
 
-        # 4c. RAM Time Series
-        ram_ts_path = self._create_timeseries_plot(
-            'memory', 
-            'Zużycie RAM', 
-            group_filter=None
-        )
+        # 3c. RAM Time Series
+        report_parts.append("\n### 3.3. Przebieg Zużycia RAM")
+        ram_ts_path = self._create_timeseries_plot('memory', 'Zużycie RAM', group_filter=None)
         if ram_ts_path:
-            report_parts.append(f"### Przebieg Zużycia RAM\n")
             report_parts.append(f"![Przebieg RAM]({ram_ts_path.relative_to(self.input_dir)})")
-        # --- END: DODANA SEKCJA 4 ---
+        report_parts.append(self._render_timeseries_raw_table_md('memory', 'Zużycie RAM (MB)'))
 
-        report_parts.append("\n## 5. Załącznik: Metodologia Obliczeń")
+
+        report_parts.append("\n## 4. Załącznik: Metodologia Obliczeń")
         report_parts.append(self._render_capacity_methodology_md())
         
         return "\n".join(report_parts)
+
 
     def _generate_all_apps_report(self) -> str:
         """Assembles all parts of the main comparison report."""
@@ -503,13 +502,10 @@ class PerformanceAnalyzer:
 
     # --- "Render" Methods for Markdown Sections ---
 
-    def _render_capacity_tables_md(self, summary_df: pd.DataFrame) -> str:
-        """Generates Markdown tables for the capacity report."""
-        
+    def _render_capacity_rps_table_md(self, summary_df: pd.DataFrame) -> str:
+        """Generates the RPS Markdown table for the capacity report."""
         sorted_df = summary_df.sort_values('sustained_rps', ascending=False)
-
         rps_table = sorted_df[['server_type', 'sustained_rps', 'peak_rps']].copy()
-        # Ensure we don't divide by zero if sustained_rps is 0
         rps_table['difference_perc'] = np.divide(
             (rps_table['peak_rps'] - rps_table['sustained_rps']),
             rps_table['sustained_rps'],
@@ -523,21 +519,45 @@ class PerformanceAnalyzer:
             'peak_rps': 'Szczytowy RPS (Peak)',
             'difference_perc': 'Różnica (%)'
         }, inplace=True)
-        
+        return rps_table.to_markdown(index=False, floatfmt=".2f")
+
+    def _render_capacity_resource_table_md(self, summary_df: pd.DataFrame) -> str:
+        """Generates the resource cost Markdown table for the capacity report."""
+        sorted_df = summary_df.sort_values('sustained_rps', ascending=False)
         resource_table = sorted_df[['server_type', 'cpu_at_sustained', 'ram_at_sustained']].copy()
         resource_table.rename(columns={
             'server_type': 'Technologia',
             'cpu_at_sustained': 'CPU @ Sustained RPS (%)',
             'ram_at_sustained': 'RAM @ Sustained RPS (MB)'
         }, inplace=True)
+        return resource_table.to_markdown(index=False, floatfmt=".2f")
 
-        md_parts = [
-            "### Tabela 1: Ranking Przepustowości (RPS dla zapytań HTML)",
-            rps_table.to_markdown(index=False, floatfmt=".2f"),
-            "\n### Tabela 2: Koszt Zasobowy przy Utrzymanej Przepustowości",
-            resource_table.to_markdown(index=False, floatfmt=".2f")
-        ]
-        return "\n".join(md_parts)
+    def _render_timeseries_raw_table_md(self, metric: str, metric_name: str) -> str:
+        """Generates a raw data table for a time-series metric."""
+        metric_df = self.raw_df[self.raw_df['metric'] == metric]
+        if metric_df.empty:
+            return "*Brak danych dla tej metryki.*"
+        
+        # Pivot to have time_sec as index and server_type as columns
+        # We aggregate by mean in case there are multiple runs, which is a standard representation.
+        raw_pivot = metric_df.pivot_table(
+            index='time_sec', 
+            columns='server_type', 
+            values='metric_value',
+            aggfunc='mean'
+        ).reset_index()
+        
+        raw_pivot.rename(columns={'time_sec': 'Czas (s)'}, inplace=True)
+        
+        # If the table is extremely long, we could sample, but user asked for raw values.
+        # We'll provide the first 1000 rows to keep Markdown manageable if it's huge.
+        if len(raw_pivot) > 1000:
+             print(f"WARNING: Time-series table for {metric} truncated to 1000 rows.")
+             raw_pivot = raw_pivot.head(1000)
+
+        return f"\n**Dane surowe (średnia z przebiegów) dla: {metric_name}**\n\n" + raw_pivot.to_markdown(index=False, floatfmt=".2f")
+
+
 
     def _render_capacity_methodology_md(self) -> str:
         """Returns a static string explaining the capacity calculation methodology."""

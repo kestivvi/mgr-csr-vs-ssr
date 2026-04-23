@@ -36,6 +36,8 @@ const STRESS_RAMP_DOWN_DURATION = __ENV.STRESS_RAMP_DOWN_DURATION || '1m';
 const MAX_VUS = parseInt(__ENV.MAX_VUS || 200);
 // ---------------------------------------------
 
+const STRESS_WARMUP_DURATION = __ENV.STRESS_WARMUP_DURATION || '0s';
+
 const stressTestScenario = {
   executor: 'ramping-arrival-rate',
   startRate: STRESS_START_RATE,
@@ -43,7 +45,7 @@ const stressTestScenario = {
   preAllocatedVUs: MAX_VUS,
   maxVUs: MAX_VUS,
   stages: [
-    { target: STRESS_START_RATE, duration: '1m' }, // Brief warm-up/stabilization stage
+    { target: STRESS_START_RATE, duration: STRESS_WARMUP_DURATION },
     { target: STRESS_PEAK_RATE, duration: STRESS_RAMP_UP_DURATION },
     { target: STRESS_PEAK_RATE, duration: STRESS_SUSTAIN_DURATION },
     { target: 0, duration: STRESS_RAMP_DOWN_DURATION },

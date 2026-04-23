@@ -36,6 +36,7 @@
     k6_duration: "5m"
     k6_path_type: "dynamic" # 'static' or 'dynamic'
     k6_scenario: "constant_test"
+    k6_timeout_seconds: 3600 # Fallback high timeout
 
     # --- Standardized variables (MUST MATCH teardown playbook) ---
     local_k6_script_path: "../k6/script.js"
@@ -94,6 +95,7 @@
         /test/script.js
       register: k6_run_result
       changed_when: true
+      timeout: "{{ k6_timeout_seconds | int }}"
 
     - name: Get end timestamp on remote host
       ansible.builtin.command: "date +%s"

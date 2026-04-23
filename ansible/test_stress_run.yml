@@ -35,10 +35,12 @@
     k6_path_type: "dynamic" # 'static' or 'dynamic'
     stress_start_rate: 10
     stress_peak_rate: 2000
+    stress_warmup: "0s"
     stress_ramp_up: "10m"
     stress_sustain: "5m"
     stress_ramp_down: "1m"
     max_vus: 200
+    k6_timeout_seconds: 12000 # Fallback high timeout
 
     # --- Standardized variables (MUST MATCH teardown playbook) ---
     local_k6_script_path: "../k6/script.js"
@@ -51,7 +53,7 @@
       ansible.builtin.copy:
         src: "{{ local_k6_script_path }}"
         dest: "{{ remote_temp_script_path }}"
-        mode: '0644'
+        mode: "0644"
 
     - name: Ensure any previous k6 test container is stopped and removed
       ansible.builtin.command: "docker rm -f {{ container_name }}"
@@ -68,7 +70,7 @@
       ansible.builtin.copy:
         content: '{"start_time": {{ start_timestamp_result.stdout }} }'
         dest: "{{ remote_state_file }}"
-        mode: '0644'
+        mode: "0644"
 
     - name: Run k6 stress test synchronously
       # noqa: command-instead-of-shell
@@ -88,6 +90,7 @@
           -e K6_LOG_OUTPUT="stdout"
           -e K6_BACKOFF_TIMEOUT_S="{{ k6_backoff_timeout_s | default(omit) }}"
           -e K6_BACKOFF_5XX_S="{{ k6_backoff_5xx_s | default(omit) }}"
+          -e STRESS_WARMUP_DURATION="{{ stress_warmup }}"
           -e STRESS_START_RATE="{{ stress_start_rate }}"
           -e STRESS_PEAK_RATE="{{ stress_peak_rate }}"
           -e STRESS_RAMP_UP_DURATION="{{ stress_ramp_up }}"
@@ -102,6 +105,7 @@
           /test/script.js
       register: k6_run_result
       changed_when: true
+      timeout: "{{ k6_timeout_seconds | int }}"
 
     - name: Get end timestamp on remote host
       ansible.builtin.command: "date +%s"
@@ -110,7 +114,7 @@
 
     - name: Output precise timestamps for orchestrator
       ansible.builtin.debug:
-        msg: "ORCHESTRATOR_TIMESTAMPS::{\"start\": \"{{ start_timestamp_result.stdout }}\", \"end\": \"{{ end_timestamp_result.stdout }}\"}"
+        msg: 'ORCHESTRATOR_TIMESTAMPS::{"start": "{{ start_timestamp_result.stdout }}", "end": "{{ end_timestamp_result.stdout }}"}'
 
     - name: Display k6 container logs for debugging
       ansible.builtin.debug:

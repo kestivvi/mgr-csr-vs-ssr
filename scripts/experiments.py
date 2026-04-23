@@ -161,16 +161,32 @@ def run_single_scenario_lifecycle(
         "k6_path_type": args.path_type,
     }
     if args.test_type == 'constant':
-        extra_vars.update({"k6_rate": args.rate, "k6_duration": args.duration})
+        extra_vars.update({"k6_rate": args.rate, "k6_duration": args.duration, "k6_warmup": args.warmup})
+        timeout_s = parse_duration_to_seconds(args.duration) + 120 # 2m margin
     else: # stress
         extra_vars.update({
+            "stress_warmup": args.warmup,
             "stress_start_rate": args.start_rate, "stress_peak_rate": args.peak_rate,
             "stress_ramp_up": args.ramp_up, "stress_sustain": args.sustain,
             "stress_ramp_down": args.ramp_down, "max_vus": args.max_vus,
         })
+        timeout_s = (
+            parse_duration_to_seconds(args.warmup) +
+            parse_duration_to_seconds(args.ramp_up) +
+            parse_duration_to_seconds(args.sustain) +
+            parse_duration_to_seconds(args.ramp_down) +
+            180 # 3m margin for stress tests (flushing metrics)
+        )
+    
+    extra_vars["k6_timeout_seconds"] = timeout_s
 
     if args.backoff_timeout_s is not None: extra_vars["k6_backoff_timeout_s"] = args.backoff_timeout_s
     if args.backoff_5xx_s is not None: extra_vars["k6_backoff_5xx_s"] = args.backoff_5xx_s
+
+    # --- Safety Check: VUs vs Rate ---
+    target_rate = args.peak_rate if args.test_type == 'stress' else args.rate
+    if target_rate and target_rate > args.max_vus * 60: # Assume 1s per request as worst case
+        logging.warning(f"[{run_prefix}:{scenario_name}] Target rate ({target_rate} RPS) is very high relative to VUs ({args.max_vus}). k6 may fall behind if server response times > {1000/ (target_rate/args.max_vus):.1f}ms.")
 
     ansible_command = ["ansible-playbook", "-i", str(INVENTORY_PATH), playbook_path, "--extra-vars", json.dumps(extra_vars)]
     ansible_env = os.environ.copy()
@@ -200,22 +216,25 @@ def run_single_scenario_lifecycle(
         with open(ansible_log_path, 'r') as f:
             output_log = f.read()
 
-        if interrupted:
-            logging.info(f"[{run_prefix}:{scenario_name}] Ansible terminated. Running teardown playbook to get final timestamps.")
+        if interrupted or process.returncode != 0:
+            if interrupted:
+                logging.warning(f"[{run_prefix}:{scenario_name}] Experiment interrupted by user. Running teardown...")
+            elif process.returncode == 2: # Ansible code 2 often indicates a timeout in our case
+                logging.warning(f"[{run_prefix}:{scenario_name}] Test timed out or failed (code {process.returncode}). This usually happens at high RPS when k6 takes too long to flush metrics. Initiating graceful teardown...")
+            else:
+                logging.error(f"[{run_prefix}:{scenario_name}] Ansible playbook failed (code {process.returncode}). Running teardown to capture final state...")
+            
             teardown_command = [
                 "ansible-playbook", "-i", str(INVENTORY_PATH), TEARDOWN_PLAYBOOK_PATH,
                 "--extra-vars", json.dumps({"target_host_group": scenario["load_generator_group"], "server_type": scenario_name})
             ]
-            teardown_process = subprocess.run(teardown_command, capture_output=True, check=True, text=True, env=ansible_env)
+            teardown_process = subprocess.run(teardown_command, capture_output=True, check=False, text=True, env=ansible_env)
             with open(ansible_log_path, 'a') as log_file:
-                log_file.write(f"\n\n--- TEARDOWN INITIATED BY CTRL+C ---\n{teardown_process.stdout}")
+                log_file.write(f"\n\n--- TEARDOWN INITIATED DUE TO FAILURE/INTERRUPT ---\n{teardown_process.stdout}")
             timestamps = extract_timestamps_from_output(teardown_process.stdout)
         
-        elif process.returncode == 0:
-            timestamps = extract_timestamps_from_output(output_log)
         else:
-            logging.error(f"[{run_prefix}:{scenario_name}] Ansible playbook failed with exit code {process.returncode}. See log: {ansible_log_path}")
-            return {"name": scenario_name, "success": False, "timestamps": None, "scenario_details": scenario}
+            timestamps = extract_timestamps_from_output(output_log)
 
     except Exception as e:
         logging.error(f"[{run_prefix}:{scenario_name}] An unexpected error occurred: {e}")
@@ -287,12 +306,13 @@ def create_metadata_file(results_dir: Path, args: argparse.Namespace):
         measurement_s = total_s - warmup_s - cooldown_s
         calculated_durations['measurement'] = max(0, measurement_s) # Ensure it's not negative
     else: # stress
-        metadata["parameters"].update({"start_rate": args.start_rate, "peak_rate": args.peak_rate, "ramp_up_duration": args.ramp_up, "sustain_duration": args.sustain, "ramp_down_duration": args.ramp_down, "max_vus": args.max_vus})
+        metadata["parameters"].update({"start_rate": args.start_rate, "peak_rate": args.peak_rate, "warmup_duration": args.warmup, "ramp_up_duration": args.ramp_up, "sustain_duration": args.sustain, "ramp_down_duration": args.ramp_down, "max_vus": args.max_vus})
+        warmup_s = parse_duration_to_seconds(args.warmup)
         ramp_up_s = parse_duration_to_seconds(args.ramp_up)
         sustain_s = parse_duration_to_seconds(args.sustain)
         ramp_down_s = parse_duration_to_seconds(args.ramp_down)
         # For stress tests, the intended measurement duration is the full scenario
-        calculated_durations['measurement'] = ramp_up_s + sustain_s + ramp_down_s
+        calculated_durations['measurement'] = warmup_s + ramp_up_s + sustain_s + ramp_down_s
 
     if args.backoff_timeout_s is not None: metadata["parameters"]["backoff_timeout_s"] = args.backoff_timeout_s
     if args.backoff_5xx_s is not None: metadata["parameters"]["backoff_5xx_s"] = args.backoff_5xx_s
@@ -312,15 +332,15 @@ def main():
     constant_group = parser.add_argument_group('constant test options')
     constant_group.add_argument('--rate', type=int)
     constant_group.add_argument('--duration', type=str)
-    constant_group.add_argument('--warmup', type=str, default='30s')
-    constant_group.add_argument('--cooldown', type=str, default='15s')
+    parser.add_argument('--warmup', type=str, default='30s', help="Warmup duration (default 30s)")
+    parser.add_argument('--cooldown', type=str, default='15s', help="Cooldown duration (default 15s, only for constant type)")
+    parser.add_argument('--max-vus', type=int, default=200)
     stress_group = parser.add_argument_group('stress test options')
     stress_group.add_argument('--start-rate', type=int, default=10)
     stress_group.add_argument('--peak-rate', type=int, default=2000)
     stress_group.add_argument('--ramp-up', type=str, default='10m')
     stress_group.add_argument('--sustain', type=str, default='5m')
     stress_group.add_argument('--ramp-down', type=str, default='1m')
-    stress_group.add_argument('--max-vus', type=int, default=200)
     backoff_group = parser.add_argument_group('backoff options')
     backoff_group.add_argument('--backoff-timeout-s', dest='backoff_timeout_s', type=float)
     backoff_group.add_argument('--backoff-5xx-s', dest='backoff_5xx_s', type=float)
