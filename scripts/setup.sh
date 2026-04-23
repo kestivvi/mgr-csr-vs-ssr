@@ -7,4 +7,5 @@ cd ..
 sleep 5
 
 cd ./ansible
+export ANSIBLE_CONFIG=./ansible.cfg
 ansible-playbook site.yml
