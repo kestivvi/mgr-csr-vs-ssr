@@ -6,7 +6,7 @@ import { URL } from 'https://jslib.k6.io/url/1.0.0/index.js';
 // --- K6 Test Configuration (Init Context) ---
 // This code runs once per VU before the test starts. Keep it minimal.
 // Set to true for HTTPS/HTTP2, false for HTTP/1. Flip to compare performance.
-const K6_USE_HTTPS = false;
+const K6_USE_HTTPS = true;
 
 let target_url = __ENV.TARGET_URL || 'http://localhost:8080';
 if (K6_USE_HTTPS) {

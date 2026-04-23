@@ -101,10 +101,10 @@ This test implements the **ramping-arrival-rate** executor in k6. It gradually i
 
 ```bash
 python ./scripts/experiments.py --test-type stress \
-  --num-runs 3 \
-  --peak-rate 2000 \
-  --ramp-up 10m \
-  --sustain 5m \
+  --num-runs 1 \
+  --peak-rate 1000 \
+  --ramp-up 5m \
+  --sustain 1m \
   --ramp-down 1m
 ```
 
