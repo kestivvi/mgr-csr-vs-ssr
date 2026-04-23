@@ -96,6 +96,7 @@
           -e MAX_VUS="{{ max_vus }}"
           grafana/k6:latest
           run
+          --insecure-skip-tls-verify
           --out experimental-prometheus-rw
           --tag "server={{ server_type | upper }}"
           /test/script.js

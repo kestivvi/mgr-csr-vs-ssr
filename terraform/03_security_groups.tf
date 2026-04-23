@@ -64,6 +64,26 @@ resource "aws_security_group_rule" "app_server_ingress_web_from_my_ip" {
   description       = "Allow web traffic from my IP for testing"
 }
 
+resource "aws_security_group_rule" "app_server_ingress_https_from_lg" {
+  type                     = "ingress"
+  security_group_id        = aws_security_group.app_server.id
+  from_port                = var.app_port_https
+  to_port                  = var.app_port_https
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.load_generator.id
+  description              = "Allow HTTPS traffic from load generator"
+}
+
+resource "aws_security_group_rule" "app_server_ingress_https_from_my_ip" {
+  type              = "ingress"
+  security_group_id = aws_security_group.app_server.id
+  from_port         = var.app_port_https
+  to_port           = var.app_port_https
+  protocol          = "tcp"
+  cidr_blocks       = [var.my_ip]
+  description       = "Allow HTTPS traffic from my IP for testing"
+}
+
 resource "aws_security_group_rule" "app_server_ingress_node_exporter" {
   type                     = "ingress"
   security_group_id        = aws_security_group.app_server.id

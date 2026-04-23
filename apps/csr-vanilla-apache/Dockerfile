@@ -28,12 +28,19 @@ COPY apache.conf /usr/local/apache2/conf/extra/httpd-vhosts.conf
 # Enable required modules and virtual hosts
 RUN echo "Include conf/extra/httpd-vhosts.conf" >> /usr/local/apache2/conf/httpd.conf && \
     echo "LoadModule rewrite_module modules/mod_rewrite.so" >> /usr/local/apache2/conf/httpd.conf && \
-    echo "LoadModule status_module modules/mod_status.so" >> /usr/local/apache2/conf/httpd.conf
+    echo "LoadModule status_module modules/mod_status.so" >> /usr/local/apache2/conf/httpd.conf && \
+    echo "LoadModule ssl_module modules/mod_ssl.so" >> /usr/local/apache2/conf/httpd.conf && \
+    echo "LoadModule http2_module modules/mod_http2.so" >> /usr/local/apache2/conf/httpd.conf
 
-# Create log directories
-RUN mkdir -p /var/log/apache2
+# Create log directories and SSL dir, generate self-signed cert
+RUN mkdir -p /var/log/apache2 /usr/local/apache2/ssl \
+    && apk add --no-cache openssl \
+    && openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+        -keyout /usr/local/apache2/ssl/key.pem \
+        -out /usr/local/apache2/ssl/cert.pem \
+        -subj "/CN=localhost"
 
 # Expose ports
-EXPOSE 80 8060
+EXPOSE 80 443 8060
 
 CMD ["httpd", "-D", "FOREGROUND"]

@@ -22,5 +22,11 @@ COPY --from=builder /app/app.min.js /usr/share/nginx/html/app.js
 COPY --from=builder /app/styles.min.css /usr/share/nginx/html/styles.css
 COPY --from=builder /app/favicon.ico /usr/share/nginx/html/
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 80
+RUN apk add --no-cache openssl \
+    && mkdir -p /etc/nginx/ssl \
+    && openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+        -keyout /etc/nginx/ssl/key.pem \
+        -out /etc/nginx/ssl/cert.pem \
+        -subj "/CN=localhost"
+EXPOSE 80 443
 CMD ["nginx", "-g", "daemon off;"]
