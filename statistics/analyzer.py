@@ -444,28 +444,25 @@ class PerformanceAnalyzer:
         report_parts.append(self._render_capacity_resource_table_md(summary_df))
 
         report_parts.append("\n## 3. Analiza Temporalna (Szeregi Czasowe)")
-        report_parts.append("Poniższe wykresy i tabele przedstawiają przebieg kluczowych metryk na przestrzeni czasu.")
+        report_parts.append("Poniższe wykresy przedstawiają przebieg kluczowych metryk na przestrzeni czasu.")
 
         # 3a. RPS Time Series
         report_parts.append("\n### 3.1. Przebieg Przepustowości (RPS)")
         rps_ts_path = self._create_timeseries_plot('k6_successful_html_reqs_rate', 'Udana Przepustowość (RPS)', group_filter=None)
         if rps_ts_path:
             report_parts.append(f"![Przebieg RPS]({rps_ts_path.relative_to(self.input_dir)})")
-        report_parts.append(self._render_timeseries_raw_table_md('k6_successful_html_reqs_rate', 'Udana Przepustowość (RPS)'))
 
         # 3b. CPU Time Series
         report_parts.append("\n### 3.2. Przebieg Zużycia CPU")
         cpu_ts_path = self._create_timeseries_plot('cpu', 'Zużycie CPU', group_filter=None)
         if cpu_ts_path:
             report_parts.append(f"![Przebieg CPU]({cpu_ts_path.relative_to(self.input_dir)})")
-        report_parts.append(self._render_timeseries_raw_table_md('cpu', 'Zużycie CPU (%)'))
 
         # 3c. RAM Time Series
         report_parts.append("\n### 3.3. Przebieg Zużycia RAM")
         ram_ts_path = self._create_timeseries_plot('memory', 'Zużycie RAM', group_filter=None)
         if ram_ts_path:
             report_parts.append(f"![Przebieg RAM]({ram_ts_path.relative_to(self.input_dir)})")
-        report_parts.append(self._render_timeseries_raw_table_md('memory', 'Zużycie RAM (MB)'))
 
 
         report_parts.append("\n## 4. Załącznik: Metodologia Obliczeń")
@@ -532,30 +529,6 @@ class PerformanceAnalyzer:
         }, inplace=True)
         return resource_table.to_markdown(index=False, floatfmt=".2f")
 
-    def _render_timeseries_raw_table_md(self, metric: str, metric_name: str) -> str:
-        """Generates a raw data table for a time-series metric."""
-        metric_df = self.raw_df[self.raw_df['metric'] == metric]
-        if metric_df.empty:
-            return "*Brak danych dla tej metryki.*"
-        
-        # Pivot to have time_sec as index and server_type as columns
-        # We aggregate by mean in case there are multiple runs, which is a standard representation.
-        raw_pivot = metric_df.pivot_table(
-            index='time_sec', 
-            columns='server_type', 
-            values='metric_value',
-            aggfunc='mean'
-        ).reset_index()
-        
-        raw_pivot.rename(columns={'time_sec': 'Czas (s)'}, inplace=True)
-        
-        # If the table is extremely long, we could sample, but user asked for raw values.
-        # We'll provide the first 1000 rows to keep Markdown manageable if it's huge.
-        if len(raw_pivot) > 1000:
-             print(f"WARNING: Time-series table for {metric} truncated to 1000 rows.")
-             raw_pivot = raw_pivot.head(1000)
-
-        return f"\n**Dane surowe (średnia z przebiegów) dla: {metric_name}**\n\n" + raw_pivot.to_markdown(index=False, floatfmt=".2f")
 
 
 
@@ -732,10 +705,13 @@ class PerformanceAnalyzer:
         
         plt.figure(figsize=(12, 10))
         
-        bars = plt.barh(sorted_df['server_type'], sorted_df['sustained_rps'], color='skyblue', label='Utrzymany RPS (Sustained)')
+        # Determine colors: Blue for CSR, Red for SSR
+        colors = ['#3498db' if 'csr' in t.lower() else '#e74c3c' for t in sorted_df['server_type']]
         
-        # Use scatter plot for peak markers for robustness
-        plt.scatter(y=sorted_df['server_type'], x=sorted_df['peak_rps'], color='salmon', 
+        plt.barh(sorted_df['server_type'], sorted_df['sustained_rps'], color=colors, label='Utrzymany RPS (Sustained)')
+        
+        # Use scatter plot for peak markers for robustness - use a neutral or darker color
+        plt.scatter(y=sorted_df['server_type'], x=sorted_df['peak_rps'], color='black', 
                     marker='|', s=100, zorder=10, label='Szczytowy RPS (Peak)')
 
         plt.xlabel('Requests Per Second (dla zapytań HTML)')
@@ -755,10 +731,12 @@ class PerformanceAnalyzer:
         print(f"INFO: Generating capacity resource plot for {metric}...")
         if summary_df.empty or metric not in summary_df.columns: return None
 
-        sorted_df = summary_df.sort_values('sustained_rps', ascending=True)
+        # Sort by the metric: Best (lowest) at the end of DF so it appears at the top of barh
+        sorted_df = summary_df.sort_values(metric, ascending=False)
 
         plt.figure(figsize=(12, 10))
-        plt.barh(sorted_df['server_type'], sorted_df[metric], color='lightgreen')
+        colors = ['#3498db' if 'csr' in t.lower() else '#e74c3c' for t in sorted_df['server_type']]
+        plt.barh(sorted_df['server_type'], sorted_df[metric], color=colors)
         
         plt.xlabel(xlabel)
         plt.ylabel('Technologia')
@@ -879,21 +857,43 @@ class PerformanceAnalyzer:
 
         plot_df = pd.concat(processed_dfs, ignore_index=True)
         agg_df = plot_df.groupby(['server_type', 'time_sec'])['metric_value'].agg(['mean', 'min', 'max']).reset_index()
-        plot_order = self._get_ordered_tech_list(agg_df)
+        
+        if self.report_type == 'capacity':
+            # For capacity mode, sort by performance (Best to Worst)
+            tech_performance = agg_df.groupby('server_type')['mean'].mean()
+            # Determine if higher is better based on metric name
+            higher_is_better = any(m in metric.lower() for m in ['rps', 'rate', 'success', 'throughput'])
+            plot_order = tech_performance.sort_values(ascending=not higher_is_better).index.tolist()
+        else:
+            plot_order = self._get_ordered_tech_list(agg_df)
 
         plt.figure(figsize=(14, 8))
-        palette = sns.color_palette("husl", len(plot_order))
-        color_map = {tech: color for tech, color in zip(plot_order, palette)}
+        
+        # Assign colors: Blues for CSR, Reds for SSR
+        csr_techs = [t for t in plot_order if 'csr' in t.lower()]
+        ssr_techs = [t for t in plot_order if 'ssr' in t.lower()]
+        
+        # Create palettes to ensure distinct shades within the same color family
+        csr_palette = sns.color_palette("Blues_r", len(csr_techs) + 2)[:len(csr_techs)]
+        ssr_palette = sns.color_palette("Reds_r", len(ssr_techs) + 2)[:len(ssr_techs)]
+        
+        color_map = {}
+        for i, tech in enumerate(csr_techs): color_map[tech] = csr_palette[i]
+        for i, tech in enumerate(ssr_techs): color_map[tech] = ssr_palette[i]
+        # Fallback for anything else
+        for tech in plot_order:
+            if tech not in color_map:
+                color_map[tech] = 'gray'
 
         for tech in plot_order:
             tech_df = agg_df[agg_df['server_type'] == tech]
             if tech_df.empty: continue
             color = color_map[tech]
-            plt.plot(tech_df['time_sec'], tech_df['mean'], label=tech, color=color)
-            plt.fill_between(tech_df['time_sec'], tech_df['min'], tech_df['max'], color=color, alpha=0.2)
+            plt.plot(tech_df['time_sec'], tech_df['mean'], label=tech, color=color, linewidth=2)
+            plt.fill_between(tech_df['time_sec'], tech_df['min'], tech_df['max'], color=color, alpha=0.15)
         
-        plt.title(f"Time-Series Analysis: {metric_name}{title_suffix}", fontsize=16)
-        plt.xlabel('Time (seconds)')
+        plt.title(f"Analiza Czasowa: {metric_name}{title_suffix}", fontsize=16)
+        plt.xlabel('Czas (sekundy)')
         plt.ylabel(metric_name)
         plt.legend(title='Technology')
         plt.grid(True, which='both', linestyle='--', linewidth=0.5)

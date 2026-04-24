@@ -149,4 +149,26 @@ python ./scripts/experiments.py --test-type constant \
 
 _Run from the project root._
 
-- **Generate reports**: `python ./statistics/analyzer.py`
+1. **Activate Environment**:
+   ```bash
+   source statistics/venv/bin/activate
+   ```
+
+2. **Generate Capacity Report (Stress Test)**:
+   ```bash
+   # Analyze specific experiment
+   python statistics/analyzer.py --input-dir results/experiment_YYYY-MM-DD_HH-MM-SS --report-type capacity
+
+   # Analyze latest experiment (Bash)
+   python statistics/analyzer.py --input-dir $(ls -td results/experiment_* | head -1) --report-type capacity
+   ```
+
+3. **Generate Performance Report (Constant Load Test)**:
+   ```bash
+   python statistics/analyzer.py --input-dir results/experiment_YYYY-MM-DD_HH-MM-SS --report-type all_apps
+   ```
+
+**Artifacts**:
+- `capacity_report.md` or `report_all_apps.md`: Markdown summary with tables and charts.
+- `plots/`: Subdirectory containing all generated `.png` charts.
+

@@ -4,6 +4,9 @@
   {%- set scenario_upper = hostvars[host]['scenario_type'] | upper %}
   {%- set _ = targets.append({'targets': [hostvars[host]['private_ip'] ~ ':' ~ (node_exporter_port | default(9100))], 'labels': {'server': scenario_upper, 'job': 'node_exporter'}}) %}
   {%- set _ = targets.append({'targets': [hostvars[host]['private_ip'] ~ ':' ~ (nginx_exporter_port | default(9113))], 'labels': {'server': scenario_upper, 'job': 'nginx_log_exporter'}}) %}
+  {%- if 'Apache' in hostvars[host]['scenario_type'] %}
+    {%- set _ = targets.append({'targets': [hostvars[host]['private_ip'] ~ ':9117'], 'labels': {'server': scenario_upper, 'job': 'apache_exporter'}}) %}
+  {%- endif %}
   {%- set _ = targets.append({'targets': [hostvars[host]['private_ip'] ~ ':' ~ (cadvisor_port | default(8080))], 'labels': {'server': scenario_upper, 'job': 'cadvisor'}}) %}
 {%- endfor %}
 

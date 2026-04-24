@@ -17,7 +17,7 @@ if (K6_USE_HTTPS) {
 const server_type = __ENV.SERVER_TYPE || 'unknown';
 const K6_SCENARIO = __ENV.K6_SCENARIO || 'stress_test';
 const K6_TEST_PATH = __ENV.K6_TEST_PATH || 'dynamic'; // 'static' or 'dynamic'
-const TIMEOUT = (parseFloat(__ENV.TIMEOUT) || 0.1) * 1000;
+const TIMEOUT = (parseFloat(__ENV.TIMEOUT) || 0.4) * 1000;
 // Backoff sleep durations in seconds, configurable via env
 const BACKOFF_TIMEOUT_S = parseFloat(__ENV.K6_BACKOFF_TIMEOUT_S) || 0.5;
 const BACKOFF_5XX_S = parseFloat(__ENV.K6_BACKOFF_5XX_S) || 0.2;

@@ -44,7 +44,7 @@ resource "aws_instance" "load_generator" {
 # trivy:ignore:AVD-AWS-0131[OK_for_thesis] EBS encryption is not required as no sensitive data is stored.
 resource "aws_instance" "monitoring_server" {
   ami                    = data.aws_ami.amazon_linux_2023.id
-  instance_type          = "t4g.micro"
+  instance_type          = "t4g.small"
   key_name               = var.key_name
   subnet_id              = aws_subnet.public.id
   vpc_security_group_ids = [aws_security_group.allow_ssh.id, aws_security_group.monitoring_server.id]

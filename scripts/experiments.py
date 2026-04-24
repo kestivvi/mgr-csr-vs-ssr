@@ -219,8 +219,10 @@ def run_single_scenario_lifecycle(
         if interrupted or process.returncode != 0:
             if interrupted:
                 logging.warning(f"[{run_prefix}:{scenario_name}] Experiment interrupted by user. Running teardown...")
-            elif process.returncode == 2: # Ansible code 2 often indicates a timeout in our case
-                logging.warning(f"[{run_prefix}:{scenario_name}] Test timed out or failed (code {process.returncode}). This usually happens at high RPS when k6 takes too long to flush metrics. Initiating graceful teardown...")
+            elif process.returncode == 2: # Ansible code 2 often indicates a timeout or a task failure
+                # Note: We don't have the process start time easily here without more state, 
+                # but we can improve the message to be more general.
+                logging.warning(f"[{run_prefix}:{scenario_name}] Test failed or timed out (code {process.returncode}). Check Ansible logs in {ansible_log_path} for the root cause (e.g., 'Connection Refused' or 'Threshold Failed'). Initiating teardown...")
             else:
                 logging.error(f"[{run_prefix}:{scenario_name}] Ansible playbook failed (code {process.returncode}). Running teardown to capture final state...")
             

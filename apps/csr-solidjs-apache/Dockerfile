@@ -7,7 +7,7 @@ COPY . .
 RUN pnpm run build
 
 # Stage 2: Serve the application with Apache
-FROM httpd:2.4.65-alpine3.22
+FROM httpd:2.4-alpine3.22
 
 # Install Apache Exporter for Prometheus monitoring
 RUN apk add --no-cache wget && \
@@ -17,18 +17,14 @@ RUN apk add --no-cache wget && \
     chmod +x /usr/local/bin/apache_exporter && \
     rm -rf /tmp/apache_exporter*
 
-# Copy built application
-COPY --from=builder /app/dist /var/www/html
+# Copy built application to standard Apache path
+COPY --from=builder /app/dist /usr/local/apache2/htdocs
 
 # Copy Apache configuration
 COPY apache.conf /usr/local/apache2/conf/extra/httpd-vhosts.conf
 
-# Enable required modules and virtual hosts
-RUN echo "Include conf/extra/httpd-vhosts.conf" >> /usr/local/apache2/conf/httpd.conf && \
-    echo "LoadModule rewrite_module modules/mod_rewrite.so" >> /usr/local/apache2/conf/httpd.conf && \
-    echo "LoadModule status_module modules/mod_status.so" >> /usr/local/apache2/conf/httpd.conf && \
-    echo "LoadModule ssl_module modules/mod_ssl.so" >> /usr/local/apache2/conf/httpd.conf && \
-    echo "LoadModule http2_module modules/mod_http2.so" >> /usr/local/apache2/conf/httpd.conf
+# Enable virtual hosts (modules are now loaded in apache.conf)
+RUN echo "Include conf/extra/httpd-vhosts.conf" >> /usr/local/apache2/conf/httpd.conf
 
 # Create log directories and SSL dir, generate self-signed cert
 RUN mkdir -p /var/log/apache2 /usr/local/apache2/ssl \
