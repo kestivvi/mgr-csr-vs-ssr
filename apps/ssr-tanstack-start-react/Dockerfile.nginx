@@ -1,4 +1,4 @@
-FROM nginx:1.29.1-alpine3.22
+FROM nginx:1.30.0-alpine3.23
 RUN apk add --no-cache openssl \
     && mkdir -p /etc/nginx/ssl \
     && openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
