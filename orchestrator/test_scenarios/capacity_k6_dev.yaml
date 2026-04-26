@@ -1,0 +1,11 @@
+test_type: capacity_k6
+num_runs: 1
+
+capacity_k6_options:
+  peak_rate: 200
+  ramp_up: 5m
+  sustain: 1m
+  ramp_down: 1m
+  start_rate: 1
+  warmup: 30s
+  max_vus: 200

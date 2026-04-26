@@ -13,6 +13,7 @@ class CapacityK6Options(BaseModel):
     sustain: str = "1m"
     ramp_down: str = "1m"
     start_rate: int = 1
+    warmup: str = "0s"
     max_vus: int = 200
 
 class CapacityWrkOptions(BaseModel):

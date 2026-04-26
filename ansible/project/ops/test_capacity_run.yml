@@ -11,7 +11,7 @@
   connection: local
   gather_facts: false
   vars:
-    local_k6_script_path: "../../k6/script.js"
+    local_k6_script_path: "../../../k6/script.js"
 
   tasks:
     - name: Ensure k6 script exists locally before starting
@@ -43,7 +43,7 @@
     k6_timeout_seconds: 12000 # Fallback high timeout
 
     # --- Standardized variables (MUST MATCH teardown playbook) ---
-    local_k6_script_path: "../../k6/script.js"
+    local_k6_script_path: "../../../k6/script.js"
     remote_temp_script_path: "/tmp/script.js"
     container_name: "k6_run_{{ server_type | lower | replace('-', '_') }}"
     remote_state_file: "/tmp/k6_state_{{ server_type | lower | replace('-', '_') }}.json"

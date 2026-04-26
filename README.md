@@ -82,6 +82,18 @@ _Run inside `ansible/` directory._
 - **Check connectivity**: `ansible-playbook ping.yml`
 - **Full configuration (Setup containers/exporters)**: `ansible-playbook site.yml`
 - **Clean all containers**: `ansible-playbook test_teardown.yml`
+ 
+### 🔑 SSH Access
+ 
+If you need to manually access the EC2 instances:
+- **User**: `ec2-user`
+- **Key**: Use the key file defined in `ansible/ansible.cfg` (e.g., `~/.ssh/MGR-M.pem`).
+- **Host**: Find the `public_ip` for the desired host in `ansible/inventory/inventory.yml`.
+ 
+```bash
+ssh -i ~/.ssh/MGR-M.pem ec2-user@<PUBLIC_IP>
+```
+
 
 ### 🧪 Running Experiments (Orchestrator)
 

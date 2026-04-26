@@ -139,6 +139,7 @@ class TestRunner:
                 # Map to Ansible names (Thesis Standard RPS Ramping only)
                 mapped = {
                     "capacity_start_rate": opts.get("start_rate"),
+                    "capacity_warmup": opts.get("warmup"),
                     "capacity_peak_rate": opts.get("peak_rate"),
                     "capacity_ramp_up": opts.get("ramp_up"),
                     "capacity_sustain": opts.get("sustain"),
