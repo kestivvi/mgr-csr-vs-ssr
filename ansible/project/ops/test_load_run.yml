@@ -34,7 +34,9 @@
     prometheus_url: "undefined"
     k6_rate: 100
     k6_duration: "5m"
+    max_vus: 200
     k6_path_type: "dynamic" # 'static' or 'dynamic'
+    k6_request_timeout: "0.4s"
     k6_scenario: "load_test"
     k6_timeout_seconds: 3600 # Fallback high timeout
 
@@ -82,6 +84,8 @@
         -e K6_TEST_PATH="{{ k6_path_type }}"
         -e K6_RATE="{{ k6_rate | string }}"
         -e SCRIPT_DURATION="{{ k6_duration }}"
+        -e MAX_VUS="{{ max_vus }}"
+        -e TIMEOUT="{{ k6_request_timeout }}"
         -e K6_PROMETHEUS_RW_SERVER_URL="{{ prometheus_url }}/api/v1/write"
         -e K6_PROMETHEUS_RW_TREND_AS_NATIVE_HISTOGRAM="true"
         -e K6_LOG_OUTPUT="stdout"

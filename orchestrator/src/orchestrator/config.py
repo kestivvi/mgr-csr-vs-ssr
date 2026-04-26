@@ -28,6 +28,7 @@ LOAD_PLAYBOOK = ANSIBLE_OPS / "test_load_run.yml"
 CAPACITY_PLAYBOOK = ANSIBLE_OPS / "test_capacity_run.yml"
 WRK_PLAYBOOK = ANSIBLE_OPS / "test_wrk_run.yml"
 
+
 def resolve_path(path: str | Path) -> Path:
     """Helper to ensure we have an absolute path."""
     p = Path(path)

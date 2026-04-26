@@ -59,14 +59,16 @@ Custom YAML files are **strictly validated** using Pydantic. Here is an exhausti
 
 ```yaml
 # my_experiment.yaml
-test_type: capacity_k6  # options: load, capacity_k6, capacity_wrk
+test_type: capacity_k6 # options: load, capacity_k6, capacity_wrk
 num_runs: 1
 
 # --- If test_type is 'load' ---
 load_options:
-  vus: 10
-  duration: 30s
-  rps: 100               # Optional RPS limit
+  rps: 100
+  duration: 5m
+  vus: 200
+  path_type: dynamic # static or dynamic
+  timeout: 0.4s
 
 # --- If test_type is 'capacity_k6' ---
 capacity_k6_options:
@@ -75,7 +77,10 @@ capacity_k6_options:
   sustain: 1m
   ramp_down: 1m
   start_rate: 1
-  max_vus: 200           # Max pre-allocated users
+  warmup: 0s
+  max_vus: 200
+  path_type: dynamic
+  timeout: 0.4s
 
 # --- If test_type is 'capacity_wrk' ---
 capacity_wrk_options:
@@ -90,23 +95,28 @@ capacity_wrk_options:
 
 #### Configuration Reference
 
-| Block | Field | Type | Default | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| **Root** | `test_type` | `str` | **Required** | `load`, `capacity_k6`, `capacity_wrk` |
-| | `num_runs` | `int` | `1` | Number of times to repeat the experiment |
-| **Load** | `vus` | `int` | `10` | Number of virtual users |
-| | `duration` | `str` | `30s` | Duration of the test |
-| | `rps` | `int` | `null` | Optional RPS limit |
-| **Capacity K6** | `peak_rate` | `int` | `1000` | Target RPS at peak |
-| | `ramp_up` | `str` | `5m` | Ramp up duration (e.g., `10m`) |
-| | `sustain` | `str` | `1m` | Sustain duration at peak |
-| | `ramp_down` | `str` | `1m` | Ramp down duration |
-| | `start_rate`| `int` | `1` | Starting RPS |
-| | `max_vus` | `int` | `200` | Max pre-allocated VUs |
-| **Capacity Wrk** | `threads` | `int` | `2` | Number of threads |
-| | `connections`| `int` | `10` | Number of connections |
-| | `duration` | `str` | `30s` | Duration of the test |
-| | `warmup` | `str` | `30s` | Warmup duration |
+| Block            | Field         | Type  | Default      | Description                              |
+| :--------------- | :------------ | :---- | :----------- | :--------------------------------------- |
+| **Root**         | `test_type`   | `str` | **Required** | `load`, `capacity_k6`, `capacity_wrk`    |
+|                  | `num_runs`    | `int` | `1`          | Number of times to repeat the experiment |
+| **Load**         | `rps`         | `int` | `100`        | Target Requests Per Second               |
+|                  | `duration`    | `str` | `5m`         | Duration of the test                     |
+|                  | `vus`         | `int` | `200`        | Number of virtual users                  |
+|                  | `path_type`   | `str` | `dynamic`    | `static` or `dynamic` paths              |
+|                  | `timeout`     | `str` | `0.4s`       | HTTP request timeout                     |
+| **Capacity K6**  | `peak_rate`   | `int` | `1000`       | Target RPS at peak                       |
+|                  | `ramp_up`     | `str` | `5m`         | Ramp up duration (e.g., `10m`)           |
+|                  | `sustain`     | `str` | `1m`         | Sustain duration at peak                 |
+|                  | `ramp_down`   | `str` | `1m`         | Ramp down duration                       |
+|                  | `start_rate`  | `int` | `1`          | Starting RPS                             |
+|                  | `warmup`      | `str` | `0s`         | Initial stay duration at `start_rate`    |
+|                  | `max_vus`     | `int` | `200`        | Max pre-allocated VUs                    |
+|                  | `path_type`   | `str` | `dynamic`    | `static` or `dynamic` paths              |
+|                  | `timeout`     | `str` | `0.4s`       | HTTP request timeout                     |
+| **Capacity Wrk** | `threads`     | `int` | `2`          | Number of threads                        |
+|                  | `connections` | `int` | `10`         | Number of connections                    |
+|                  | `duration`    | `str` | `30s`        | Duration of the test                     |
+|                  | `warmup`      | `str` | `30s`        | Warmup duration                          |
 
 ### 3. Analyze Results
 
@@ -139,7 +149,12 @@ mgr destroy
 This project uses **Ruff** for linting/formatting and **Mypy** for strict type checking.
 
 ```bash
-# Run quality checks
-ruff check .
-mypy .
+# 1. Format code (auto-fixes line wrapping, indentation, etc.)
+./venv/bin/ruff format .
+
+# 2. Lint code (checks for logic errors and style violations)
+./venv/bin/ruff check .
+
+# 3. Type checking
+./venv/bin/mypy .
 ```

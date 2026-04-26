@@ -33,6 +33,7 @@
     server_type: "undefined"
     prometheus_url: "undefined"
     k6_path_type: "dynamic" # 'static' or 'dynamic'
+    k6_request_timeout: "0.4s"
     capacity_start_rate: 10
     capacity_peak_rate: 2000
     capacity_warmup: "0s"
@@ -88,6 +89,7 @@
           -e K6_PROMETHEUS_RW_SERVER_URL="{{ prometheus_url }}/api/v1/write"
           -e K6_PROMETHEUS_RW_TREND_AS_NATIVE_HISTOGRAM="true"
           -e K6_LOG_OUTPUT="stdout"
+          -e TIMEOUT="{{ k6_request_timeout }}"
           -e K6_BACKOFF_TIMEOUT_S="{{ k6_backoff_timeout_s | default(omit) }}"
           -e K6_BACKOFF_5XX_S="{{ k6_backoff_5xx_s | default(omit) }}"
           -e CAPACITY_WARMUP_DURATION="{{ capacity_warmup }}"

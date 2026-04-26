@@ -1,10 +1,15 @@
-from typing import Optional, List
+from typing import List, Optional
+
 from pydantic import BaseModel, Field
 
+
 class LoadOptions(BaseModel):
-    vus: int = 10
-    duration: str = "30s"
-    rps: Optional[int] = None
+    rps: int = 100
+    duration: str = "5m"
+    vus: int = 200
+    path_type: str = "dynamic"  # 'static' or 'dynamic'
+    timeout: str = "0.4s"
+
 
 class CapacityK6Options(BaseModel):
     # Rate-based (Thesis Standard)
@@ -15,6 +20,9 @@ class CapacityK6Options(BaseModel):
     start_rate: int = 1
     warmup: str = "0s"
     max_vus: int = 200
+    path_type: str = "dynamic"
+    timeout: str = "0.4s"
+
 
 class CapacityWrkOptions(BaseModel):
     threads: int = 2
@@ -22,12 +30,14 @@ class CapacityWrkOptions(BaseModel):
     duration: str = "30s"
     warmup: str = "30s"
 
+
 class Scenario(BaseModel):
     name: str
     load_generator_group: str
     app_server_ip: str
     monitoring_private_ip: str
     monitoring_public_ip: Optional[str] = None
+
 
 class ExperimentConfig(BaseModel):
     test_type: str = Field(..., description="load, capacity_k6, or capacity_wrk")

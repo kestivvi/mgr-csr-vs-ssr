@@ -1,11 +1,12 @@
-
-import re
 import json
-from typing import Optional, Dict, Any, cast
+import re
+from typing import Any, Dict, Optional, cast
+
 
 def strip_ansi(text: str) -> str:
     ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
     return ansi_escape.sub("", text)
+
 
 def extract_marker(output: str, marker: str) -> Optional[Dict[str, Any]]:
     for line in output.splitlines():
@@ -21,6 +22,7 @@ def extract_marker(output: str, marker: str) -> Optional[Dict[str, Any]]:
                 print(f"Extraction error for {marker}: {e}")
                 continue
     return None
+
 
 # Test case 1: Ansible debug output with quotes and ANSI codes
 test_output = """

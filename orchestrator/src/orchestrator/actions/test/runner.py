@@ -15,19 +15,16 @@ from orchestrator.config import (
     ANSIBLE_DIR,
     ANSIBLE_INVENTORY,
     RESULTS_DIR,
-    LOAD_PLAYBOOK,
-    CAPACITY_PLAYBOOK,
-    WRK_PLAYBOOK,
 )
 from orchestrator.shared.ansible import get_ansible_env
 
 console = Console()
 
 # Playbook paths (relative to ANSIBLE_DIR/project)
-LOAD_PLAYBOOK = "ops/test_load_run.yml"
-CAPACITY_PLAYBOOK = "ops/test_capacity_run.yml"
-WRK_PLAYBOOK = "ops/test_wrk_run.yml"
-TEARDOWN_PLAYBOOK = "ops/test_teardown.yml"
+LOAD_PLAYBOOK_PATH = "ops/test_load_run.yml"
+CAPACITY_PLAYBOOK_PATH = "ops/test_capacity_run.yml"
+WRK_PLAYBOOK_PATH = "ops/test_wrk_run.yml"
+TEARDOWN_PLAYBOOK_PATH = "ops/test_teardown.yml"
 
 TIMESTAMP_MARKER = "ORCHESTRATOR_TIMESTAMPS::"
 WRK_RESULT_MARKER = "WRK_RESULTS::"
@@ -50,9 +47,14 @@ def parse_duration_to_seconds(duration_str: str) -> int:
 
 
 class TestRunner:
-    def __init__(self, config_path: Optional[Path], overrides: Optional[Dict[str, Any]] = None, config_dict: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self,
+        config_path: Optional[Path],
+        overrides: Optional[Dict[str, Any]] = None,
+        config_dict: Optional[Dict[str, Any]] = None,
+    ):
         from orchestrator.actions.test.models import ExperimentConfig
-        
+
         raw_config: Dict[str, Any] = {}
         if config_path and config_path.exists():
             with open(config_path, "r") as f:
@@ -71,7 +73,11 @@ class TestRunner:
                         raw_config["num_runs"] = value
                     else:
                         # Auto-detect which options block to update
-                        for opt_key in ["load_options", "capacity_k6_options", "capacity_wrk_options"]:
+                        for opt_key in [
+                            "load_options",
+                            "capacity_k6_options",
+                            "capacity_wrk_options",
+                        ]:
                             if opt_key not in raw_config:
                                 raw_config[opt_key] = {}
                             raw_config[opt_key][key] = value
@@ -127,16 +133,15 @@ class TestRunner:
         }
 
         # Logic for tool-specific vars
-        playbook = LOAD_PLAYBOOK  # Default
+        playbook = LOAD_PLAYBOOK_PATH  # Default
         if tool == "wrk":
-            playbook = WRK_PLAYBOOK
+            playbook = WRK_PLAYBOOK_PATH
             if self.config.capacity_wrk_options:
                 extra_vars.update(self.config.capacity_wrk_options.model_dump(exclude_none=True))
         elif self.test_type == "capacity_k6":
-            playbook = CAPACITY_PLAYBOOK
+            playbook = CAPACITY_PLAYBOOK_PATH
             if self.config.capacity_k6_options:
                 opts = self.config.capacity_k6_options.model_dump(exclude_none=True)
-                # Map to Ansible names (Thesis Standard RPS Ramping only)
                 mapped = {
                     "capacity_start_rate": opts.get("start_rate"),
                     "capacity_warmup": opts.get("warmup"),
@@ -145,12 +150,22 @@ class TestRunner:
                     "capacity_sustain": opts.get("sustain"),
                     "capacity_ramp_down": opts.get("ramp_down"),
                     "max_vus": opts.get("max_vus"),
+                    "k6_path_type": opts.get("path_type"),
+                    "k6_request_timeout": opts.get("timeout"),
                 }
-                # Remove None values
                 extra_vars.update({k: v for k, v in mapped.items() if v is not None})
         else:
+            # Default 'load' test
             if self.config.load_options:
-                extra_vars.update(self.config.load_options.model_dump(exclude_none=True))
+                opts = self.config.load_options.model_dump(exclude_none=True)
+                mapped = {
+                    "k6_rate": opts.get("rps"),
+                    "k6_duration": opts.get("duration"),
+                    "max_vus": opts.get("vus"),
+                    "k6_path_type": opts.get("path_type"),
+                    "k6_request_timeout": opts.get("timeout"),
+                }
+                extra_vars.update({k: v for k, v in mapped.items() if v is not None})
 
         # Run via ansible-runner
         r = ansible_runner.run(
@@ -166,13 +181,17 @@ class TestRunner:
         wrk_results = self._extract_marker(output, WRK_RESULT_MARKER) if tool == "wrk" else None
 
         if not r.status == "successful" or not timestamps:
-            console.print(f"[{run_prefix}:{scenario_name}] Failed. Status: {r.status}, Timestamps: {bool(timestamps)}")
+            msg = (
+                f"[{run_prefix}:{scenario_name}] Failed. "
+                f"Status: {r.status}, Timestamps: {bool(timestamps)}"
+            )
+            console.print(msg)
             if not timestamps:
                 console.print(f"[dim yellow]Raw Output Snippet:[/dim yellow]\n{output[-500:]}")
             # Run teardown
             ansible_runner.run(
                 private_data_dir=str(ANSIBLE_DIR),
-                playbook=TEARDOWN_PLAYBOOK,
+                playbook=TEARDOWN_PLAYBOOK_PATH,
                 extravars={
                     "target_host_group": scenario["load_generator_group"],
                     "server_type": scenario_name,
@@ -195,56 +214,83 @@ class TestRunner:
         # (Assuming parse_inventory logic is moved here or shared)
         scenarios = self._parse_inventory()
 
-        for run in range(1, self.num_runs + 1):
-            if self.shutdown_event.is_set():
-                break
-            
-            console.print(f"\n[bold blue]--- Starting Run {run} of {self.num_runs} ---[/bold blue]")
-            run_results = []
-            
-            # Use ThreadPoolExecutor instead of ProcessPoolExecutor to avoid pickling issues
-            # with Manager/Event objects. Ansible is I/O bound anyway.
-            with ThreadPoolExecutor(max_workers=len(scenarios)) as executor:
-                futures = [executor.submit(self.run_scenario, run, s) for s in scenarios]
-                for f in as_completed(futures):
-                    run_results.append(f.result())
+        try:
+            for run in range(1, self.num_runs + 1):
+                if self.shutdown_event.is_set():
+                    break
 
-            successful = [r for r in run_results if r.get("success") and r.get("timestamps")]
-            if not successful:
-                continue
-
-            # Sync timestamps
-            start_ts = max(r["timestamps"]["start"] for r in successful)
-            end_ts = min(r["timestamps"]["end"] for r in successful)
-
-            if start_ts >= end_ts:
-                console.print("[red]No overlapping time window found.[/red]")
-                continue
-
-            for res in successful:
-                # 1. Collect Prometheus metrics
-                collect_metrics(
-                    prometheus_url=f"http://{res['scenario']['monitoring_public_ip']}:9090",
-                    start_epoch=res["timestamps"]["start"],
-                    end_epoch=res["timestamps"]["end"],
-                    server_type=res["name"],
-                    run_number=run,
-                    output_dir=self.results_base_dir,
+                console.print(
+                    f"\n[bold blue]--- Starting Run {run} of {self.num_runs} ---[/bold blue]"
                 )
-                
-                # 2. Save tool-specific results (like wrk)
-                if res.get("wrk_results"):
-                    wrk_dir = self.results_base_dir / "tool_results"
-                    wrk_dir.mkdir(parents=True, exist_ok=True)
-                    sanitized_name = res["name"].lower().replace("-", "_")
-                    res_path = wrk_dir / f"{run:02d}_{sanitized_name}_wrk.json"
-                    with open(res_path, "w") as f:
-                        json.dump(res["wrk_results"], f, indent=2)
-                    console.print(f"[green]Saved wrk results to {res_path}[/green]")
+                run_results = []
 
-        console.print(
-            f"[bold green]Experiment complete. Results in {self.results_base_dir}[/bold green]"
+                # Use ThreadPoolExecutor instead of ProcessPoolExecutor to avoid pickling issues
+                # with Manager/Event objects. Ansible is I/O bound anyway.
+                with ThreadPoolExecutor(max_workers=len(scenarios)) as executor:
+                    futures = [executor.submit(self.run_scenario, run, s) for s in scenarios]
+                    try:
+                        for fut in as_completed(futures):
+                            run_results.append(fut.result())
+                    except KeyboardInterrupt:
+                        console.print(
+                            "\n[bold red]Interrupt received! Stopping all runs...[/bold red]"
+                        )
+                        self.shutdown_event.set()
+                        # We don't break here, we let the teardown in run_scenario handle it
+                        # or we trigger a global stop below.
+                        raise
+
+                successful = [r for r in run_results if r.get("success") and r.get("timestamps")]
+                if not successful:
+                    continue
+
+                # Sync timestamps
+                start_ts = max(r["timestamps"]["start"] for r in successful)
+                end_ts = min(r["timestamps"]["end"] for r in successful)
+
+                if start_ts >= end_ts:
+                    console.print("[red]No overlapping time window found.[/red]")
+                    continue
+
+                for res in successful:
+                    # 1. Collect Prometheus metrics
+                    collect_metrics(
+                        prometheus_url=f"http://{res['scenario']['monitoring_public_ip']}:9090",
+                        start_epoch=res["timestamps"]["start"],
+                        end_epoch=res["timestamps"]["end"],
+                        server_type=res["name"],
+                        run_number=run,
+                        output_dir=self.results_base_dir,
+                    )
+
+                    # 2. Save tool-specific results (like wrk)
+                    if res.get("wrk_results"):
+                        wrk_dir = self.results_base_dir / "tool_results"
+                        wrk_dir.mkdir(parents=True, exist_ok=True)
+                        sanitized_name = res["name"].lower().replace("-", "_")
+                        res_path = wrk_dir / f"{run:02d}_{sanitized_name}_wrk.json"
+                        with open(res_path, "w") as out_file:
+                            json.dump(res["wrk_results"], out_file, indent=2)
+                        console.print(f"[green]Saved wrk results to {res_path}[/green]")
+
+            console.print(
+                f"[bold green]Experiment complete. Results in "
+                f"{self.results_base_dir}[/bold green]"
+            )
+        except KeyboardInterrupt:
+            self.global_teardown(scenarios)
+            return
+
+    def global_teardown(self, scenarios: Optional[List[Dict[str, Any]]] = None) -> None:
+        console.print("[bold yellow]Initiating global emergency stop...[/bold yellow]")
+        # Run the stop_all playbook to be sure
+        ansible_runner.run(
+            private_data_dir=str(ANSIBLE_DIR),
+            playbook="ops/test_stop_all.yml",
+            envvars=get_ansible_env(),
+            quiet=True,
         )
+        console.print("[bold green]All tests stopped and containers removed.[/bold green]")
 
     def _parse_inventory(self) -> List[Dict[str, Any]]:
         # Minimal port of the inventory parsing logic

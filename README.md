@@ -44,24 +44,20 @@ Repository for Master's Thesis project.
 
 1. Install locally Terraform and Ansible.
 2. Configure AWS CLI and Terraform variables (see [Configuration Requirements](#configuration-requirements)).
-3. Setup Python virtual environment for experiments:
+4. Install the orchestrator and run the setup:
    ```bash
-   # Note: If you moved the project directory, delete the old venv first:
-   # rm -rf statistics/venv
-   python3 -m venv statistics/venv
-   source statistics/venv/bin/activate
-   pip install -r statistics/requirements.txt
-   ```
-4. Run the setup script to provision infrastructure and configure servers:
-   ```bash
-   ./scripts/setup.sh
+   cd orchestrator
+   python3 -m venv venv
+   source venv/bin/activate
+   pip install -e .
+   mgr setup
    ```
 
 To remove all provisioned infrastructure, run:
-
-```bash
-./scripts/destroy.sh
-```
+ 
+ ```bash
+ mgr destroy
+ ```
 
 ## Frequent Commands
 
@@ -96,24 +92,27 @@ ssh -i ~/.ssh/MGR-M.pem ec2-user@<PUBLIC_IP>
 
 
 ### 🧪 Running Experiments (Orchestrator)
-
-The main tool for conducting research is the `scripts/experiments.py` orchestrator. It automates the process of running tests across all defined application servers and collecting metrics from Prometheus.
-
-#### Prerequisites
-
-1.  **Infrastructure**: Ensure AWS resources are deployed (`terraform apply`) and configured (`ansible-playbook site.yml`).
-2.  **Environment**: Activate the Python virtual environment:
-    ```bash
-    source statistics/venv/bin/activate
-    ```
-
-#### 1. Capacity Test
+ 
+ The main tool for conducting research is the `mgr` orchestrator. It automates provisioning, test execution, and metric collection.
+ 
+ #### Prerequisites
+ 
+ 1.  **Infrastructure**: Ensure AWS resources are deployed and configured (`mgr setup`).
+ 2.  **Environment**: Activate the Python virtual environment in the `orchestrator` directory.
+ 
+ #### Running Tests
+ 
+ Tests are defined in YAML files for reproducibility.
+ 
+ ```bash
+ mgr test file orchestrator/test_scenarios/capacity_k6_dev.yaml
+ ```
+ 
+ #### 1. Capacity Test (K6)
 
 This test implements the **ramping-arrival-rate** executor in k6. It gradually increases the load to identify the server's breaking point (maximum throughput).
 
 ```bash
-python ./scripts/experiments.py --test-type capacity_k6 \
-  --num-runs 1 \
   --peak-rate 1000 \
   --ramp-up 5m \
   --sustain 1m \
@@ -265,3 +264,14 @@ _Run from the project root._
 
 - `capacity_report.md` or `report_all_apps.md`: Markdown summary with tables and charts.
 - `plots/`: Subdirectory containing all generated `.png` charts.
+
+### 🛠️ Development & Quality Control
+
+The project uses `ruff` and `mypy` for code quality. Run these from the `orchestrator` directory:
+
+```bash
+cd orchestrator
+./venv/bin/ruff format .  # Format code
+./venv/bin/ruff check .   # Lint code
+./venv/bin/mypy .         # Type check
+```

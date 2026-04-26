@@ -1,6 +1,8 @@
 from typing import Any, Dict, Optional
+
 from orchestrator.actions.test.runner import TestRunner
 from orchestrator.config import resolve_path
+
 
 def run(
     mode: str,
@@ -16,7 +18,7 @@ def run(
     start_rate: Optional[int] = None,
 ) -> None:
     """
-    Core test execution logic. 
+    Core test execution logic.
     """
     overrides: Dict[str, Any] = {}
     if num_runs is not None:
@@ -27,7 +29,7 @@ def run(
         overrides["vus"] = vus
     if rps is not None:
         overrides["rps"] = rps
-    
+
     # Capacity parameters
     if peak_rate is not None:
         overrides["peak_rate"] = peak_rate
@@ -47,7 +49,7 @@ def run(
         runner = TestRunner(config_path, overrides=overrides)
     else:
         # For 'load' and 'capacity', we just use the values passed from the CLI
-        # as the initial config. 
+        # as the initial config.
         config_dict = {"test_type": "capacity_k6" if mode == "capacity" else "load"}
         runner = TestRunner(None, overrides=overrides, config_dict=config_dict)
 
