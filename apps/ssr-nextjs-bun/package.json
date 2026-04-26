@@ -1,5 +1,5 @@
 {
-  "name": "ssr-nextjs",
+  "name": "ssr-nextjs-bun",
   "version": "0.1.0",
   "private": true,
   "scripts": {

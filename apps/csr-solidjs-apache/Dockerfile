@@ -1,13 +1,13 @@
 # Stage 1: Build the SolidJS application
-FROM node:22-alpine3.22 AS builder
+FROM node:25.9.0-alpine3.23 AS builder
 WORKDIR /app
-COPY package.json pnpm-lock.yaml ./
-RUN npm install -g pnpm && pnpm install
+COPY package.json package-lock.json* ./
+RUN npm ci
 COPY . .
-RUN pnpm run build
+RUN npm run build
 
 # Stage 2: Serve the application with Apache
-FROM httpd:2.4-alpine3.22
+FROM httpd:2.4.66-alpine3.23
 
 # Install Apache Exporter for Prometheus monitoring
 RUN apk add --no-cache wget && \

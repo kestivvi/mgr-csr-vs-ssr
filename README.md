@@ -117,21 +117,35 @@ python ./scripts/experiments.py --test-type stress \
 
 #### 2. Load Test (Constant Rate)
 
-This test implements the **constant-arrival-rate** executor. It maintains a steady load to analyze stability, latency percentiles, and resource consumption under a known "safe" load.
+This test implements the **constant-arrival-rate** executor. It maintains a steady, predefined load throughout the test duration. It is ideal for studying application stability, resource consumption under constant pressure, and determining precise latency percentiles.
 
 ```bash
 python ./scripts/experiments.py --test-type constant \
+  --num-runs 3 \
   --rate 100 \
-  --duration 10m \
+  --duration 5m \
   --warmup 30s \
   --cooldown 15s
 ```
 
 **Parameters:**
 
-- `--rate`: Constant requests per second.
-- `--duration`: Total duration of the test.
-- `--warmup/--cooldown`: Time windows at the beginning and end of the test that will be excluded from the final metric analysis to ensure steady-state data.
+- `--num-runs`: Number of times the entire experiment (for all apps) should be repeated. Essential for statistical significance (default: 1).
+- `--rate`: Target requests per second (RPS).
+- `--duration`: Duration of the main measurement phase.
+- `--warmup`: Warm-up duration (default 30s). In `constant` tests, this period is automatically excluded from the final metrics to ensure data represents steady-state performance. In `stress` tests, it is included to capture the full ramp-up curve.
+- `--cooldown`: Cooldown duration after the test (default 15s). Similar to warm-up, this is excluded from metrics in `constant` tests.
+- `--path-type`: (`static` or `dynamic`) Determines whether k6 should hit a static path or generate dynamic parameters (e.g., random IDs).
+
+#### 3. Champion Comparison (A/B Test)
+
+If you want to perform a deep statistical analysis (significance tests, effect size) between exactly two technologies, you can use a dedicated report. First, run a `constant` type test for the selected applications, and then:
+
+```bash
+python statistics/analyzer.py --input-dir results/experiment_... \
+  --report-type champions \
+  --champions CSR-Vanilla SSR-NextJS
+```
 
 #### 📊 Results and Monitoring
 
@@ -150,11 +164,13 @@ python ./scripts/experiments.py --test-type constant \
 _Run from the project root._
 
 1. **Activate Environment**:
+
    ```bash
    source statistics/venv/bin/activate
    ```
 
 2. **Generate Capacity Report (Stress Test)**:
+
    ```bash
    # Analyze specific experiment
    python statistics/analyzer.py --input-dir results/experiment_YYYY-MM-DD_HH-MM-SS --report-type capacity
@@ -163,12 +179,14 @@ _Run from the project root._
    python statistics/analyzer.py --input-dir $(ls -td results/experiment_* | head -1) --report-type capacity
    ```
 
-3. **Generate Performance Report (Constant Load Test)**:
+3. **Generate Comparison Report (Constant Load Test)**:
+   Use the `all_apps` report type to compare all tested technologies in a ranking table and box plots.
+
    ```bash
    python statistics/analyzer.py --input-dir results/experiment_YYYY-MM-DD_HH-MM-SS --report-type all_apps
    ```
 
 **Artifacts**:
+
 - `capacity_report.md` or `report_all_apps.md`: Markdown summary with tables and charts.
 - `plots/`: Subdirectory containing all generated `.png` charts.
-

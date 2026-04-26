@@ -1,13 +1,13 @@
 # Stage 1: Build the Vue application
-FROM node:22-alpine3.22 AS builder
+FROM node:25.9.0-alpine3.23 AS builder
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm install
+RUN npm ci
 COPY . .
 RUN npm run build
 
 # Stage 2: Serve the application with Nginx
-FROM nginx:1.29.1-alpine3.22
+FROM nginx:1.30.0-alpine3.23
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 RUN apk add --no-cache openssl \

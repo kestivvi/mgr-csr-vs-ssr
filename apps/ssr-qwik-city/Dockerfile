@@ -1,11 +1,11 @@
 # Stage 1: Install dependencies
-FROM node:22-alpine3.22 AS deps
+FROM node:25.9.0-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --omit=dev
 
 # Stage 2: Build the application
-FROM node:22-alpine3.22 AS builder
+FROM node:25.9.0-slim AS builder
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci
@@ -14,7 +14,7 @@ RUN npm run build
 RUN npm run build.preview
 
 # Stage 3: Production image
-FROM node:22-alpine3.22 AS runner
+FROM node:25.9.0-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
@@ -28,7 +28,9 @@ COPY --from=builder /app/package.json ./
 COPY --from=builder /app/vite.config.ts ./
 COPY --from=builder /app/tsconfig.json ./
 
+ENV PORT=3000
+
 EXPOSE 3000
 
 # Start the Qwik City server using vite preview
-CMD ["node", "./node_modules/vite/bin/vite.js", "preview", "--host", "0.0.0.0", "--port", "3000"]
+CMD ["node", "./node_modules/vite/bin/vite.js", "preview", "--host", "0.0.0.0", "--port", "3000", "--strictPort"]

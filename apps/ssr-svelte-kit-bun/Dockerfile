@@ -2,10 +2,10 @@
 
 # ---- Stage 1: Install Production Dependencies ----
 # This stage creates a layer with just the production node_modules.
-# It will be cached and reused if package.json or bun.lockb doesn't change.
-FROM oven/bun:1-alpine AS deps
+# It will be cached and reused if package.json or bun.lock doesn't change.
+FROM oven/bun:1.3.13-alpine AS deps
 WORKDIR /app
-COPY package.json bun.lockb* ./
+COPY package.json bun.lock* ./
 # Install production-only dependencies
 # --bun is not applicable to 'bun install'
 RUN bun install --production
@@ -14,9 +14,9 @@ RUN bun install --production
 # ---- Stage 2: Build the SvelteKit Application ----
 # This stage builds the actual application code.
 # It installs all dependencies (including dev) and runs the build script.
-FROM oven/bun:1-alpine AS builder
+FROM oven/bun:1.3.13-alpine AS builder
 WORKDIR /app
-COPY package.json bun.lockb* ./
+COPY package.json bun.lock* ./
 # Install all dependencies
 RUN bun install
 COPY . .
@@ -27,7 +27,7 @@ RUN bun run --bun build
 # ---- Stage 3: Production Runner ----
 # This is the final, lean image that will be deployed.
 # It copies the necessary artifacts from the previous stages.
-FROM oven/bun:1-alpine AS runner
+FROM oven/bun:1.3.13-alpine AS runner
 WORKDIR /app
 
 # Set environment variables for the server

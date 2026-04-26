@@ -162,7 +162,7 @@ def run_single_scenario_lifecycle(
     }
     if args.test_type == 'constant':
         extra_vars.update({"k6_rate": args.rate, "k6_duration": args.duration, "k6_warmup": args.warmup})
-        timeout_s = parse_duration_to_seconds(args.duration) + 120 # 2m margin
+        timeout_s = parse_duration_to_seconds(args.duration) + 300 # 5m margin
     else: # stress
         extra_vars.update({
             "stress_warmup": args.warmup,
@@ -175,7 +175,7 @@ def run_single_scenario_lifecycle(
             parse_duration_to_seconds(args.ramp_up) +
             parse_duration_to_seconds(args.sustain) +
             parse_duration_to_seconds(args.ramp_down) +
-            180 # 3m margin for stress tests (flushing metrics)
+            300 # 5m margin for stress tests (flushing metrics)
         )
     
     extra_vars["k6_timeout_seconds"] = timeout_s

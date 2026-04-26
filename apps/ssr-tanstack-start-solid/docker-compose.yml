@@ -1,7 +1,7 @@
 services:
   tanstack-app:
     build: .
-    image: ssr-tanstack-start-solid-tanstack-app
+    image: ssr-tanstack-start-solid-app
     restart: unless-stopped
     networks:
       - app-net

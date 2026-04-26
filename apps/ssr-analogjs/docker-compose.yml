@@ -1,7 +1,7 @@
 services:
   analogjs-app:
     build: .
-    image: ssr-analogjs-analogjs-app
+    image: ssr-analogjs-app
     restart: unless-stopped
     networks:
       - app-net

@@ -1,5 +1,5 @@
 # Build stage: Minify assets
-FROM node:22-alpine3.22 AS builder
+FROM node:25.9.0-alpine3.23 AS builder
 WORKDIR /app
 COPY . .
 
@@ -16,7 +16,7 @@ RUN cleancss -o styles.min.css styles.css
 RUN html-minifier-terser -o index.min.html index.html --remove-comments --collapse-whitespace --remove-redundant-attributes --remove-script-type-attributes --remove-style-link-type-attributes --use-short-doctype --minify-css --minify-js
 
 # Final stage: Serve with Nginx
-FROM nginx:1.29.1-alpine3.22
+FROM nginx:1.30.0-alpine3.23
 COPY --from=builder /app/index.min.html /usr/share/nginx/html/index.html
 COPY --from=builder /app/app.min.js /usr/share/nginx/html/app.js
 COPY --from=builder /app/styles.min.css /usr/share/nginx/html/styles.css

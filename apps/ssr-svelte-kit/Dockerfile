@@ -3,7 +3,7 @@
 # ---- Stage 1: Install Production Dependencies ----
 # This stage creates a layer with just the production node_modules.
 # It will be cached and reused if package.json doesn't change.
-FROM node:22-alpine3.22 AS deps
+FROM node:25.9.0-alpine3.23 AS deps
 WORKDIR /app
 COPY package*.json ./
 # Use npm ci for reproducible installs; only production deps in this layer
@@ -13,7 +13,7 @@ RUN npm ci --omit=dev
 # ---- Stage 2: Build the SvelteKit Application ----
 # This stage builds the actual application code.
 # It installs all dependencies (including dev) and runs the build script.
-FROM node:22-alpine3.22 AS builder
+FROM node:25.9.0-alpine3.23 AS builder
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
@@ -24,7 +24,7 @@ RUN npm run build
 # ---- Stage 3: Production Runner ----
 # This is the final, lean image that will be deployed.
 # It copies the necessary artifacts from the previous stages.
-FROM node:22-alpine3.22 AS runner
+FROM node:25.9.0-alpine3.23 AS runner
 WORKDIR /app
 
 # Set environment variables for the Node.js server

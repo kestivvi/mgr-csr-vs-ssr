@@ -1,5 +1,5 @@
 # Build stage: Minify assets
-FROM node:22-alpine3.22 AS builder
+FROM node:25.9.0-alpine3.23 AS builder
 WORKDIR /app
 COPY . .
 
@@ -16,7 +16,7 @@ RUN cleancss -o styles.min.css styles.css
 RUN html-minifier-terser -o index.min.html index.html --remove-comments --collapse-whitespace --remove-redundant-attributes --remove-script-type-attributes --remove-style-link-type-attributes --use-short-doctype --minify-css --minify-js
 
 # Final stage: Serve with Apache
-FROM httpd:2.4-alpine3.22
+FROM httpd:2.4.66-alpine3.23
 
 # Install Apache Exporter for Prometheus monitoring
 RUN apk add --no-cache wget && \

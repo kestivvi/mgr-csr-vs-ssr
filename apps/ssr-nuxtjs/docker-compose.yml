@@ -1,7 +1,7 @@
 services:
-  nuxt-app:
+  nuxtjs-app:
     build: .
-    image: ssr-nuxt-nuxt-app
+    image: ssr-nuxtjs-app
     restart: unless-stopped
     networks:
       - app-net
@@ -19,7 +19,7 @@ services:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf
       - /var/log/ssr-nuxtjs-nginx:/var/log/nginx
     depends_on:
-      - nuxt-app
+      - nuxtjs-app
     networks:
       - app-net
 
