@@ -34,6 +34,7 @@ override.tf.json
 # --- Ansible ---
 ansible/inventory/inventory.yml
 ansible/artifacts/
+ansible/env/
 
 # --- Load Testing ---
 k6/build/

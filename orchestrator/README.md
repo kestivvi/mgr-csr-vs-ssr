@@ -38,11 +38,75 @@ mgr setup
 
 ### 2. Run Experiments
 
-Execute performance tests based on a YAML configuration.
+Execute performance tests. There are three modes:
 
-```bash
-mgr test --config experiments/load_test.yaml
+- **Load Tests**: Standard fixed-load tests.
+  ```bash
+  mgr test load --vus 20 --duration 1m
+  ```
+- **Capacity Tests**: Ramping-up tests to find breaking points.
+  ```bash
+  mgr test capacity --vus 200 --step-vus 20
+  ```
+- **Custom Files**: Use a YAML file for complex scenarios.
+  ```bash
+  mgr test file my_experiment.yaml
+  ```
+
+#### Custom Experiment File Schema
+
+Custom YAML files are **strictly validated** using Pydantic. Here is an exhaustive example showing all available fields for different `test_type` modes.
+
+```yaml
+# my_experiment.yaml
+test_type: capacity_k6  # options: load, capacity_k6, capacity_wrk
+num_runs: 1
+
+# --- If test_type is 'load' ---
+load_options:
+  vus: 10
+  duration: 30s
+  rps: 100               # Optional RPS limit
+
+# --- If test_type is 'capacity_k6' ---
+capacity_k6_options:
+  peak_rate: 1000
+  ramp_up: 5m
+  sustain: 1m
+  ramp_down: 1m
+  start_rate: 1
+  max_vus: 200           # Max pre-allocated users
+
+# --- If test_type is 'capacity_wrk' ---
+capacity_wrk_options:
+  threads: 2
+  connections: 10
+  duration: 30s
+  warmup: 30s
 ```
+
+> [!IMPORTANT]
+> **Auto-Discovery**: The orchestrator automatically finds all provisioned app servers in your inventory. You do not need to specify hostnames or IPs in your configuration files.
+
+#### Configuration Reference
+
+| Block | Field | Type | Default | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| **Root** | `test_type` | `str` | **Required** | `load`, `capacity_k6`, `capacity_wrk` |
+| | `num_runs` | `int` | `1` | Number of times to repeat the experiment |
+| **Load** | `vus` | `int` | `10` | Number of virtual users |
+| | `duration` | `str` | `30s` | Duration of the test |
+| | `rps` | `int` | `null` | Optional RPS limit |
+| **Capacity K6** | `peak_rate` | `int` | `1000` | Target RPS at peak |
+| | `ramp_up` | `str` | `5m` | Ramp up duration (e.g., `10m`) |
+| | `sustain` | `str` | `1m` | Sustain duration at peak |
+| | `ramp_down` | `str` | `1m` | Ramp down duration |
+| | `start_rate`| `int` | `1` | Starting RPS |
+| | `max_vus` | `int` | `200` | Max pre-allocated VUs |
+| **Capacity Wrk** | `threads` | `int` | `2` | Number of threads |
+| | `connections`| `int` | `10` | Number of connections |
+| | `duration` | `str` | `30s` | Duration of the test |
+| | `warmup` | `str` | `30s` | Warmup duration |
 
 ### 3. Analyze Results
 

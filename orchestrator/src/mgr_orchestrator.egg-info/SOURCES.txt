@@ -24,4 +24,5 @@ src/orchestrator/actions/test/cli.py
 src/orchestrator/actions/test/collector.py
 src/orchestrator/actions/test/runner.py
 src/orchestrator/shared/__init__.py
+src/orchestrator/shared/ansible.py
 src/orchestrator/shared/runner.py

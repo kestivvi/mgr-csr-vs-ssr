@@ -1,0 +1,8 @@
+test_type: capacity_wrk
+num_runs: 2
+
+capacity_wrk_options:
+  threads: 2
+  connections: 10
+  duration: 30s
+  warmup: 30s

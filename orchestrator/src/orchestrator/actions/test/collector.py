@@ -118,8 +118,8 @@ def collect_metrics(
     metrics_dir.mkdir(parents=True, exist_ok=True)
 
     prom = PrometheusConnect(url=prometheus_url, disable_ssl=True)
-    start_time = datetime.fromtimestamp(start_epoch, tz=timezone.utc)
-    end_time = datetime.fromtimestamp(end_epoch, tz=timezone.utc)
+    start_time = datetime.fromtimestamp(int(start_epoch), tz=timezone.utc)
+    end_time = datetime.fromtimestamp(int(end_epoch), tz=timezone.utc)
 
     all_metric_dfs = []
     for metric_name in METRIC_CONFIG.keys():

@@ -31,8 +31,15 @@ def run_setup(force: bool = False) -> None:
     # 2. Ansible Configuration
     console.print("[bold green]Step 2: Ansible Configuration[/bold green]")
 
-    # Using ansible-runner
-    r = ansible_runner.run(private_data_dir=str(ANSIBLE_DIR), playbook="site.yml", quiet=False)
+    from orchestrator.shared.ansible import get_ansible_env
+
+    # Using ansible-runner with dynamic environment
+    r = ansible_runner.run(
+        private_data_dir=str(ANSIBLE_DIR),
+        playbook="site.yml",
+        quiet=False,
+        envvars=get_ansible_env(),
+    )
 
     if r.rc != 0:
         console.print(f"[bold red]Ansible failed with return code {r.rc}[/bold red]")

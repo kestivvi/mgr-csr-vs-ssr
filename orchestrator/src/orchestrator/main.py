@@ -29,17 +29,54 @@ def setup(
     setup_cli.run(force=force)
 
 
-@app.command()
-def test(
-    config: Annotated[
-        str, typer.Option(help="Path to experiment config")
-    ] = "experiments/default.yaml",
+test_app = typer.Typer(help="[bold blue]Test[/bold blue]: Run performance experiments (k6/wrk).", rich_markup_mode="rich")
+app.add_typer(test_app, name="test")
+
+@test_app.command(name="load")
+def test_load(
+    num_runs: Annotated[int, typer.Option("--num-runs", help="Number of runs", show_default=True)] = 1,
+    duration: Annotated[str, typer.Option("--duration", help="Duration", show_default=True)] = "30s",
+    vus: Annotated[int, typer.Option("--vus", help="Number of virtual users", show_default=True)] = 10,
+    rps: Annotated[Optional[int], typer.Option("--rps", help="Requests per second")] = None,
 ) -> None:
-    """
-    [bold blue]Test[/bold blue]: Run performance experiments (k6/wrk).
-    """
-    console.print(f"[yellow]Test command initiated with config: {config}[/yellow]")
-    test_cli.run(config=config)
+    """Run standard [cyan]load[/cyan] tests."""
+    test_cli.run(
+        mode="load", 
+        num_runs=num_runs, 
+        duration=duration, 
+        vus=vus, 
+        rps=rps
+    )
+
+@test_app.command(name="capacity")
+def test_capacity(
+    num_runs: Annotated[int, typer.Option("--num-runs", help="Number of runs", show_default=True)] = 1,
+    peak_rate: Annotated[int, typer.Option("--peak-rate", help="Target RPS at peak", show_default=True)] = 1000,
+    ramp_up: Annotated[str, typer.Option("--ramp-up", help="Ramp up duration", show_default=True)] = "5m",
+    sustain: Annotated[str, typer.Option("--sustain", help="Sustain duration at peak", show_default=True)] = "1m",
+    ramp_down: Annotated[str, typer.Option("--ramp-down", help="Ramp down duration", show_default=True)] = "1m",
+    start_rate: Annotated[int, typer.Option("--start-rate", help="Starting RPS", show_default=True)] = 1,
+) -> None:
+    """Run [cyan]capacity[/cyan] tests (Thesis Standard RPS Ramping)."""
+    test_cli.run(
+        mode="capacity",
+        num_runs=num_runs,
+        peak_rate=peak_rate,
+        ramp_up=ramp_up,
+        sustain=sustain,
+        ramp_down=ramp_down,
+        start_rate=start_rate
+    )
+
+@test_app.command(name="file")
+def test_file(
+    path: Annotated[str, typer.Argument(help="Path to custom experiment config")],
+    num_runs: Annotated[Optional[int], typer.Option("--num-runs", help="Override number of runs")] = None,
+    duration: Annotated[Optional[str], typer.Option("--duration", help="Override duration")] = None,
+    vus: Annotated[Optional[int], typer.Option("--vus", help="Override VUs")] = None,
+) -> None:
+    """Run experiments from a custom [cyan]YAML file[/cyan]."""
+    test_cli.run(mode="file", path=path, num_runs=num_runs, duration=duration, vus=vus)
 
 
 @app.command()
