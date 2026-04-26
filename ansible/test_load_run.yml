@@ -1,7 +1,7 @@
 ---
-# ansible/test_constant_run.yml
+# ansible/test_load_run.yml
 #
-# This playbook runs a single k6 load test on a target load generator.
+# This playbook runs a single k6 LOAD test on a target load generator.
 # It is designed to be called by an external orchestrator script, which
 # must provide all necessary variables via --extra-vars.
 
@@ -35,7 +35,7 @@
     k6_rate: 100
     k6_duration: "5m"
     k6_path_type: "dynamic" # 'static' or 'dynamic'
-    k6_scenario: "constant_test"
+    k6_scenario: "load_test"
     k6_timeout_seconds: 3600 # Fallback high timeout
 
     # --- Standardized variables (MUST MATCH teardown playbook) ---

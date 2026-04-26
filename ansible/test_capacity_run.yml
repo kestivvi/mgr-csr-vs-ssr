@@ -1,7 +1,7 @@
 ---
-# ansible/test_stress_run.yml
+# ansible/test_capacity_run.yml
 #
-# This playbook runs a single k6 STRESS test on a target load generator.
+# This playbook runs a single k6 CAPACITY test on a target load generator.
 # It is designed to be called by an external orchestrator script, which
 # must provide all necessary variables via --extra-vars.
 
@@ -21,7 +21,7 @@
       failed_when: not k6_script_file.stat.exists
 
 # Play 2: Deploy and run the test on the remote load generator
-- name: Run k6 Stress Test on a Single Generator
+- name: Run k6 Capacity Test on a Single Generator
   hosts: "{{ target_host_group }}"
   become: true
   gather_facts: false
@@ -33,12 +33,12 @@
     server_type: "undefined"
     prometheus_url: "undefined"
     k6_path_type: "dynamic" # 'static' or 'dynamic'
-    stress_start_rate: 10
-    stress_peak_rate: 2000
-    stress_warmup: "0s"
-    stress_ramp_up: "10m"
-    stress_sustain: "5m"
-    stress_ramp_down: "1m"
+    capacity_start_rate: 10
+    capacity_peak_rate: 2000
+    capacity_warmup: "0s"
+    capacity_ramp_up: "10m"
+    capacity_sustain: "5m"
+    capacity_ramp_down: "1m"
     max_vus: 200
     k6_timeout_seconds: 12000 # Fallback high timeout
 
@@ -66,13 +66,13 @@
       register: start_timestamp_result
       changed_when: false
 
-    - name: (NEW) Create remote state file for graceful shutdown
+    - name: Create remote state file for graceful shutdown
       ansible.builtin.copy:
         content: '{"start_time": {{ start_timestamp_result.stdout }} }'
         dest: "{{ remote_state_file }}"
         mode: "0644"
 
-    - name: Run k6 stress test synchronously
+    - name: Run k6 capacity test synchronously
       # noqa: command-instead-of-shell
       ansible.builtin.shell:
         cmd: >-
@@ -81,7 +81,7 @@
           --network host
           --ulimit nofile=250000:250000
           --volume {{ remote_temp_script_path }}:/test/script.js:ro,z
-          -e K6_SCENARIO="stress_test"
+          -e K6_SCENARIO="capacity_test"
           -e SERVER_TYPE="{{ server_type | upper }}"
           -e TARGET_URL="{{ target_url }}"
           -e K6_TEST_PATH="{{ k6_path_type }}"
@@ -90,12 +90,12 @@
           -e K6_LOG_OUTPUT="stdout"
           -e K6_BACKOFF_TIMEOUT_S="{{ k6_backoff_timeout_s | default(omit) }}"
           -e K6_BACKOFF_5XX_S="{{ k6_backoff_5xx_s | default(omit) }}"
-          -e STRESS_WARMUP_DURATION="{{ stress_warmup }}"
-          -e STRESS_START_RATE="{{ stress_start_rate }}"
-          -e STRESS_PEAK_RATE="{{ stress_peak_rate }}"
-          -e STRESS_RAMP_UP_DURATION="{{ stress_ramp_up }}"
-          -e STRESS_SUSTAIN_DURATION="{{ stress_sustain }}"
-          -e STRESS_RAMP_DOWN_DURATION="{{ stress_ramp_down }}"
+          -e CAPACITY_WARMUP_DURATION="{{ capacity_warmup }}"
+          -e CAPACITY_START_RATE="{{ capacity_start_rate }}"
+          -e CAPACITY_PEAK_RATE="{{ capacity_peak_rate }}"
+          -e CAPACITY_RAMP_UP_DURATION="{{ capacity_ramp_up }}"
+          -e CAPACITY_SUSTAIN_DURATION="{{ capacity_sustain }}"
+          -e CAPACITY_RAMP_DOWN_DURATION="{{ capacity_ramp_down }}"
           -e MAX_VUS="{{ max_vus }}"
           grafana/k6:latest
           run

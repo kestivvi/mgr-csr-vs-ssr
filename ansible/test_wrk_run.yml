@@ -1,0 +1,111 @@
+---
+# ansible/test_wrk_run.yml
+#
+# This playbook runs a scientific wrk load test on a target load generator.
+# It includes a warmup phase and a measurement phase.
+
+- name: Run wrk Load Test on a Single Generator
+  hosts: "{{ target_host_group }}"
+  become: true
+  gather_facts: true
+
+  vars:
+    # --- Required variables to be passed by the orchestrator ---
+    target_host_group: "undefined"
+    target_url: "undefined"
+    server_type: "undefined"
+    wrk_threads: 2
+    wrk_connections: 100
+    wrk_duration: "30s"
+    wrk_warmup: "30s"
+
+  tasks:
+    - name: Check if wrk is already installed
+      ansible.builtin.command: which wrk
+      register: wrk_check
+      failed_when: false
+      changed_when: false
+
+    - name: Install wrk (Debian/Ubuntu)
+      ansible.builtin.apt:
+        name: wrk
+        state: present
+        update_cache: true
+      when:
+        - ansible_os_family == "Debian"
+        - wrk_check.rc != 0
+
+    - name: Build wrk from source (Amazon Linux / RedHat)
+      when:
+        - ansible_os_family == "RedHat" or ansible_os_family == "Amazon"
+        - wrk_check.rc != 0
+      block:
+        - name: Install build dependencies
+          ansible.builtin.dnf:
+            name:
+              - "@Development Tools"
+              - openssl-devel
+              - git
+            state: present
+
+        - name: Clone wrk repository
+          ansible.builtin.git:
+            repo: https://github.com/wg/wrk.git
+            dest: /tmp/wrk
+            version: master
+
+        - name: Build wrk
+          ansible.builtin.command:
+            cmd: make
+            chdir: /tmp/wrk
+            creates: /tmp/wrk/wrk
+
+        - name: Install wrk binary
+          ansible.builtin.copy:
+            src: /tmp/wrk/wrk
+            dest: /usr/local/bin/wrk
+            mode: "0755"
+            remote_src: true
+
+    - name: Get start timestamp for the full sequence
+      ansible.builtin.command: "date +%s"
+      register: start_timestamp_result
+      changed_when: false
+
+    - name: Run Warmup Phase
+      ansible.builtin.command: "wrk -t{{ wrk_threads }} -c{{ wrk_connections }} -d{{ wrk_warmup }} {{ target_url }}"
+      register: wrk_warmup_result
+      changed_when: true
+
+    - name: Get start timestamp for measurement phase
+      ansible.builtin.command: "date +%s"
+      register: measure_start_timestamp
+      changed_when: false
+
+    - name: Run Measurement Phase
+      ansible.builtin.command: "wrk -t{{ wrk_threads }} -c{{ wrk_connections }} -d{{ wrk_duration }} {{ target_url }}"
+      register: wrk_measure_result
+      changed_when: true
+
+    - name: Get end timestamp for measurement phase
+      ansible.builtin.command: "date +%s"
+      register: end_timestamp_result
+      changed_when: false
+
+    - name: Parse wrk Results
+      ansible.builtin.set_fact:
+        wrk_rps: "{{ wrk_measure_result.stdout | regex_search('Requests/sec:\\s+([\\d.]+)', '\\1') | first }}"
+        wrk_lat_avg: "{{ wrk_measure_result.stdout | regex_search('Latency\\s+([\\d.]+ms|[\\d.]+us|[\\d.]+s)', '\\1') | first }}"
+        wrk_transfer: "{{ wrk_measure_result.stdout | regex_search('Transfer/sec:\\s+([\\d.]+MB|[\\d.]+KB|[\\d.]+GB)', '\\1') | first }}"
+
+    - name: Output precise timestamps for orchestrator
+      ansible.builtin.debug:
+        msg: "ORCHESTRATOR_TIMESTAMPS::{\"start\": \"{{ measure_start_timestamp.stdout }}\", \"end\": \"{{ end_timestamp_result.stdout }}\"}"
+
+    - name: Output wrk results for orchestrator
+      ansible.builtin.debug:
+        msg: "WRK_RESULTS::{\"rps\": {{ wrk_rps }}, \"latency_avg\": \"{{ wrk_lat_avg }}\", \"transfer_per_sec\": \"{{ wrk_transfer }}\"}"
+
+    - name: Display full wrk output for debugging
+      ansible.builtin.debug:
+        msg: "{{ wrk_measure_result.stdout_lines }}"

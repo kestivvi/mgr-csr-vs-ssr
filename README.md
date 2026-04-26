@@ -95,12 +95,12 @@ The main tool for conducting research is the `scripts/experiments.py` orchestrat
     source statistics/venv/bin/activate
     ```
 
-#### 1. Capacity Test (Stress Test)
+#### 1. Capacity Test
 
 This test implements the **ramping-arrival-rate** executor in k6. It gradually increases the load to identify the server's breaking point (maximum throughput).
 
 ```bash
-python ./scripts/experiments.py --test-type stress \
+python ./scripts/experiments.py --test-type capacity_k6 \
   --num-runs 1 \
   --peak-rate 1000 \
   --ramp-up 5m \
@@ -115,12 +115,12 @@ python ./scripts/experiments.py --test-type stress \
 - `--sustain`: How long to maintain the `peak-rate` before ramping down.
 - `--max-vus`: (Optional) Maximum number of pre-allocated Virtual Users (default: 200). Increase if you hit VU limits at high RPS.
 
-#### 2. Load Test (Constant Rate)
+#### 2. Load Test
 
-This test implements the **constant-arrival-rate** executor. It maintains a steady, predefined load throughout the test duration. It is ideal for studying application stability, resource consumption under constant pressure, and determining precise latency percentiles.
+This test implements the **constant-arrival-rate** executor. It maintains a steady, predefined load throughout the test duration. It is ideal for studying application stability, resource consumption under sustained pressure, and determining precise latency percentiles.
 
 ```bash
-python ./scripts/experiments.py --test-type constant \
+python ./scripts/experiments.py --test-type load \
   --num-runs 3 \
   --rate 100 \
   --duration 5m \
@@ -133,23 +133,86 @@ python ./scripts/experiments.py --test-type constant \
 - `--num-runs`: Number of times the entire experiment (for all apps) should be repeated. Essential for statistical significance (default: 1).
 - `--rate`: Target requests per second (RPS).
 - `--duration`: Duration of the main measurement phase.
-- `--warmup`: Warm-up duration (default 30s). In `constant` tests, this period is automatically excluded from the final metrics to ensure data represents steady-state performance. In `stress` tests, it is included to capture the full ramp-up curve.
-- `--cooldown`: Cooldown duration after the test (default 15s). Similar to warm-up, this is excluded from metrics in `constant` tests.
+- `--warmup`: Warm-up duration (default 30s). In `load` tests, this period is automatically excluded from the final metrics to ensure data represents steady-state performance. In `capacity` tests, it is included to capture the full ramp-up curve.
+- `--cooldown`: Cooldown duration after the test (default 15s). Similar to warm-up, this is excluded from metrics in `load` tests.
 - `--path-type`: (`static` or `dynamic`) Determines whether k6 should hit a static path or generate dynamic parameters (e.g., random IDs).
 
-#### 3. Champion Comparison (A/B Test)
+#### 3. Capacity Benchmark (wrk)
 
-If you want to perform a deep statistical analysis (significance tests, effect size) between exactly two technologies, you can use a dedicated report. First, run a `constant` type test for the selected applications, and then:
+This test uses the **wrk** tool on Load Generators to measure maximum throughput and latency. It includes a mandatory warmup phase to ensure JIT optimization (essential for Node.js/V8 frameworks).
 
 ```bash
-python statistics/analyzer.py --input-dir results/experiment_... \
-  --report-type champions \
-  --champions CSR-Vanilla SSR-NextJS
+python ./scripts/experiments.py --test-type capacity_wrk \
+  --num-runs 3 \
+  --duration 30s \
+  --warmup 30s \
+  --threads 2 \
+  --connections 100
 ```
+
+**Parameters:**
+
+- `--test-type capacity_wrk`: Explicitly selects the wrk-based scientific test.
+- `--duration`: Duration of the measurement phase (e.g., `30s`, `1m`).
+- `--warmup`: Duration of the warmup phase (results are discarded, but JIT is warmed up).
+- `--threads`: Number of threads wrk should use.
+- `--connections`: Number of open connections.
+
+**Results:**
+
+- **Client-Side**: Saved to `[run]_wrk_client_results.json` (includes RPS, Average Latency, and Transfer Rate).
+- **Server-Side**: CPU, RAM, and Network metrics are collected from Prometheus as usual and saved to `[run]_[type]_[server].csv`.
+
+### 🎓 Master's Thesis Standard Benchmark
+
+For a Master's Thesis, reproducibility and statistical significance are paramount. The following configuration is the **recommended scientific standard** for your results chapter. It balances JIT warm-up, steady-state measurement, and AWS environmental noise reduction.
+
+```bash
+cd ./scripts
+# Recommended Command for Thesis Results
+sh ./setup.sh \
+&& python3 ./experiments.py \
+  --test-type capacity_wrk \
+  --num-runs 5 \
+  --duration 2m \
+  --warmup 1m \
+  --threads 2 \
+  --connections 100 \
+&& sh ./destroy.sh
+
+# 4. Generate the scientific report
+statistics/venv/bin/python3 statistics/analyzer.py \
+  --input-dir results/capacity_wrk_YYYY-MM-DD_HH-MM-SS \
+  --report-type capacity_wrk
+```
+
+**Scientific Rationale:**
+
+- **Warmup (1m)**: Ensures that JIT compilers (V8 for Node, Bun) have fully optimized hot code paths and that TCP connection pools are stabilized.
+- **Duration (2m)**: Provides enough time to capture multiple Garbage Collection (GC) cycles and average out micro-fluctuations in cloud network latency.
+- **Runs (5x)**: The academic minimum for calculating the **Mean** and **95% Confidence Intervals**, effectively filtering out AWS "noisy neighbor" effects.
+
+#### 🚀 Full Experiment Cycle (Automation)
+
+For a fully automated run (Provision → Test → Destroy), you can chain the scripts together from the `scripts/` directory:
+
+```bash
+cd scripts
+sh ./setup.sh && \
+python3 ./experiments.py --test-type capacity_wrk \
+  --num-runs 3 \
+  --duration 30s \
+  --warmup 30s \
+  --threads 2 \
+  --connections 100 && \
+sh ./destroy.sh
+```
+
+#### 4. Champion Comparison (A/B Test)
 
 #### 📊 Results and Monitoring
 
-- **Results Directory**: Every experiment creates a unique folder in `results/experiment_YYYY-MM-DD_HH-MM-SS/`.
+- **Results Directory**: Every experiment creates a unique folder in `results/[prefix]_[datetime]/`.
 - **Artifacts**:
   - `metadata.yaml`: Parameters used for the run.
   - `orchestrator.txt`: Detailed logs of the orchestration process.
@@ -169,21 +232,21 @@ _Run from the project root._
    source statistics/venv/bin/activate
    ```
 
-2. **Generate Capacity Report (Stress Test)**:
+2. **Generate Capacity Report**:
 
    ```bash
    # Analyze specific experiment
-   python statistics/analyzer.py --input-dir results/experiment_YYYY-MM-DD_HH-MM-SS --report-type capacity
+   python statistics/analyzer.py --input-dir results/capacity_k6_YYYY-MM-DD_HH-MM-SS --report-type capacity
 
-   # Analyze latest experiment (Bash)
-   python statistics/analyzer.py --input-dir $(ls -td results/experiment_* | head -1) --report-type capacity
+   # Analyze latest capacity_k6 experiment (Bash)
+   python statistics/analyzer.py --input-dir $(ls -td results/capacity_k6_* | head -1) --report-type capacity
    ```
 
-3. **Generate Comparison Report (Constant Load Test)**:
-   Use the `all_apps` report type to compare all tested technologies in a ranking table and box plots.
+3. **Generate Load Report**:
+   Use the `load` report type to compare all tested technologies in a ranking table and box plots.
 
    ```bash
-   python statistics/analyzer.py --input-dir results/experiment_YYYY-MM-DD_HH-MM-SS --report-type all_apps
+   python statistics/analyzer.py --input-dir results/load_k6_YYYY-MM-DD_HH-MM-SS --report-type load
    ```
 
 **Artifacts**:

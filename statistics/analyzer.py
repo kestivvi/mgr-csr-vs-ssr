@@ -78,6 +78,8 @@ class PerformanceAnalyzer:
         self.plots_dir = self.input_dir / "plots"
         if self.report_type == 'capacity':
             self.report_path = self.input_dir / "capacity_report.md"
+        elif self.report_type == 'capacity_wrk':
+            self.report_path = self.input_dir / "capacity_wrk_report.md"
         else:
             self.report_path = self.input_dir / f"report_{self.report_type}.md"
 
@@ -97,35 +99,33 @@ class PerformanceAnalyzer:
         """Executes the full analysis pipeline based on the report type."""
         print(f"Starting analysis for directory: {self.input_dir}")
         print(f"Report Type: {self.report_type}")
-        self.plots_dir.mkdir(exist_ok=True)
-
-        if not self._load_configuration(): return
-        if not self._load_and_prepare_data(): return
-
-        report_content = ""
-        if self.report_type == 'all_apps':
-            self._compute_rankings()
-            self._compute_scorecard_and_winner()
-            report_content = self._generate_all_apps_report()
-        elif self.report_type == 'champions':
-            self._compute_champion_stats()
-            report_content = self._generate_champions_report()
-        elif self.report_type == 'capacity':
-            capacity_summary_df = self._run_capacity_analysis()
-            if capacity_summary_df is not None and not capacity_summary_df.empty:
-                report_content = self._generate_capacity_report(capacity_summary_df)
-            else:
-                print("ERROR: Capacity analysis did not produce a summary. Report generation skipped.")
-                return
-        else:
-            print(f"ERROR: Unknown report type '{self.report_type}'")
+        
+        if not self._load_configuration():
             return
 
-        self._write_report(report_content)
+        self.plots_dir.mkdir(exist_ok=True)
+
+        if self.report_type == 'capacity_wrk':
+            if not self._load_wrk_data():
+                return
+            self._run_capacity_wrk_analysis()
+        else:
+            if not self._load_and_prepare_data():
+                return
+
+            if self.report_type == 'capacity':
+                self._run_capacity_analysis()
+            elif self.report_type == 'load':
+                self._run_load_analysis()
+            elif self.report_type == 'champions':
+                self._run_champions_analysis()
 
         print(f"\n\n{'='*25} ANALYSIS COMPLETE {'='*26}")
         print(f"All plots and archived configuration have been saved in: {self.input_dir}")
         print(f"Markdown report saved to: {self.report_path}")
+
+
+
 
     # --------------------------------------------------------------------------
     # STAGE 1: LOADING AND PREPARATION
@@ -182,7 +182,8 @@ class PerformanceAnalyzer:
 
         filename_regex = re.compile(r"^(\d+)_(.*)$")
         
-        tech_to_group = {tech: group for group, techs in self.groups_config.items() for tech in techs}
+        # Create a lowercase mapping for case-insensitive lookup
+        tech_to_group = {tech.lower(): group for group, techs in self.groups_config.items() for tech in techs}
         all_long_dfs = []
         
         for f in all_files:
@@ -207,7 +208,7 @@ class PerformanceAnalyzer:
             long_df['run_number'] = int(run_number)
             server_type = server_type_raw.replace('_', '-')
             long_df['server_type'] = server_type
-            long_df['group'] = long_df['server_type'].map(tech_to_group).fillna('Uncategorized')
+            long_df['group'] = long_df['server_type'].str.lower().map(tech_to_group).fillna('Uncategorized')
             all_long_dfs.append(long_df)
         
         if not all_long_dfs:
@@ -238,12 +239,97 @@ class PerformanceAnalyzer:
     # STAGE 2: STATISTICAL COMPUTATION
     # --------------------------------------------------------------------------
 
+    def _load_wrk_data(self) -> bool:
+        """Loads wrk JSON results for capacity_wrk tests."""
+        import json
+        all_files = glob.glob(str(self.input_dir / "*_wrk_client_results.json"))
+        if not all_files:
+            print(f"ERROR: No wrk JSON files found in {self.input_dir}.")
+            return False
+
+        # Create a lowercase mapping for case-insensitive lookup
+        tech_to_group = {tech.lower(): group for group, techs in self.groups_config.items() for tech in techs}
+        wrk_records = []
+        
+        for f in all_files:
+            run_number = int(Path(f).stem.split('_')[0])
+            with open(f, 'r') as jf:
+                data = json.load(jf)
+                for tech, results in data.items():
+                    # Parse latency (e.g. "1.23ms", "450us")
+                    lat_str = results['latency_avg']
+                    lat_val = float(re.search(r'[\d.]+', lat_str).group())
+                    if 'us' in lat_str: lat_val /= 1000
+                    if 's' in lat_str and 'ms' not in lat_str: lat_val *= 1000
+                    
+                    wrk_records.append({
+                        'run_number': run_number,
+                        'server_type': tech,
+                        'group': tech_to_group.get(tech.lower(), 'Uncategorized'),
+                        'rps': float(results['rps']),
+                        'latency_ms': lat_val
+                    })
+        
+        self.wrk_df = pd.DataFrame(wrk_records)
+        self.wrk_summary = self.wrk_df.groupby(['group', 'server_type']).agg({
+            'rps': ['mean', 'std', 'max'],
+            'latency_ms': ['mean', 'std', 'max']
+        }).reset_index()
+        self.wrk_summary.columns = ['group', 'server_type', 'rps_mean', 'rps_std', 'rps_max', 'lat_mean', 'lat_std', 'lat_max']
+        return True
+
+    def _run_capacity_wrk_analysis(self):
+        """Generates the capacity_wrk baseline report."""
+        print("INFO: Starting capacity_wrk analysis...")
+        self._generate_wrk_plots()
+        
+        params = self.metadata.get('parameters', {})
+        report = [
+            f"# Capacity Baseline Report (wrk)",
+            f"\n**Run Timestamp:** `{self.metadata.get('run_timestamp_utc', 'N/A')}`",
+            f"\n**Parameters:**",
+            f"- Threads: {params.get('threads', 'N/A')}",
+            f"- Connections: {params.get('connections', 'N/A')}",
+            f"- Duration: {params.get('duration') or params.get('k6_duration', 'N/A')}",
+            f"- Warmup: {params.get('warmup_duration', 'N/A')}",
+            "\n## Throughput (RPS) Comparison",
+            "![Throughput Plot](./plots/wrk_throughput.png)",
+            "\n## Latency Comparison",
+            "![Latency Plot](./plots/wrk_latency.png)",
+            "\n## Detailed Results Table",
+            self.wrk_summary.sort_values('rps_mean', ascending=False).to_markdown(index=False)
+        ]
+        self._write_report("\n".join(report))
+
+    def _generate_wrk_plots(self):
+        """Generates bar charts for wrk results."""
+        sns.set_theme(style="whitegrid")
+        
+        # RPS Plot
+        plt.figure(figsize=(12, 8))
+        df_sorted = self.wrk_summary.sort_values('rps_mean', ascending=False)
+        sns.barplot(data=df_sorted, x='rps_mean', y='server_type', hue='group')
+        plt.title('Maximum Throughput (RPS) - Higher is Better')
+        plt.xlabel('Average RPS')
+        plt.tight_layout()
+        plt.savefig(self.plots_dir / "wrk_throughput.png")
+        plt.close()
+
+        # Latency Plot
+        plt.figure(figsize=(12, 8))
+        df_sorted_lat = self.wrk_summary.sort_values('lat_mean', ascending=True)
+        sns.barplot(data=df_sorted_lat, x='lat_mean', y='server_type', hue='group')
+        plt.title('Average Latency (ms) - Lower is Better')
+        plt.xlabel('Average Latency (ms)')
+        plt.tight_layout()
+        plt.savefig(self.plots_dir / "wrk_latency.png")
+        plt.close()
+
     def _run_capacity_analysis(self) -> Optional[pd.DataFrame]:
         """
-        Performs the entire analysis for the capacity test (stress test) data.
+        Performs the entire analysis for the capacity test data.
         """
         print("INFO: Starting capacity test analysis...")
-
         required_metrics = [
             'k6_successful_html_reqs_rate', 'k6_total_html_reqs_rate',
             'cpu', 'memory'
@@ -471,9 +557,9 @@ class PerformanceAnalyzer:
         return "\n".join(report_parts)
 
 
-    def _generate_all_apps_report(self) -> str:
+    def _generate_load_report(self) -> str:
         """Assembles all parts of the main comparison report."""
-        print("INFO: Generating 'all_apps' report content...")
+        print("INFO: Generating 'load' report content...")
         report_parts = [f"# Performance Analysis Report for `{self.input_dir.name}`"]
         report_parts.append(self._render_executive_summary_md())
         report_parts.append("\n## Detailed Analysis")
@@ -914,8 +1000,8 @@ if __name__ == "__main__":
         formatter_class=argparse.RawTextHelpFormatter
     )
     parser.add_argument('--input-dir', required=True, type=Path, help="Directory containing the CSV data files.")
-    parser.add_argument('--report-type', required=True, choices=['all_apps', 'champions', 'capacity'],
-                        help="Choose the type of report to generate: 'all_apps' (load test), 'champions' (statistical comparison), 'capacity' (stress test).")
+    parser.add_argument('--report-type', required=True, choices=['load', 'champions', 'capacity', 'capacity_wrk'],
+                        help="Choose the type of report to generate: 'load' (load test), 'champions' (statistical comparison), 'capacity' (capacity test), 'capacity_wrk' (wrk baseline).")
     parser.add_argument('--champions', nargs=2, metavar=('TECH1', 'TECH2'),
                         help="Specify two technologies to compare. Required for '--report-type champions'.")
     args = parser.parse_args()

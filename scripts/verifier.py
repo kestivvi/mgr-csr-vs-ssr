@@ -6,7 +6,7 @@ import requests
 from threading import Lock
 
 # Configuration
-APPS_DIR = "apps"
+APPS_DIR = "../apps"
 MAX_BUILD_WORKERS = 4  # Adjust based on your CPU/RAM
 TEST_PORT = 443  # Standard port for these apps
 CURL_TIMEOUT = 20

@@ -25,6 +25,9 @@ groups:
     - ssr-sveltekit-bun
     - ssr-fresh
     - ssr-react-router
+    - ssr-angular
+    - ssr-tanstack-start-react
+    - ssr-tanstack-start-solid
 
 # 'chart_order' defines the specific order in which frameworks should appear
 # on the x-axis of comparison charts and in the legend of time-series charts.
@@ -50,6 +53,9 @@ chart_order:
   - ssr-analogjs
   - ssr-fresh
   - ssr-react-router
+  - ssr-angular
+  - ssr-tanstack-start-react
+  - ssr-tanstack-start-solid
 
   # Svelte Family
   # NextJS Family

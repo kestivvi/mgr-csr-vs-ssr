@@ -16,15 +16,21 @@ from typing import Optional, Dict, List
 import yaml
 
 # --- CONFIGURATION ---
-RESULTS_BASE_DIR = Path("results")
-INVENTORY_PATH = Path("ansible/inventory.yml")
-ANSIBLE_CONFIG_PATH = Path("ansible/ansible.cfg")
+RESULTS_BASE_DIR = Path("../results")
+INVENTORY_PATH = Path("../ansible/inventory.yml")
+ANSIBLE_CONFIG_PATH = Path("../ansible/ansible.cfg")
 # Playbook paths
-CONSTANT_PLAYBOOK_PATH = "ansible/test_constant_run.yml"
-STRESS_PLAYBOOK_PATH = "ansible/test_stress_run.yml"
-TEARDOWN_PLAYBOOK_PATH = "ansible/test_teardown.yml"
-COLLECTOR_SCRIPT_PATH = "statistics/collector.py"
+LOAD_PLAYBOOK_PATH = "../ansible/test_load_run.yml"
+CAPACITY_PLAYBOOK_PATH = "../ansible/test_capacity_run.yml"
+WRK_PLAYBOOK_PATH = "../ansible/test_wrk_run.yml"
+TEARDOWN_PLAYBOOK_PATH = "../ansible/test_teardown.yml"
+COLLECTOR_SCRIPT_PATH = Path("../statistics/collector.py")
+# Use the statistics venv if it exists, otherwise fall back to current python
+STATISTICS_VENV_PYTHON = Path("../statistics/venv/bin/python3")
+if not STATISTICS_VENV_PYTHON.exists():
+    STATISTICS_VENV_PYTHON = Path(sys.executable)
 TIMESTAMP_MARKER = "ORCHESTRATOR_TIMESTAMPS::"
+WRK_RESULT_MARKER = "WRK_RESULTS::"
 
 # --- LOGGING SETUP ---
 logging.basicConfig(
@@ -134,6 +140,18 @@ def extract_timestamps_from_output(output: str) -> Optional[Dict[str, int]]:
                 return None
     return None
 
+def extract_wrk_results_from_output(output: str) -> Optional[Dict]:
+    """Finds the wrk result marker in Ansible output and parses the JSON."""
+    for line in output.splitlines():
+        if WRK_RESULT_MARKER in line:
+            try:
+                json_str = line.split(WRK_RESULT_MARKER, 1)[1].strip().strip("'\"")
+                return json.loads(json_str)
+            except (json.JSONDecodeError, KeyError, ValueError, IndexError) as e:
+                logging.error(f"Failed to parse wrk results from Ansible line '{line}': {e}")
+                return None
+    return None
+
 def run_single_scenario_lifecycle(
     run_number: int,
     scenario: dict,
@@ -148,35 +166,49 @@ def run_single_scenario_lifecycle(
     scenario_name = scenario["name"]
     run_prefix = f"{run_number:02d}"
     
-    logging.info(f"[{run_prefix}:{scenario_name}] Starting k6 test ({args.test_type} type).")
+    # Infer tool from test_type
+    tool = 'wrk' if args.test_type == 'capacity_wrk' else 'k6'
     
-    ansible_log_path = results_dir / f"{run_prefix}_ansible_k6_{scenario_name}.txt"
+    logging.info(f"[{run_prefix}:{scenario_name}] Starting {tool} test ({args.test_type} type).")
     
-    playbook_path = CONSTANT_PLAYBOOK_PATH if args.test_type == 'constant' else STRESS_PLAYBOOK_PATH
+    ansible_log_path = results_dir / f"{run_prefix}_ansible_{tool}_{scenario_name}.txt"
+    
     extra_vars = {
         "target_host_group": scenario["load_generator_group"],
-        "target_url": f"http://{scenario['app_server_ip']}",
+        "target_url": f"https://{scenario['app_server_ip']}", # Use HTTPS for wrk and k6
         "server_type": scenario_name,
         "prometheus_url": f"http://{scenario['monitoring_private_ip']}:9090",
-        "k6_path_type": args.path_type,
     }
-    if args.test_type == 'constant':
-        extra_vars.update({"k6_rate": args.rate, "k6_duration": args.duration, "k6_warmup": args.warmup})
-        timeout_s = parse_duration_to_seconds(args.duration) + 300 # 5m margin
-    else: # stress
+
+    if tool == 'wrk':
+        playbook_path = WRK_PLAYBOOK_PATH
         extra_vars.update({
-            "stress_warmup": args.warmup,
-            "stress_start_rate": args.start_rate, "stress_peak_rate": args.peak_rate,
-            "stress_ramp_up": args.ramp_up, "stress_sustain": args.sustain,
-            "stress_ramp_down": args.ramp_down, "max_vus": args.max_vus,
+            "wrk_threads": args.threads,
+            "wrk_connections": args.connections,
+            "wrk_duration": args.duration,
+            "wrk_warmup": args.warmup
         })
-        timeout_s = (
-            parse_duration_to_seconds(args.warmup) +
-            parse_duration_to_seconds(args.ramp_up) +
-            parse_duration_to_seconds(args.sustain) +
-            parse_duration_to_seconds(args.ramp_down) +
-            300 # 5m margin for stress tests (flushing metrics)
-        )
+        timeout_s = parse_duration_to_seconds(args.duration) + parse_duration_to_seconds(args.warmup) + 300
+    else: # load / capacity_k6
+        playbook_path = LOAD_PLAYBOOK_PATH if args.test_type == 'load' else CAPACITY_PLAYBOOK_PATH
+        extra_vars.update({"k6_path_type": args.path_type})
+        if args.test_type == 'load':
+            extra_vars.update({"k6_rate": args.rate, "k6_duration": args.duration, "k6_warmup": args.warmup})
+            timeout_s = parse_duration_to_seconds(args.duration) + 300 # 5m margin
+        else: # capacity
+            extra_vars.update({
+                "capacity_warmup": args.warmup,
+                "capacity_start_rate": args.start_rate, "capacity_peak_rate": args.peak_rate,
+                "capacity_ramp_up": args.ramp_up, "capacity_sustain": args.sustain,
+                "capacity_ramp_down": args.ramp_down, "max_vus": args.max_vus,
+            })
+            timeout_s = (
+                parse_duration_to_seconds(args.warmup) +
+                parse_duration_to_seconds(args.ramp_up) +
+                parse_duration_to_seconds(args.sustain) +
+                parse_duration_to_seconds(args.ramp_down) +
+                300 # 5m margin for capacity tests (flushing metrics)
+            )
     
     extra_vars["k6_timeout_seconds"] = timeout_s
 
@@ -184,7 +216,7 @@ def run_single_scenario_lifecycle(
     if args.backoff_5xx_s is not None: extra_vars["k6_backoff_5xx_s"] = args.backoff_5xx_s
 
     # --- Safety Check: VUs vs Rate ---
-    target_rate = args.peak_rate if args.test_type == 'stress' else args.rate
+    target_rate = args.peak_rate if args.test_type == 'capacity' else args.rate
     if target_rate and target_rate > args.max_vus * 60: # Assume 1s per request as worst case
         logging.warning(f"[{run_prefix}:{scenario_name}] Target rate ({target_rate} RPS) is very high relative to VUs ({args.max_vus}). k6 may fall behind if server response times > {1000/ (target_rate/args.max_vus):.1f}ms.")
 
@@ -237,6 +269,7 @@ def run_single_scenario_lifecycle(
         
         else:
             timestamps = extract_timestamps_from_output(output_log)
+            wrk_results = extract_wrk_results_from_output(output_log) if tool == 'wrk' else None
 
     except Exception as e:
         logging.error(f"[{run_prefix}:{scenario_name}] An unexpected error occurred: {e}")
@@ -247,7 +280,13 @@ def run_single_scenario_lifecycle(
         return {"name": scenario_name, "success": False, "timestamps": None, "scenario_details": scenario}
 
     logging.info(f"[{run_prefix}:{scenario_name}] Test execution phase finished.")
-    return {"name": scenario_name, "success": True, "timestamps": timestamps, "scenario_details": scenario}
+    return {
+        "name": scenario_name, 
+        "success": True, 
+        "timestamps": timestamps, 
+        "wrk_results": wrk_results,
+        "scenario_details": scenario
+    }
 
 def collect_metrics_for_scenario(run_number: int, result: Dict, results_dir: Path, start_epoch: int, end_epoch: int, args: argparse.Namespace):
     """Calls the collector script for a single scenario using a synchronized time window."""
@@ -260,7 +299,7 @@ def collect_metrics_for_scenario(run_number: int, result: Dict, results_dir: Pat
     
     metric_start = start_epoch
     metric_end = end_epoch
-    if args.test_type == 'constant' and not shutdown_event.is_set():
+    if args.test_type == 'load' and not shutdown_event.is_set():
         warmup_sec = parse_duration_to_seconds(args.warmup)
         cooldown_sec = parse_duration_to_seconds(args.cooldown)
         
@@ -273,7 +312,7 @@ def collect_metrics_for_scenario(run_number: int, result: Dict, results_dir: Pat
             metric_start, metric_end = effective_start, effective_end
 
     collector_command = [
-        sys.executable, str(COLLECTOR_SCRIPT_PATH),
+        str(STATISTICS_VENV_PYTHON), str(COLLECTOR_SCRIPT_PATH),
         "--prometheus-url", f"http://{scenario['monitoring_public_ip']}:9090",
         "--start-epoch", str(metric_start),
         "--end-epoch", str(metric_end),
@@ -300,20 +339,35 @@ def create_metadata_file(results_dir: Path, args: argparse.Namespace):
     
     # --- FIX #4: Calculate and add measurement duration ---
     calculated_durations = {}
-    if args.test_type == 'constant':
+    if args.test_type == 'load':
         metadata["parameters"].update({"rate": args.rate, "k6_duration": args.duration, "warmup_duration": args.warmup, "cooldown_duration": args.cooldown})
         total_s = parse_duration_to_seconds(args.duration)
         warmup_s = parse_duration_to_seconds(args.warmup)
         cooldown_s = parse_duration_to_seconds(args.cooldown)
         measurement_s = total_s - warmup_s - cooldown_s
         calculated_durations['measurement'] = max(0, measurement_s) # Ensure it's not negative
-    else: # stress
-        metadata["parameters"].update({"start_rate": args.start_rate, "peak_rate": args.peak_rate, "warmup_duration": args.warmup, "ramp_up_duration": args.ramp_up, "sustain_duration": args.sustain, "ramp_down_duration": args.ramp_down, "max_vus": args.max_vus})
+    elif args.test_type == 'capacity_wrk':
+        metadata["parameters"].update({
+            "threads": args.threads,
+            "connections": args.connections,
+            "duration": args.duration,
+            "warmup_duration": args.warmup
+        })
+        calculated_durations['measurement'] = parse_duration_to_seconds(args.duration)
+    else: # capacity_k6
+        metadata["parameters"].update({
+            "start_rate": args.start_rate,
+            "peak_rate": args.peak_rate,
+            "warmup_duration": args.warmup,
+            "ramp_up_duration": args.ramp_up,
+            "sustain_duration": args.sustain,
+            "ramp_down_duration": args.ramp_down,
+            "max_vus": args.max_vus
+        })
         warmup_s = parse_duration_to_seconds(args.warmup)
         ramp_up_s = parse_duration_to_seconds(args.ramp_up)
         sustain_s = parse_duration_to_seconds(args.sustain)
         ramp_down_s = parse_duration_to_seconds(args.ramp_down)
-        # For stress tests, the intended measurement duration is the full scenario
         calculated_durations['measurement'] = warmup_s + ramp_up_s + sustain_s + ramp_down_s
 
     if args.backoff_timeout_s is not None: metadata["parameters"]["backoff_timeout_s"] = args.backoff_timeout_s
@@ -327,31 +381,40 @@ def create_metadata_file(results_dir: Path, args: argparse.Namespace):
     logging.info(f"Experiment metadata saved to {results_dir / 'metadata.yaml'}")
 
 def main():
-    parser = argparse.ArgumentParser(description="Orchestrate k6 test runs and metric collection.", formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('--test-type', type=str, required=True, choices=['constant', 'stress'])
+    parser = argparse.ArgumentParser(description="Orchestrate performance test runs and metric collection.", formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument('--test-type', type=str, required=True, choices=['load', 'capacity_k6', 'capacity_wrk'])
     parser.add_argument('--num-runs', type=int, default=1)
     parser.add_argument('--path-type', type=str, default='dynamic', choices=['static', 'dynamic'])
-    constant_group = parser.add_argument_group('constant test options')
-    constant_group.add_argument('--rate', type=int)
-    constant_group.add_argument('--duration', type=str)
+    load_group = parser.add_argument_group('load test options')
+    load_group.add_argument('--rate', type=int)
+    load_group.add_argument('--duration', type=str)
     parser.add_argument('--warmup', type=str, default='30s', help="Warmup duration (default 30s)")
-    parser.add_argument('--cooldown', type=str, default='15s', help="Cooldown duration (default 15s, only for constant type)")
+    parser.add_argument('--cooldown', type=str, default='15s', help="Cooldown duration (default 15s, only for load type)")
     parser.add_argument('--max-vus', type=int, default=200)
-    stress_group = parser.add_argument_group('stress test options')
-    stress_group.add_argument('--start-rate', type=int, default=10)
-    stress_group.add_argument('--peak-rate', type=int, default=2000)
-    stress_group.add_argument('--ramp-up', type=str, default='10m')
-    stress_group.add_argument('--sustain', type=str, default='5m')
-    stress_group.add_argument('--ramp-down', type=str, default='1m')
+    
+    wrk_group = parser.add_argument_group('wrk test options')
+    wrk_group.add_argument('--threads', type=int, default=2)
+    wrk_group.add_argument('--connections', type=int, default=100)
+
+    capacity_group = parser.add_argument_group('capacity test options')
+    capacity_group.add_argument('--start-rate', type=int, default=10)
+    capacity_group.add_argument('--peak-rate', type=int, default=2000)
+    capacity_group.add_argument('--ramp-up', type=str, default='10m')
+    capacity_group.add_argument('--sustain', type=str, default='5m')
+    capacity_group.add_argument('--ramp-down', type=str, default='1m')
     backoff_group = parser.add_argument_group('backoff options')
     backoff_group.add_argument('--backoff-timeout-s', dest='backoff_timeout_s', type=float)
     backoff_group.add_argument('--backoff-5xx-s', dest='backoff_5xx_s', type=float)
     args = parser.parse_args()
 
-    if args.test_type == 'constant' and not all([args.rate, args.duration]):
-        parser.error("--rate and --duration are required for 'constant' test type")
+    if args.test_type == 'load' and not all([args.rate, args.duration]):
+        parser.error("--rate and --duration are required for 'load' test type")
 
-    results_dir = RESULTS_BASE_DIR / f"experiment_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
+    # Determine prefix based on test type
+    prefix = args.test_type
+
+    timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    results_dir = RESULTS_BASE_DIR / f"{prefix}_{timestamp}"
     results_dir.mkdir(parents=True, exist_ok=True)
     file_handler = logging.FileHandler(results_dir / "orchestrator.txt")
     file_handler.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)s] - %(message)s"))
@@ -403,8 +466,17 @@ def main():
         logging.info(f"Start: {datetime.datetime.fromtimestamp(sync_start_epoch, tz=datetime.timezone.utc).isoformat()}")
         logging.info(f"End:   {datetime.datetime.fromtimestamp(sync_end_epoch, tz=datetime.timezone.utc).isoformat()}")
 
+        wrk_results_all = {}
         for result in successful_results:
             collect_metrics_for_scenario(run, result, results_dir, sync_start_epoch, sync_end_epoch, args)
+            if args.test_type == 'capacity_wrk' and result.get("wrk_results"):
+                wrk_results_all[result["name"]] = result["wrk_results"]
+        
+        if wrk_results_all:
+            wrk_results_path = results_dir / f"{run:02d}_wrk_client_results.json"
+            with open(wrk_results_path, 'w') as f:
+                json.dump(wrk_results_all, f, indent=4)
+            logging.info(f"Saved wrk client-side results for run {run} to {wrk_results_path}")
         
         logging.info(f"--- Finished Run {run} of {args.num_runs} ---")
 

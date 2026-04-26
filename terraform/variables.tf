@@ -83,7 +83,7 @@ variable "load_generator_instance_type" {
   description = "Instance type for all load generator servers (e.g., 4 vCPUs)."
   type        = string
   # default     = "t4g.micro"
-  default = "c8g.medium"
+  default = "c8g.2xlarge"
 }
 
 # c8g.medium - 1 vCPUs - 2 GB RAM - $0.027/hour

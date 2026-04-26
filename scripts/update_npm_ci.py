@@ -26,7 +26,7 @@ def update_dockerfile(path):
     with open(path, 'w') as f:
         f.writelines(new_lines)
 
-apps_dir = 'apps'
+apps_dir = '../apps'
 for app in os.listdir(apps_dir):
     app_path = os.path.join(apps_dir, app)
     if os.path.isdir(app_path):

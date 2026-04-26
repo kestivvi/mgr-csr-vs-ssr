@@ -1,0 +1,7 @@
+pandas
+matplotlib
+seaborn
+numpy
+requests
+pyyaml
+tabulate

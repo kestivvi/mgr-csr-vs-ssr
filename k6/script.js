@@ -15,7 +15,7 @@ if (K6_USE_HTTPS) {
   target_url = target_url.replace(/^https:\/\//, 'http://').replace(/:443(?=\/|$)/, ':80');
 }
 const server_type = __ENV.SERVER_TYPE || 'unknown';
-const K6_SCENARIO = __ENV.K6_SCENARIO || 'stress_test';
+const K6_SCENARIO = __ENV.K6_SCENARIO || 'capacity_test';
 const K6_TEST_PATH = __ENV.K6_TEST_PATH || 'dynamic'; // 'static' or 'dynamic'
 const TIMEOUT = (parseFloat(__ENV.TIMEOUT) || 0.4) * 1000;
 // Backoff sleep durations in seconds, configurable via env
@@ -23,36 +23,36 @@ const BACKOFF_TIMEOUT_S = parseFloat(__ENV.K6_BACKOFF_TIMEOUT_S) || 0.5;
 const BACKOFF_5XX_S = parseFloat(__ENV.K6_BACKOFF_5XX_S) || 0.2;
 const testId = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
-// Constant Test Params
+// Load Test Params
 const K6_RATE = parseInt(__ENV.K6_RATE || 100);
 const K6_DURATION = __ENV.SCRIPT_DURATION || '5m';
 
-// Stress Test Params
-const STRESS_START_RATE = parseInt(__ENV.STRESS_START_RATE || 10);
-const STRESS_PEAK_RATE = parseInt(__ENV.STRESS_PEAK_RATE || 10000);
-const STRESS_RAMP_UP_DURATION = __ENV.STRESS_RAMP_UP_DURATION || '10m';
-const STRESS_SUSTAIN_DURATION = __ENV.STRESS_SUSTAIN_DURATION || '5m';
-const STRESS_RAMP_DOWN_DURATION = __ENV.STRESS_RAMP_DOWN_DURATION || '1m';
+// Capacity Test Params
+const CAPACITY_START_RATE = parseInt(__ENV.CAPACITY_START_RATE || 10);
+const CAPACITY_PEAK_RATE = parseInt(__ENV.CAPACITY_PEAK_RATE || 10000);
+const CAPACITY_RAMP_UP_DURATION = __ENV.CAPACITY_RAMP_UP_DURATION || '10m';
+const CAPACITY_SUSTAIN_DURATION = __ENV.CAPACITY_SUSTAIN_DURATION || '5m';
+const CAPACITY_RAMP_DOWN_DURATION = __ENV.CAPACITY_RAMP_DOWN_DURATION || '1m';
 const MAX_VUS = parseInt(__ENV.MAX_VUS || 200);
 // ---------------------------------------------
 
-const STRESS_WARMUP_DURATION = __ENV.STRESS_WARMUP_DURATION || '0s';
+const CAPACITY_WARMUP_DURATION = __ENV.CAPACITY_WARMUP_DURATION || '0s';
 
-const stressTestScenario = {
+const capacityTestScenario = {
   executor: 'ramping-arrival-rate',
-  startRate: STRESS_START_RATE,
+  startRate: CAPACITY_START_RATE,
   timeUnit: '1s',
   preAllocatedVUs: MAX_VUS,
   maxVUs: MAX_VUS,
   stages: [
-    { target: STRESS_START_RATE, duration: STRESS_WARMUP_DURATION },
-    { target: STRESS_PEAK_RATE, duration: STRESS_RAMP_UP_DURATION },
-    { target: STRESS_PEAK_RATE, duration: STRESS_SUSTAIN_DURATION },
-    { target: 0, duration: STRESS_RAMP_DOWN_DURATION },
+    { target: CAPACITY_START_RATE, duration: CAPACITY_WARMUP_DURATION },
+    { target: CAPACITY_PEAK_RATE, duration: CAPACITY_RAMP_UP_DURATION },
+    { target: CAPACITY_PEAK_RATE, duration: CAPACITY_SUSTAIN_DURATION },
+    { target: 0, duration: CAPACITY_RAMP_DOWN_DURATION },
   ],
 };
 
-const constantTestScenario = {
+const loadTestScenario = {
   executor: 'constant-arrival-rate',
   rate: K6_RATE,
   timeUnit: '1s',
@@ -61,9 +61,9 @@ const constantTestScenario = {
   maxVUs: MAX_VUS,
 };
 
-const selectedScenario = K6_SCENARIO === 'constant_test'
-  ? constantTestScenario
-  : stressTestScenario;
+const selectedScenario = K6_SCENARIO === 'load_test'
+  ? loadTestScenario
+  : capacityTestScenario;
 
 export const options = {
   ext: {

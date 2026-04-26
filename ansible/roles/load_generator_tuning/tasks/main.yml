@@ -38,3 +38,50 @@
     content: |
       ec2-user soft nofile 250000
       ec2-user hard nofile 250000
+
+- name: Check if wrk is already installed
+  ansible.builtin.command: which wrk
+  register: wrk_check
+  failed_when: false
+  changed_when: false
+
+- name: Install wrk (Debian/Ubuntu)
+  ansible.builtin.apt:
+    name: wrk
+    state: present
+    update_cache: true
+  when:
+    - ansible_os_family == "Debian"
+    - wrk_check.rc != 0
+
+- name: Build wrk from source (Amazon Linux / RedHat)
+  when:
+    - ansible_os_family == "RedHat" or ansible_os_family == "Amazon"
+    - wrk_check.rc != 0
+  block:
+    - name: Install build dependencies
+      ansible.builtin.dnf:
+        name:
+          - "@Development Tools"
+          - openssl-devel
+          - git
+        state: present
+
+    - name: Clone wrk repository
+      ansible.builtin.git:
+        repo: https://github.com/wg/wrk.git
+        dest: /tmp/wrk
+        version: master
+
+    - name: Build wrk
+      ansible.builtin.command:
+        cmd: make
+        chdir: /tmp/wrk
+        creates: /tmp/wrk/wrk
+
+    - name: Install wrk binary
+      ansible.builtin.copy:
+        src: /tmp/wrk/wrk
+        dest: /usr/local/bin/wrk
+        mode: "0755"
+        remote_src: true
