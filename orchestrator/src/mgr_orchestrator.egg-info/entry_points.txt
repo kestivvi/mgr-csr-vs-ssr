@@ -1,0 +1,2 @@
+[console_scripts]
+mgr = orchestrator.main:app

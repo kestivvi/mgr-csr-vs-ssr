@@ -1,0 +1,9 @@
+typer[all]
+ansible-runner
+pandas
+scipy
+seaborn
+pyyaml
+matplotlib
+rich
+prometheus-api-client

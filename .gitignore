@@ -1,9 +1,39 @@
-# Python
-statistics/venv/
+# --- Python ---
 __pycache__/
-*.pyc 
+*.pyc
 venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+orchestrator/venv/
+orchestrator/src/orchestrator.egg-info/
 
+# --- Project Specific ---
 results/
 notes.md
 .cursor
+/tmp/ansible_fact_cache
+
+# --- Terraform ---
+.terraform/
+**/.terraform/*
+*.tfstate
+*.tfstate.backup
+*.tfstate.*
+.terraform.lock.hcl
+*.tfvars
+*.tfvars.json
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+*.pem
+
+# --- Ansible ---
+ansible/inventory/inventory.yml
+ansible/artifacts/
+
+# --- Load Testing ---
+k6/build/

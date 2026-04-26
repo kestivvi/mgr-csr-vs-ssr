@@ -1,7 +1,0 @@
-pandas
-prometheus-api-client
-numpy
-scipy
-pyyaml
-seaborn
-tabulate

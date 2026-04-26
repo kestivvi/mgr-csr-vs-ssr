@@ -7,5 +7,5 @@ resource "local_file" "ansible_inventory" {
     private_key_path  = "~/.ssh/MGR1.pem"
     test_scenarios    = var.test_scenarios
   })
-  filename = "${path.module}/../ansible/inventory.yml"
+  filename = "${path.module}/../ansible/inventory/inventory.yml"
 }
