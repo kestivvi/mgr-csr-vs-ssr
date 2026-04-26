@@ -20,10 +20,10 @@ RESULTS_BASE_DIR = Path("../results")
 INVENTORY_PATH = Path("../ansible/inventory.yml")
 ANSIBLE_CONFIG_PATH = Path("../ansible/ansible.cfg")
 # Playbook paths
-LOAD_PLAYBOOK_PATH = "../ansible/test_load_run.yml"
-CAPACITY_PLAYBOOK_PATH = "../ansible/test_capacity_run.yml"
-WRK_PLAYBOOK_PATH = "../ansible/test_wrk_run.yml"
-TEARDOWN_PLAYBOOK_PATH = "../ansible/test_teardown.yml"
+LOAD_PLAYBOOK_PATH = "../ansible/ops/test_load_run.yml"
+CAPACITY_PLAYBOOK_PATH = "../ansible/ops/test_capacity_run.yml"
+WRK_PLAYBOOK_PATH = "../ansible/ops/test_wrk_run.yml"
+TEARDOWN_PLAYBOOK_PATH = "../ansible/ops/test_teardown.yml"
 COLLECTOR_SCRIPT_PATH = Path("../statistics/collector.py")
 # Use the statistics venv if it exists, otherwise fall back to current python
 STATISTICS_VENV_PYTHON = Path("../statistics/venv/bin/python3")

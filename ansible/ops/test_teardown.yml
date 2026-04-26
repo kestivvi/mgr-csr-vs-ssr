@@ -63,7 +63,7 @@
 
     - name: Output precise timestamps for orchestrator
       ansible.builtin.debug:
-        msg: "ORCHESTRATOR_TIMESTAMPS::{\"start\": \"{{ start_timestamp }}\", \"end\": \"{{ end_timestamp_result.stdout }}\"}"
+        msg: 'ORCHESTRATOR_TIMESTAMPS::{"start": "{{ start_timestamp }}", "end": "{{ end_timestamp_result.stdout }}"}'
 
     - name: Clean up the remote state file
       ansible.builtin.file:

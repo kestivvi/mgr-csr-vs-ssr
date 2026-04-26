@@ -100,11 +100,11 @@
 
     - name: Output precise timestamps for orchestrator
       ansible.builtin.debug:
-        msg: "ORCHESTRATOR_TIMESTAMPS::{\"start\": \"{{ measure_start_timestamp.stdout }}\", \"end\": \"{{ end_timestamp_result.stdout }}\"}"
+        msg: 'ORCHESTRATOR_TIMESTAMPS::{"start": "{{ measure_start_timestamp.stdout }}", "end": "{{ end_timestamp_result.stdout }}"}'
 
     - name: Output wrk results for orchestrator
       ansible.builtin.debug:
-        msg: "WRK_RESULTS::{\"rps\": {{ wrk_rps }}, \"latency_avg\": \"{{ wrk_lat_avg }}\", \"transfer_per_sec\": \"{{ wrk_transfer }}\"}"
+        msg: 'WRK_RESULTS::{"rps": {{ wrk_rps }}, "latency_avg": "{{ wrk_lat_avg }}", "transfer_per_sec": "{{ wrk_transfer }}"}'
 
     - name: Display full wrk output for debugging
       ansible.builtin.debug:
