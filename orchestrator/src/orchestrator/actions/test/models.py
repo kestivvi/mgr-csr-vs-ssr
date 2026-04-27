@@ -5,7 +5,9 @@ from pydantic import BaseModel, Field
 
 class LoadOptions(BaseModel):
     rps: int = 100
-    duration: str = "5m"
+    warmup: str = "30s"
+    duration: str = "1m"
+    after: str = "30s"
     vus: int = 200
     path_type: str = "dynamic"  # 'static' or 'dynamic'
     timeout: str = "0.4s"

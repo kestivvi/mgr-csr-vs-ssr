@@ -6,8 +6,8 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import seaborn as sns
 import yaml
@@ -109,6 +109,7 @@ class PerformanceAnalyzer:
         self.plots_dir.mkdir(parents=True, exist_ok=True)
 
         if not self._load_configuration():
+            console.print("[bold red]Analysis aborted: Configuration loading failed.[/bold red]")
             return
 
         if self.report_type == "capacity_wrk":
@@ -120,6 +121,7 @@ class PerformanceAnalyzer:
             self._run_capacity_wrk_analysis()
         else:
             if not self._load_and_prepare_data():
+                console.print(f"[bold red]Analysis aborted: No valid metric data found in {self.input_dir / 'metrics'}.[/bold red]")
                 return
             if self.report_type == "capacity_k6":
                 self._run_capacity_analysis_pipeline()
@@ -218,10 +220,10 @@ class PerformanceAnalyzer:
             run_num = int(p.stem.split("_")[0])
             with open(f, "r") as jf:
                 res = json.load(jf)
-                
+
                 # New format only: filename contains tech, data is the metrics dict
                 parts = p.stem.split("_")
-                tech = "-".join(parts[1:-1]) 
+                tech = "-".join(parts[1:-1])
 
                 lat_str = res.get("latency_avg", "0ms")
                 lat_match = re.search(r"[\d.]+", str(lat_str))
@@ -230,7 +232,7 @@ class PerformanceAnalyzer:
                     lat_val /= 1000
                 elif "s" in str(lat_str) and "ms" not in str(lat_str):
                     lat_val *= 1000
-                
+
                 records.append(
                     {
                         "run_number": run_num,
@@ -307,14 +309,14 @@ class PerformanceAnalyzer:
         if not self.summary_df.empty:
             # Get mean resource usage per framework
             resource_means = self.summary_df.groupby(["server_type", "metric"])["mean"].mean().unstack()
-            
+
             # Merge with wrk_summary
             merged = self.wrk_summary.merge(resource_means, on="server_type", how="left")
-            
+
             # Efficiency: RPS / CPU %
             if "cpu" in merged.columns:
                 merged["efficiency"] = merged["rps_mean"] / merged["cpu"].replace(0, np.nan)
-            
+
             resource_metrics = {
                 "cpu": ("Mean CPU Usage (%)", "capacity_wrk_cpu_comparison.png"),
                 "memory": ("Mean Memory Usage (MB)", "capacity_wrk_memory_comparison.png"),
@@ -442,10 +444,10 @@ class PerformanceAnalyzer:
         if first_place_ranks.sum() == 0:
             self.executive_summary_text = "No technology achieved a #1 rank in any category, so no overall winner could be determined."
             return
-            
+
         winner_counts = Counter(first_place_ranks[first_place_ranks > 0].to_dict())
         winners = winner_counts.most_common()
-        
+
         num_metrics = len(self.scorecard_ranks_df)
         num_runs = self.metadata.get('parameters', {}).get('num_runs', 'multiple')
 
@@ -489,7 +491,7 @@ class PerformanceAnalyzer:
     def _generate_load_plots(self) -> None:
         # Ported logic to create all required plots for the load report
         self._create_scorecard_heatmap()
-        
+
         for stat_col, metrics in METRIC_CONFIG.items():
             for metric, config in metrics.items():
                 m_df = self.summary_df[self.summary_df['metric'] == metric]
@@ -503,7 +505,7 @@ class PerformanceAnalyzer:
     def _create_scorecard_heatmap(self) -> Optional[Path]:
         if self.scorecard_ranks_df.empty or self.scorecard_values_df.empty:
             return None
-        
+
         plt.figure(figsize=(16, 10))
         avg_ranks = self.scorecard_ranks_df.mean().sort_values()
         ordered_techs = avg_ranks.index.tolist()
@@ -515,14 +517,14 @@ class PerformanceAnalyzer:
             ranks_ordered, annot=values_ordered, fmt=".2f", cmap="RdYlGn_r",
             linewidths=.5, cbar_kws={'label': 'Performance Rank (1 is best)'}
         )
-        
+
         plt.title('Performance Scorecard', fontsize=16)
         plt.xlabel('Technology (Ordered Best to Worst Overall)')
         plt.ylabel('Metric')
         plt.xticks(rotation=45, ha='right')
         plt.yticks(rotation=0)
         plt.tight_layout()
-        
+
         path = self.plots_dir / "performance_scorecard.png"
         plt.savefig(path)
         plt.close()
@@ -532,19 +534,19 @@ class PerformanceAnalyzer:
         if df.empty: return None
         plot_order = self._get_ordered_tech_list(df)
         plt.figure(figsize=(14, 8))
-        
+
         if plot_type == 'box':
             sns.boxplot(data=df, x='server_type', y=stat_col, hue='group', dodge=False, order=plot_order)
         elif plot_type == 'violin':
             sns.violinplot(data=df, x='server_type', y=stat_col, hue='group', dodge=False, inner='quartile', cut=0, order=plot_order)
-        
+
         plt.title(f'Distribution of {metric_name}', fontsize=16)
         plt.ylabel(metric_name)
         plt.xlabel('Technology')
         plt.xticks(rotation=45, ha='right')
         plt.grid(axis='y', linestyle='--', alpha=0.7)
         plt.tight_layout()
-        
+
         filename = f"{metric_name.lower().replace(' ', '_')}_{plot_type}_comparison.png"
         path = self.plots_dir / re.sub(r'[^a-z0-9_.-]', '', filename)
         plt.savefig(path)
@@ -556,11 +558,11 @@ class PerformanceAnalyzer:
             df_metric = self.raw_df[(self.raw_df['metric'] == metric) & (self.raw_df['group'] == group_filter)]
         else:
             df_metric = self.raw_df[self.raw_df['metric'] == metric]
-            
+
         if df_metric.empty: return None
         max_time = df_metric['time_sec'].max()
         if pd.isna(max_time): return None
-            
+
         full_time_index = pd.to_timedelta(np.arange(int(max_time) + 1), unit='s')
         processed_dfs = []
         for group, group_df in df_metric.groupby(['server_type', 'run_number']):
@@ -570,7 +572,7 @@ class PerformanceAnalyzer:
             temp_df['run_number'] = group[1]
             temp_df['time_sec'] = temp_df.index.total_seconds()
             processed_dfs.append(temp_df.reset_index(drop=True))
-        
+
         if not processed_dfs: return None
         plot_df = pd.concat(processed_dfs, ignore_index=True)
         agg_df = plot_df.groupby(['server_type', 'time_sec'])['metric_value'].agg(['mean', 'min', 'max']).reset_index()
@@ -578,18 +580,18 @@ class PerformanceAnalyzer:
 
         plt.figure(figsize=(14, 8))
         palette = {"CSR": "#1f77b4", "SSR": "#d62728", "Uncategorized": "gray"}
-        
+
         for tech in plot_order:
             tech_df = agg_df[agg_df['server_type'] == tech]
             if tech_df.empty: continue
-            
+
             # Map tech to group color
             group = self.raw_df[self.raw_df['server_type'] == tech]['group'].iloc[0]
             color = palette.get(group, 'gray')
-            
+
             plt.plot(tech_df['time_sec'], tech_df['mean'], label=tech, color=color, linewidth=2)
             plt.fill_between(tech_df['time_sec'], tech_df['min'], tech_df['max'], color=color, alpha=0.15)
-        
+
         title_suffix = f" ({group_filter})" if group_filter else ""
         plt.title(f"Time-Series: {metric_name}{title_suffix}", fontsize=16)
         plt.xlabel('Time (seconds)')
@@ -597,7 +599,7 @@ class PerformanceAnalyzer:
         plt.legend(title='Technology', bbox_to_anchor=(1.05, 1), loc='upper left')
         plt.grid(True, which='both', linestyle='--', linewidth=0.5)
         plt.tight_layout()
-        
+
         group_suffix = f"_{group_filter.lower().replace('-', '_')}" if group_filter else ""
         base_filename = f"{metric_name.lower().replace(' ', '_')}{group_suffix}_timeseries_overview.png"
         path = self.plots_dir / re.sub(r'[^a-z0-9_.-]', '', base_filename)
@@ -668,16 +670,16 @@ class PerformanceAnalyzer:
             plt.figure(figsize=(12, 8))
             # Sort by value for better comparison
             sorted_summary = summary.sort_values(col, ascending=False)
-            
+
             sns.barplot(
-                data=sorted_summary, 
-                y="server_type", 
-                x=col, 
-                hue="group", 
+                data=sorted_summary,
+                y="server_type",
+                x=col,
+                hue="group",
                 palette=palette,
                 dodge=False
             )
-            
+
             plt.title(titles[col])
             plt.xlabel(titles[col].split("(")[-1].replace(")", ""))
             plt.ylabel("Framework")
@@ -703,7 +705,7 @@ class PerformanceAnalyzer:
         path = self.plots_dir / "performance_scorecard.png"
         if path.exists():
             md.append("\n### Performance Scorecard")
-            md.append(f"![Performance Scorecard](./plots/performance_scorecard.png)")
+            md.append("![Performance Scorecard](./plots/performance_scorecard.png)")
         return "\n".join(md)
 
     def _render_ranking_tables_md(self) -> str:
@@ -717,17 +719,17 @@ class PerformanceAnalyzer:
                 if name not in self.ranking_results: continue
                 ranking_df = self.ranking_results[name]
                 md.append(f"#### {name}")
-                
+
                 for group in sorted(ranking_df['group'].unique()):
                     md.append(f"\n##### Group: {group}\n")
                     group_data = ranking_df[ranking_df['group'] == group].sort_values(by='mean', ascending=config['sort_ascending']).reset_index(drop=True)
-                    
+
                     rows = []
                     for i, row in group_data.iterrows():
                         tech_label = f"{row['server_type']} {emoji_map.get(i+1, '')}".strip()
                         val_str = f"{row['mean']:.4f} [{row['ci_lower']:.4f}, {row['ci_upper']:.4f}]" if pd.notna(row['ci_lower']) else f"{row['mean']:.4f}"
                         rows.append({"Technology": tech_label, stat_name_map.get(stat_col, stat_col): val_str})
-                    
+
                     md.append(pd.DataFrame(rows).to_markdown(index=False))
         return "\n".join(md)
 

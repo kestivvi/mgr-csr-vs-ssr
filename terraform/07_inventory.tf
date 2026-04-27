@@ -4,8 +4,8 @@ resource "local_file" "ansible_inventory" {
     load_generators   = aws_instance.load_generator
     monitoring_server = aws_instance.monitoring_server
     ssh_user          = "ec2-user"
-    private_key_path  = "~/.ssh/MGR1.pem"
-    test_scenarios    = var.test_scenarios
+    private_key_path  = "~/.ssh/${var.key_name}.pem"
+    technologies      = var.technologies
   })
   filename = "${path.module}/../ansible/inventory/inventory.yml"
 }

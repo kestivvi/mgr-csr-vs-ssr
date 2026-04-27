@@ -5,8 +5,8 @@ output "server_details" {
       for key, server in aws_instance.app_server : "app_server_${key}" => {
         public_ip         = server.public_ip
         private_ip        = server.private_ip
-        type              = var.test_scenarios[key].description
-        purpose           = var.test_scenarios[key].purpose
+        type              = var.technologies[key].description
+        purpose           = var.technologies[key].purpose
         ssh_user          = "ec2-user"
         terraform_address = "aws_instance.app_server[\"${key}\"]"
       }

@@ -9,6 +9,8 @@ def run(
     path: Optional[str] = None,
     num_runs: Optional[int] = None,
     duration: Optional[str] = None,
+    warmup: Optional[str] = None,
+    after: Optional[str] = None,
     vus: Optional[int] = None,
     rps: Optional[int] = None,
     peak_rate: Optional[int] = None,
@@ -25,6 +27,10 @@ def run(
         overrides["num_runs"] = num_runs
     if duration is not None:
         overrides["duration"] = duration
+    if warmup is not None:
+        overrides["warmup"] = warmup
+    if after is not None:
+        overrides["after"] = after
     if vus is not None:
         overrides["vus"] = vus
     if rps is not None:

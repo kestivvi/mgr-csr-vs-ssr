@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Annotated, Optional
 
 import typer
@@ -19,14 +20,15 @@ console = Console()
 # Placeholder commands for now
 @app.command()
 def setup(
+    infra_path: Annotated[Path, typer.Argument(help="Path to infrastructure configuration YAML")],
     force: Annotated[bool, typer.Option(help="Force recreation of infrastructure")] = False,
 ) -> None:
     """
     [bold green]Setup[/bold green]: Provision infrastructure via Terraform
     and configure via Ansible.
     """
-    console.print("[yellow]Setup command initiated...[/yellow]")
-    setup_cli.run(force=force)
+    console.print(f"[yellow]Setup command initiated with config: {infra_path}...[/yellow]")
+    setup_cli.run(infra_path=infra_path, force=force)
 
 
 test_app = typer.Typer(
@@ -42,7 +44,13 @@ def test_load(
         int, typer.Option("--num-runs", help="Number of runs", show_default=True)
     ] = 1,
     duration: Annotated[
-        str, typer.Option("--duration", help="Duration", show_default=True)
+        str, typer.Option("--duration", help="Test (middle) duration", show_default=True)
+    ] = "1m",
+    warmup: Annotated[
+        str, typer.Option("--warmup", help="Warmup duration", show_default=True)
+    ] = "30s",
+    after: Annotated[
+        str, typer.Option("--after", help="After-test duration", show_default=True)
     ] = "30s",
     vus: Annotated[
         int, typer.Option("--vus", help="Number of virtual users", show_default=True)
@@ -50,7 +58,15 @@ def test_load(
     rps: Annotated[Optional[int], typer.Option("--rps", help="Requests per second")] = None,
 ) -> None:
     """Run standard [cyan]load[/cyan] tests."""
-    test_cli.run(mode="load", num_runs=num_runs, duration=duration, vus=vus, rps=rps)
+    test_cli.run(
+        mode="load",
+        num_runs=num_runs,
+        duration=duration,
+        warmup=warmup,
+        after=after,
+        vus=vus,
+        rps=rps,
+    )
 
 
 @test_app.command(name="capacity")
@@ -93,10 +109,20 @@ def test_file(
         Optional[int], typer.Option("--num-runs", help="Override number of runs")
     ] = None,
     duration: Annotated[Optional[str], typer.Option("--duration", help="Override duration")] = None,
+    warmup: Annotated[Optional[str], typer.Option("--warmup", help="Override warmup")] = None,
+    after: Annotated[Optional[str], typer.Option("--after", help="Override after")] = None,
     vus: Annotated[Optional[int], typer.Option("--vus", help="Override VUs")] = None,
 ) -> None:
     """Run experiments from a custom [cyan]YAML file[/cyan]."""
-    test_cli.run(mode="file", path=path, num_runs=num_runs, duration=duration, vus=vus)
+    test_cli.run(
+        mode="file",
+        path=path,
+        num_runs=num_runs,
+        duration=duration,
+        warmup=warmup,
+        after=after,
+        vus=vus,
+    )
 
 
 @test_app.command(name="stop")

@@ -30,11 +30,11 @@ WRK_PLAYBOOK = ANSIBLE_OPS / "test_wrk_run.yml"
 
 
 def resolve_path(path: str | Path) -> Path:
-    """Helper to ensure we have an absolute path."""
+    """Helper to ensure we have an absolute path.
+    Relative paths are resolved against the current working directory.
+    """
     p = Path(path)
-    if p.is_absolute():
-        return p
-    return (ROOT_DIR / p).resolve()
+    return p.resolve()
 
 
 # Environment overrides

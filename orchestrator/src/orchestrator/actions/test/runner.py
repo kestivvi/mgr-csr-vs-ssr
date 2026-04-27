@@ -134,6 +134,8 @@ class TestRunner:
 
         # Logic for tool-specific vars
         playbook = LOAD_PLAYBOOK_PATH  # Default
+        measurement_window: Optional[Dict[str, int]] = None
+
         if tool == "wrk":
             playbook = WRK_PLAYBOOK_PATH
             if self.config.capacity_wrk_options:
@@ -157,15 +159,22 @@ class TestRunner:
         else:
             # Default 'load' test
             if self.config.load_options:
-                opts = self.config.load_options.model_dump(exclude_none=True)
-                mapped = {
-                    "k6_rate": opts.get("rps"),
-                    "k6_duration": opts.get("duration"),
-                    "max_vus": opts.get("vus"),
-                    "k6_path_type": opts.get("path_type"),
-                    "k6_request_timeout": opts.get("timeout"),
-                }
-                extra_vars.update({k: v for k, v in mapped.items() if v is not None})
+                load_opts = self.config.load_options
+                w_sec = parse_duration_to_seconds(load_opts.warmup)
+                d_sec = parse_duration_to_seconds(load_opts.duration)
+                a_sec = parse_duration_to_seconds(load_opts.after)
+                total_sec = w_sec + d_sec + a_sec
+
+                extra_vars.update(
+                    {
+                        "k6_rate": load_opts.rps,
+                        "k6_duration": f"{total_sec}s",
+                        "max_vus": load_opts.vus,
+                        "k6_path_type": load_opts.path_type,
+                        "k6_request_timeout": load_opts.timeout,
+                    }
+                )
+                measurement_window = {"warmup": w_sec, "duration": d_sec}
 
         # Run via ansible-runner
         r = ansible_runner.run(
@@ -179,6 +188,13 @@ class TestRunner:
         output = r.stdout.read()
         timestamps = self._extract_marker(output, TIMESTAMP_MARKER)
         wrk_results = self._extract_marker(output, WRK_RESULT_MARKER) if tool == "wrk" else None
+
+        if timestamps and measurement_window:
+            # Adjust timestamps to the middle measurement window
+            # Ensure they are numbers as k6 might return them as strings
+            base_start = float(timestamps["start"])
+            timestamps["start"] = base_start + measurement_window["warmup"]
+            timestamps["end"] = timestamps["start"] + measurement_window["duration"]
 
         if not r.status == "successful" or not timestamps:
             msg = (
@@ -272,6 +288,31 @@ class TestRunner:
                         with open(res_path, "w") as out_file:
                             json.dump(res["wrk_results"], out_file, indent=2)
                         console.print(f"[green]Saved wrk results to {res_path}[/green]")
+
+            # 3. Save metadata for analyzer
+            metadata = {
+                "run_timestamp_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "test_type": self.test_type,
+                "parameters": self.config.model_dump(exclude_none=True),
+                "calculated_durations_sec": {
+                    "measurement": end_ts - start_ts,
+                },
+            }
+            # Flatten parameters for easier access in analyzer appendix
+            if self.test_type == "load" and self.config.load_options:
+                l_opts = self.config.load_options
+                params_dict = cast(dict[str, Any], metadata["parameters"])
+                params_dict.update(l_opts.model_dump())
+                total_k6_sec = (
+                    parse_duration_to_seconds(l_opts.warmup)
+                    + parse_duration_to_seconds(l_opts.duration)
+                    + parse_duration_to_seconds(l_opts.after)
+                )
+                params_dict["k6_duration"] = f"{total_k6_sec}s"
+                params_dict["warmup_duration"] = l_opts.warmup
+
+            with open(self.results_base_dir / "metadata.yaml", "w") as f:
+                yaml.dump(metadata, f)
 
             console.print(
                 f"[bold green]Experiment complete. Results in "

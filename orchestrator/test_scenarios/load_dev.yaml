@@ -3,6 +3,7 @@ num_runs: 2
 
 load_options:
   rps: 100
+  warmup: 30s
   duration: 30s
-  warmup: 15s
+  after: 15s
   vus: 100
