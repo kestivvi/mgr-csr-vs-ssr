@@ -5,10 +5,7 @@ import typer
 from rich.console import Console
 
 # Import sub-commands
-from orchestrator.actions.analyze import cli as analyze_cli
-from orchestrator.actions.destroy import cli as destroy_cli
-from orchestrator.actions.setup import cli as setup_cli
-from orchestrator.actions.test import cli as test_cli
+# Sub-command CLIs are imported lazily inside functions to speed up startup/completion
 
 app = typer.Typer(
     help="MGR Orchestrator: Unified CLI for infrastructure, testing, and analysis.",
@@ -28,6 +25,7 @@ def setup(
     and configure via Ansible.
     """
     console.print(f"[yellow]Setup command initiated with config: {infra_path}...[/yellow]")
+    from orchestrator.actions.setup import cli as setup_cli
     setup_cli.run(infra_path=infra_path, force=force)
 
 
@@ -58,6 +56,7 @@ def test_load(
     rps: Annotated[Optional[int], typer.Option("--rps", help="Requests per second")] = None,
 ) -> None:
     """Run standard [cyan]load[/cyan] tests."""
+    from orchestrator.actions.test import cli as test_cli
     test_cli.run(
         mode="load",
         num_runs=num_runs,
@@ -91,6 +90,7 @@ def test_capacity(
     ] = 1,
 ) -> None:
     """Run [cyan]capacity[/cyan] tests (Thesis Standard RPS Ramping)."""
+    from orchestrator.actions.test import cli as test_cli
     test_cli.run(
         mode="capacity",
         num_runs=num_runs,
@@ -114,6 +114,7 @@ def test_file(
     vus: Annotated[Optional[int], typer.Option("--vus", help="Override VUs")] = None,
 ) -> None:
     """Run experiments from a custom [cyan]YAML file[/cyan]."""
+    from orchestrator.actions.test import cli as test_cli
     test_cli.run(
         mode="file",
         path=path,
@@ -149,6 +150,7 @@ def analyze(
     [bold magenta]Analyze[/bold magenta]: Generate statistical reports and plots from results.
     """
     console.print(f"[yellow]Analysis initiated for: {results_dir}[/yellow]")
+    from orchestrator.actions.analyze import cli as analyze_cli
     analyze_cli.run(results_dir=results_dir, report_type=report_type, champions=champions)
 
 
@@ -158,6 +160,7 @@ def destroy() -> None:
     [bold red]Destroy[/bold red]: Tear down all infrastructure via Terraform.
     """
     console.print("[red]Teardown initiated...[/red]")
+    from orchestrator.actions.destroy import cli as destroy_cli
     destroy_cli.run()
 
 
