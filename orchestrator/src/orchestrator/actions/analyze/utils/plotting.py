@@ -28,7 +28,7 @@ def create_scorecard_heatmap(analyzer: PerformanceAnalyzer) -> Optional[Path]:
     if analyzer.scorecard_ranks_df.empty or analyzer.scorecard_values_df.empty:
         return None
 
-    plt.figure(figsize=(16, 10))
+    plt.figure(figsize=(20, 10))
     avg_ranks = analyzer.scorecard_ranks_df.mean().sort_values()
     ordered_techs = avg_ranks.index.tolist()
     ordered_metrics = analyzer.scorecard_ranks_df.index
@@ -39,7 +39,7 @@ def create_scorecard_heatmap(analyzer: PerformanceAnalyzer) -> Optional[Path]:
         index=ordered_metrics, columns=ordered_techs
     )
 
-    sns.heatmap(
+    ax = sns.heatmap(
         ranks_ordered,
         annot=values_ordered,
         fmt=".2f",
@@ -51,7 +51,22 @@ def create_scorecard_heatmap(analyzer: PerformanceAnalyzer) -> Optional[Path]:
     plt.title("Performance Scorecard", fontsize=16)
     plt.xlabel("Technology (Ordered Best to Worst Overall)")
     plt.ylabel("Metric")
-    plt.xticks(rotation=45, ha="right")
+
+    # Color x-axis labels by group
+    ax.set_xticks(np.arange(len(ordered_techs)) + 0.5)
+    ax.set_xticklabels(ordered_techs, rotation=45, ha="right")
+
+    # Map tech to group color
+    for label in ax.get_xticklabels():
+        tech = label.get_text()
+        # Find group for this tech from raw_df
+        if not analyzer.raw_df.empty:
+            match = analyzer.raw_df[analyzer.raw_df["server_type"] == tech]
+            if not match.empty:
+                group = match["group"].iloc[0]
+                label.set_color(PLOT_PALETTE.get(group, "black"))
+                label.set_weight("bold")
+
     plt.yticks(rotation=0)
     plt.tight_layout()
 
@@ -92,7 +107,20 @@ def create_comparison_plot(
     plt.title(f"Distribution of {metric_name}", fontsize=16)
     plt.ylabel(metric_name)
     plt.xlabel("Technology")
+
+    # Capture axis for tick manipulation
+    ax = plt.gca()
     plt.xticks(rotation=45, ha="right")
+
+    # Map tech to group color
+    for label in ax.get_xticklabels():
+        tech = label.get_text()
+        if not df.empty:
+            match = df[df["server_type"] == tech]
+            if not match.empty:
+                group = match["group"].iloc[0]
+                label.set_color(PLOT_PALETTE.get(group, "black"))
+                label.set_weight("bold")
     plt.grid(axis="y", linestyle="--", alpha=0.7)
     plt.tight_layout()
 
@@ -141,14 +169,16 @@ def create_timeseries_plot(
 
     plt.figure(figsize=(14, 8))
 
+    # Use a varied palette to distinguish frameworks
+    palette = sns.color_palette("tab10", n_colors=len(plot_order))
+    tech_colors = {tech: palette[i] for i, tech in enumerate(plot_order)}
+
     for tech in plot_order:
         tech_df = agg_df[agg_df["server_type"] == tech]
         if tech_df.empty:
             continue
 
-        # Map tech to group color
-        group = analyzer.raw_df[analyzer.raw_df["server_type"] == tech]["group"].iloc[0]
-        color = PLOT_PALETTE.get(group, "gray")
+        color = tech_colors[tech]
 
         plt.plot(tech_df["time_sec"], tech_df["mean"], label=tech, color=color, linewidth=2)
         plt.fill_between(
@@ -159,7 +189,15 @@ def create_timeseries_plot(
     plt.title(f"Time-Series: {metric_name}{title_suffix}", fontsize=16)
     plt.xlabel("Time (seconds)")
     plt.ylabel(metric_name)
-    plt.legend(title="Technology", bbox_to_anchor=(1.05, 1), loc="upper left")
+    leg = plt.legend(title="Technology", bbox_to_anchor=(1.05, 1), loc="upper left")
+
+    # Color legend labels to match line colors
+    for text in leg.get_texts():
+        tech = text.get_text()
+        if tech in tech_colors:
+            text.set_color(tech_colors[tech])
+            text.set_weight("bold")
+
     plt.grid(True, which="both", linestyle="--", linewidth=0.5)
     plt.tight_layout()
 

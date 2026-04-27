@@ -43,6 +43,17 @@ def generate_capacity_wrk_plots(analyzer: PerformanceAnalyzer) -> None:
         plt.title(title)
         plt.xlabel(title.split("(")[-1].replace(")", ""))
         plt.ylabel("Framework")
+
+        # Color y-axis labels by group
+        ax = plt.gca()
+        for label in ax.get_yticklabels():
+            tech = label.get_text()
+            match = sorted_df[sorted_df["server_type"] == tech]
+            if not match.empty:
+                group = match["group"].iloc[0]
+                label.set_color(PLOT_PALETTE.get(group, "black"))
+                label.set_weight("bold")
+
         plt.legend(title="Group", loc="lower right")
         plt.tight_layout()
         plt.savefig(analyzer.plots_dir / filename)
@@ -88,6 +99,17 @@ def generate_capacity_wrk_plots(analyzer: PerformanceAnalyzer) -> None:
             plt.title(title)
             plt.xlabel(title.split("(")[-1].replace(")", ""))
             plt.ylabel("Framework")
+
+            # Color y-axis labels by group
+            ax = plt.gca()
+            for label in ax.get_yticklabels():
+                tech = label.get_text()
+                match = sorted_merged[sorted_merged["server_type"] == tech]
+                if not match.empty:
+                    group = match["group"].iloc[0]
+                    label.set_color(PLOT_PALETTE.get(group, "black"))
+                    label.set_weight("bold")
+
             plt.legend(title="Group", loc="lower right")
             plt.tight_layout()
             plt.savefig(analyzer.plots_dir / filename)
