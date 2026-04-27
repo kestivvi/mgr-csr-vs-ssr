@@ -1,0 +1,9 @@
+test_type: load
+num_runs: 3
+
+load_options:
+  rps: 100
+  warmup: 30s
+  duration: 60s
+  after: 15s
+  vus: 100

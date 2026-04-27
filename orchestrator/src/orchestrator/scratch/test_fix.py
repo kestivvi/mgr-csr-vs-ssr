@@ -25,22 +25,29 @@ def extract_marker(output: str, marker: str) -> Optional[Dict[str, Any]]:
 
 
 # Test case 1: Ansible debug output with quotes and ANSI codes
-test_output = """
- \x1b[0;32mok: [mgr-load-generator-CSR-Vanilla] => { \x1b[0m
- \x1b[0;32m    "msg": "ORCHESTRATOR_TIMESTAMPS::{\\"start\\": \\"1777234413\\", \\"end\\": \\"1777234444\\"}" \x1b[0m
- \x1b[0;32m} \x1b[0m
-"""
+test_output = (
+    "\n"
+    " \x1b[0;32mok: [mgr-load-generator-CSR-Vanilla] => { \x1b[0m \n"
+    " \x1b[0;32m    \"msg\": \"ORCHESTRATOR_TIMESTAMPS::{\\\"start\\\": "
+    "\\\"1777234413\\\", \\\"end\\\": \\\"1777234444\\\"}\" \x1b[0m \n"
+    " \x1b[0;32m} \x1b[0m \n"
+)
 
 marker = "ORCHESTRATOR_TIMESTAMPS::"
 result = extract_marker(test_output, marker)
 print(f"Result: {result}")
+assert result is not None
 assert result == {"start": "1777234413", "end": "1777234444"}
 
 # Test case 2: WRK results
-wrk_output = """
- \x1b[0;32m    "msg": "WRK_RESULTS::{\\"rps\\": 29276.29, \\"latency_avg\\": \\"5.05ms\\", \\"transfer_per_sec\\": \\"15.16MB\\"}" \x1b[0m
-"""
+wrk_output = (
+    "\n"
+    " \x1b[0;32m    \"msg\": \"WRK_RESULTS::{\\\"rps\\\": 29276.29, "
+    "\\\"latency_avg\\\": \\\"5.05ms\\\", \\\"transfer_per_sec\\\": "
+    "\\\"15.16MB\\\"}\" \x1b[0m \n"
+)
 marker2 = "WRK_RESULTS::"
 result2 = extract_marker(wrk_output, marker2)
 print(f"Result 2: {result2}")
+assert result2 is not None
 assert result2["rps"] == 29276.29

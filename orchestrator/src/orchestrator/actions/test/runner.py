@@ -315,8 +315,7 @@ class TestRunner:
                 yaml.dump(metadata, f)
 
             console.print(
-                f"[bold green]Experiment complete. Results in "
-                f"{self.results_base_dir}[/bold green]"
+                f"[bold green]Experiment complete. Results in {self.results_base_dir}[/bold green]"
             )
         except KeyboardInterrupt:
             self.global_teardown(scenarios)

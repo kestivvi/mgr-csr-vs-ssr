@@ -23,18 +23,18 @@ def get_ansible_env() -> dict[str, str]:
 
         if os.path.exists(plugin_path):
             env["ANSIBLE_STRATEGY_PLUGINS"] = plugin_path
-            env["ANSIBLE_STRATEGY"] = "mitogen_free"
+            env["ANSIBLE_STRATEGY"] = "mitogen_host_pinned"
             console.print(
                 "[bold cyan]Performance:[/bold cyan] Mitogen detected. "
-                "Using [bold magenta]mitogen_free[/bold magenta] strategy."
+                "Using [bold magenta]mitogen_host_pinned[/bold magenta] strategy."
             )
         else:
             console.print(
                 "[yellow]Warning:[/yellow] ansible_mitogen found but strategy "
                 "plugins path is missing. Using default strategy."
             )
-            env["ANSIBLE_STRATEGY"] = "free"
+            env["ANSIBLE_STRATEGY"] = "linear"
     except ImportError:
-        env["ANSIBLE_STRATEGY"] = "free"
+        env["ANSIBLE_STRATEGY"] = "linear"
 
     return env
