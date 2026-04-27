@@ -1,0 +1,18 @@
+# Example Capacity (WRK) Test Scenario
+# WRK is a high-performance HTTP benchmarking tool
+
+test_type: capacity_wrk
+num_runs: 1
+
+capacity_wrk_options:
+  # Total number of threads to use across all load generators
+  threads: 2
+  
+  # Total number of HTTP connections to keep open
+  connections: 10
+  
+  # Duration of the test
+  duration: 30s
+  
+  # Warmup period before measurement
+  warmup: 30s

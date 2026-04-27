@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -33,18 +33,9 @@ class CapacityWrkOptions(BaseModel):
     warmup: str = "30s"
 
 
-class Scenario(BaseModel):
-    name: str
-    load_generator_group: str
-    app_server_ip: str
-    monitoring_private_ip: str
-    monitoring_public_ip: Optional[str] = None
-
-
 class ExperimentConfig(BaseModel):
     test_type: str = Field(..., description="load, capacity_k6, or capacity_wrk")
     num_runs: int = 1
     load_options: Optional[LoadOptions] = None
     capacity_k6_options: Optional[CapacityK6Options] = None
     capacity_wrk_options: Optional[CapacityWrkOptions] = None
-    scenarios: Optional[List[Scenario]] = None

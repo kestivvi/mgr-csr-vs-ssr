@@ -1,0 +1,28 @@
+# Example Load Test Scenario
+# Use this for steady-state load testing
+
+test_type: load
+num_runs: 1
+
+load_options:
+  # Requests per second per load generator
+  rps: 100
+  
+  # How many Virtual Users (VUs) to use to achieve the RPS
+  # Higher VUs might be needed if the latency is high
+  vus: 200
+  
+  # Warmup period before measurement starts
+  warmup: 30s
+  
+  # How long the measurement lasts (steady state)
+  duration: 1m
+  
+  # Cooldown/Settle period after measurement
+  after: 30s
+  
+  # 'static' (one path) or 'dynamic' (random UUID paths)
+  path_type: dynamic
+  
+  # Request timeout (e.g., 0.4s or 400ms)
+  timeout: 0.4s

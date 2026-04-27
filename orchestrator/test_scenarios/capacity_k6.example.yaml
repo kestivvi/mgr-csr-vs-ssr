@@ -1,0 +1,33 @@
+# Example Capacity (K6) Test Scenario
+# Use this for finding the breaking point of the system (ramp-up test)
+
+test_type: capacity_k6
+num_runs: 1
+
+capacity_k6_options:
+  # The starting rate (RPS)
+  start_rate: 1
+  
+  # The target peak rate (RPS) to reach
+  peak_rate: 1000
+  
+  # How long to ramp up from start_rate to peak_rate
+  ramp_up: 5m
+  
+  # How long to maintain the peak_rate
+  sustain: 1m
+  
+  # How long to ramp down back to start_rate
+  ramp_down: 1m
+  
+  # Warmup period at start_rate before ramp_up begins
+  warmup: 30s
+  
+  # Maximum VUs allowed to reach the peak_rate
+  max_vus: 200
+  
+  # 'static' or 'dynamic' path generation
+  path_type: dynamic
+  
+  # Request timeout
+  timeout: 0.4s
