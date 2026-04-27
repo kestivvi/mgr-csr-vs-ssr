@@ -247,22 +247,22 @@ _Run from the project root._
 
    ```bash
    # Analyze specific experiment
-   python statistics/analyzer.py --input-dir results/capacity_k6_YYYY-MM-DD_HH-MM-SS --report-type capacity
+    mgr analyze capacity_k6 results/capacity_k6_YYYY-MM-DD_HH-MM-SS
 
-   # Analyze latest capacity_k6 experiment (Bash)
-   python statistics/analyzer.py --input-dir $(ls -td results/capacity_k6_* | head -1) --report-type capacity
+    # Analyze latest capacity_k6 experiment (Bash)
+    mgr analyze capacity_k6 $(ls -td results/capacity_k6_* | head -1)
    ```
 
 3. **Generate Load Report**:
    Use the `load` report type to compare all tested technologies in a ranking table and box plots.
 
    ```bash
-   python statistics/analyzer.py --input-dir results/load_k6_YYYY-MM-DD_HH-MM-SS --report-type load
+    mgr analyze load results/load_k6_YYYY-MM-DD_HH-MM-SS
    ```
 
 **Artifacts**:
 
-- `capacity_report.md` or `report_all_apps.md`: Markdown summary with tables and charts.
+- `capacity_report_k6.md` or `report_all_apps.md`: Markdown summary with tables and charts.
 - `plots/`: Subdirectory containing all generated `.png` charts.
 
 ### 🛠️ Development & Quality Control

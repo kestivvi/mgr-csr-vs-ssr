@@ -110,10 +110,10 @@ def test_stop() -> None:
 
 @app.command()
 def analyze(
-    results_dir: Annotated[str, typer.Argument(help="Directory containing experiment results")],
     report_type: Annotated[
-        str, typer.Option(help="Type of report: load, capacity, champions, capacity_wrk")
-    ] = "load",
+        str, typer.Argument(help="Type of report: load, capacity_k6, champions, capacity_wrk")
+    ],
+    results_dir: Annotated[str, typer.Argument(help="Directory containing experiment results")],
     champions: Annotated[
         Optional[list[str]],
         typer.Option(help="Two technologies to compare for 'champions' report"),

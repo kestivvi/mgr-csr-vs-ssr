@@ -14,6 +14,7 @@ dependencies = [
     "matplotlib",
     "rich",
     "prometheus-api-client",
+    "tabulate",
 ]
 
 [project.scripts]

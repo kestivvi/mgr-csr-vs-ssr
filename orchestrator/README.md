@@ -123,7 +123,7 @@ capacity_wrk_options:
 Generate statistical reports and plots.
 
 ```bash
-mgr analyze results/load_YYYY-MM-DD
+mgr analyze load results/load_YYYY-MM-DD
 ```
 
 ### 4. Teardown
