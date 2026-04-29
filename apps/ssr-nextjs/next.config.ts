@@ -1,17 +1,15 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  output: 'standalone',
+  reactStrictMode: true,
   poweredByHeader: false,
   compress: false,
-  compiler: {
-    removeConsole: true,
-  },
-  experimental: {
-    optimizePackageImports: ['react', 'react-dom'],
-  },
-  trailingSlash: false,
-  generateEtags: true,
-};
+  productionBrowserSourceMaps: false,
 
-export default nextConfig;
+  compiler: {
+    removeConsole: { exclude: ['error', 'warn'] },
+  },
+}
+
+export default nextConfig
