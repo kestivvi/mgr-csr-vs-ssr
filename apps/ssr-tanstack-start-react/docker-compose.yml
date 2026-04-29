@@ -1,5 +1,5 @@
 services:
-  tanstack-app:
+  tanstack-react-app:
     build: .
     image: ssr-tanstack-start-react-app
     restart: unless-stopped
@@ -10,16 +10,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.nginx
+    image: ssr-tanstack-start-react-nginx
     restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
       - "8060:8060"
-    volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf
-      - /var/log/ssr-tanstack-start-react-nginx:/var/log/nginx
     depends_on:
-      - tanstack-app
+      - tanstack-react-app
     networks:
       - app-net
 

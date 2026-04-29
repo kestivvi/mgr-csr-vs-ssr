@@ -17,6 +17,7 @@ APPS_DIR = ROOT_DIR / "apps"
 
 # Output and results
 RESULTS_DIR = ROOT_DIR / "results"
+VERIFY_LOGS_BASE_DIR = ROOT_DIR / "verify_logs"
 
 # Execution settings
 DEFAULT_CONFIG_PATH = ROOT_DIR / "experiments" / "default.yaml"

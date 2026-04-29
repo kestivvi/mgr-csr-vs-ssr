@@ -1,13 +1,8 @@
 services:
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        GIT_REVISION: ${GIT_REVISION:-dev}
-    environment:
-      - DENO_DEPLOYMENT_ID=${GIT_REVISION:-dev}
-    command: ["deno", "serve", "-A", "_fresh/server.js"]
+  fresh-app:
+    build: .
+    image: ssr-fresh-app
+    restart: unless-stopped
     networks:
       - app-net
 
@@ -15,16 +10,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.nginx
+    image: ssr-fresh-nginx
     restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
       - "8060:8060"
-    volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf
-      - /var/log/ssr-fresh-nginx:/var/log/nginx
     depends_on:
-      - app
+      - fresh-app
     networks:
       - app-net
 

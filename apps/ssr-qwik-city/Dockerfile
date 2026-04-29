@@ -1,34 +1,38 @@
-# Stage 1: Install dependencies
-FROM node:25.9.0-slim AS deps
+# Stage 1: Build the Qwik City application
+FROM node:25.9.0-alpine3.23 AS builder
 WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev
 
-# Stage 2: Build the application
-FROM node:25.9.0-slim AS builder
-WORKDIR /app
+# Copy lock files to leverage layer caching
 COPY package.json package-lock.json* ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --prefer-offline --no-audit --no-fund
+
+# Copy source code and build
 COPY . .
 RUN npm run build
 RUN npm run build.preview
 
-# Stage 3: Production image
-FROM node:25.9.0-slim AS runner
+# Stage 2: Run the application
+FROM node:25.9.0-alpine3.23 AS runner
 WORKDIR /app
 
-ENV NODE_ENV=production
+# Set production environment
+ENV NODE_ENV=production \
+    PORT=3000 \
+    HOSTNAME=0.0.0.0
+
+# Create a non-root user for security
+RUN addgroup -g 1001 -S nodejs && adduser -S qwikuser -u 1001
+USER qwikuser
 
 # Copy what's needed to run preview server
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/server ./server
-COPY --from=builder /app/src ./src
-COPY --from=builder /app/package.json ./
-COPY --from=builder /app/vite.config.ts ./
-COPY --from=builder /app/tsconfig.json ./
-
-ENV PORT=3000
+COPY --from=builder --chown=qwikuser:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=qwikuser:nodejs /app/dist ./dist
+COPY --from=builder --chown=qwikuser:nodejs /app/server ./server
+COPY --from=builder --chown=qwikuser:nodejs /app/src ./src
+COPY --from=builder --chown=qwikuser:nodejs /app/package.json ./
+COPY --from=builder --chown=qwikuser:nodejs /app/vite.config.ts ./
+COPY --from=builder --chown=qwikuser:nodejs /app/tsconfig.json ./
 
 EXPOSE 3000
 

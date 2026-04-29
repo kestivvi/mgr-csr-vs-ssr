@@ -1,7 +1,6 @@
 services:
-  sveltekit-app:
-    build:
-      context: .
+  svelte-app:
+    build: .
     image: ssr-svelte-kit-app
     restart: unless-stopped
     networks:
@@ -11,16 +10,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.nginx
+    image: ssr-svelte-kit-nginx
     restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
       - "8060:8060"
-    volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf
-      - /var/log/ssr-svelte-kit-nginx:/var/log/nginx
     depends_on:
-      - sveltekit-app
+      - svelte-app
     networks:
       - app-net
 

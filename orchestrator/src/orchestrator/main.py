@@ -164,5 +164,24 @@ def destroy() -> None:
     destroy_cli.run()
 
 
+@app.command()
+def verify(
+    apps: Annotated[
+        Optional[str],
+        typer.Option(
+            "--apps",
+            "--app",
+            help="Filter apps by name. Supports [bold]partial matches[/bold] and [bold]comma-separated lists[/bold] (e.g., 'nextjs,react').",
+        ),
+    ] = None,
+) -> None:
+    """
+    [bold green]Verify[/bold green]: Build and test apps locally to ensure functionality.
+    """
+    from orchestrator.actions.verify import cli as verify_cli
+
+    verify_cli.run(app_filter=apps)
+
+
 if __name__ == "__main__":
     app()

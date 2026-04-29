@@ -1,47 +1,36 @@
-# Dockerfile.prod
-
-# ---- Stage 1: Install Production Dependencies ----
-# This stage creates a layer with just the production node_modules.
-# It will be cached and reused if package.json doesn't change.
-FROM node:25.9.0-alpine3.23 AS deps
-WORKDIR /app
-COPY package*.json ./
-# Use npm ci for reproducible installs; only production deps in this layer
-RUN npm ci --omit=dev
-
-
-# ---- Stage 2: Build the SvelteKit Application ----
-# This stage builds the actual application code.
-# It installs all dependencies (including dev) and runs the build script.
+# Stage 1: Build the SvelteKit application
 FROM node:25.9.0-alpine3.23 AS builder
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci
+
+# Copy lock files to leverage layer caching
+COPY package.json package-lock.json* ./
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --prefer-offline --no-audit --no-fund
+
+# Copy source code and build
 COPY . .
 RUN npm run build
 
-
-# ---- Stage 3: Production Runner ----
-# This is the final, lean image that will be deployed.
-# It copies the necessary artifacts from the previous stages.
+# Stage 2: Run the application
 FROM node:25.9.0-alpine3.23 AS runner
 WORKDIR /app
 
-# Set environment variables for the Node.js server
-ENV NODE_ENV=production
+# Set production environment
+ENV NODE_ENV=production \
+    PORT=3000 \
+    HOSTNAME=0.0.0.0
 
-# Copy the pre-installed production dependencies from the 'deps' stage
-COPY --from=deps /app/package*.json ./
-COPY --from=deps /app/node_modules ./node_modules
+# Create a non-root user for security
+RUN addgroup -g 1001 -S nodejs && adduser -S svelteuser -u 1001
+USER svelteuser
 
-# Copy the built application from the 'builder' stage.
-# For adapter-node, we need both the 'build' and '.svelte-kit' directories.
-COPY --from=builder /app/build ./build
-COPY --from=builder /app/.svelte-kit ./.svelte-kit
+# Copy built application and production dependencies
+COPY --from=builder --chown=svelteuser:nodejs /app/package.json /app/package-lock.json ./
+# For adapter-node, we need the build directory and node_modules
+COPY --from=builder --chown=svelteuser:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=svelteuser:nodejs /app/build ./build
 
-# Expose the port the app will run on
 EXPOSE 3000
 
-# The command to start the SvelteKit server
-# It runs the output of the 'adapter-node' build
+# Start the SvelteKit server
 CMD ["node", "build"]

@@ -1,14 +1,8 @@
-# docker-compose.prod.yml
-
 services:
-  # The SvelteKit Application Service - running directly without nginx
-  sveltekit-app:
-    build:
-      context: .
+  svelte-app-bun:
+    build: .
     image: ssr-svelte-kit-bun-app
     restart: unless-stopped
-    environment:
-      - NODE_ENV=production
     networks:
       - app-net
 
@@ -16,16 +10,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.nginx
+    image: ssr-svelte-kit-bun-nginx
     restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
       - "8060:8060"
-    volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf
-      - /var/log/ssr-svelte-kit-bun-nginx:/var/log/nginx
     depends_on:
-      - sveltekit-app
+      - svelte-app-bun
     networks:
       - app-net
 

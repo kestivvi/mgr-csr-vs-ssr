@@ -1,30 +1,33 @@
-# Stage 1: Install dependencies
-FROM node:25.9.0-alpine3.23 AS deps
-WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev
-
-# Stage 2: Build the application
+# Stage 1: Build the Angular application
 FROM node:25.9.0-alpine3.23 AS builder
 WORKDIR /app
+
+# Copy lock files to leverage layer caching
 COPY package.json package-lock.json* ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --prefer-offline --no-audit --no-fund
+
+# Copy source code and build
 COPY . .
 RUN npm run build
 
-# Stage 3: Production image
+# Stage 2: Run the application
 FROM node:25.9.0-alpine3.23 AS runner
 WORKDIR /app
 
-ENV NODE_ENV=production
+# Set production environment
+ENV NODE_ENV=production \
+    PORT=3000 \
+    HOSTNAME=0.0.0.0
 
-# Copy the built application
-COPY --from=builder /app/dist/ssr-angular ./
+# Create a non-root user for security
+RUN addgroup -g 1001 -S nodejs && adduser -S angularjs -u 1001
+USER angularjs
+
+# Copy built application
+COPY --from=builder --chown=angularjs:nodejs /app/dist/ssr-angular ./
 
 EXPOSE 3000
 
-ENV PORT=3000
-
 # Start the Angular SSR server
 CMD ["node", "server/server.mjs"]
-

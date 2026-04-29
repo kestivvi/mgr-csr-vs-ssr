@@ -1,22 +1,35 @@
-FROM node:25.9.0-alpine3.23 AS development-dependencies-env
-COPY . /app
+# Stage 1: Build the React Router application
+FROM node:25.9.0-alpine3.23 AS builder
 WORKDIR /app
-RUN npm ci
 
-FROM node:25.9.0-alpine3.23 AS production-dependencies-env
-COPY ./package.json package-lock.json /app/
-WORKDIR /app
-RUN npm ci --omit=dev
+# Copy lock files to leverage layer caching
+COPY package.json package-lock.json* ./
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --prefer-offline --no-audit --no-fund
 
-FROM node:25.9.0-alpine3.23 AS build-env
-COPY . /app/
-COPY --from=development-dependencies-env /app/node_modules /app/node_modules
-WORKDIR /app
+# Copy source code and build
+COPY . .
 RUN npm run build
 
-FROM node:25.9.0-alpine3.23
-COPY ./package.json package-lock.json /app/
-COPY --from=production-dependencies-env /app/node_modules /app/node_modules
-COPY --from=build-env /app/build /app/build
+# Stage 2: Run the application
+FROM node:25.9.0-alpine3.23 AS runner
 WORKDIR /app
+
+# Set production environment
+ENV NODE_ENV=production \
+    PORT=3000 \
+    HOSTNAME=0.0.0.0
+
+# Create a non-root user for security
+RUN addgroup -g 1001 -S nodejs && adduser -S reactrouter -u 1001
+USER reactrouter
+
+# Copy built application and dependencies
+COPY --from=builder --chown=reactrouter:nodejs /app/package.json /app/package-lock.json ./
+COPY --from=builder --chown=reactrouter:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=reactrouter:nodejs /app/build ./build
+
+EXPOSE 3000
+
+# Start the React Router server
 CMD ["npm", "run", "start"]

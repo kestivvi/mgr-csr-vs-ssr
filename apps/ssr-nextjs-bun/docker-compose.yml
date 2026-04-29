@@ -1,5 +1,5 @@
 services:
-  next-app:
+  next-app-bun:
     build: .
     image: ssr-nextjs-bun-app
     restart: unless-stopped
@@ -10,16 +10,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.nginx
+    image: ssr-nextjs-bun-nginx
     restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
       - "8060:8060"
-    volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf
-      - /var/log/ssr-nextjs-bun-nginx:/var/log/nginx
     depends_on:
-      - next-app
+      - next-app-bun
     networks:
       - app-net
 

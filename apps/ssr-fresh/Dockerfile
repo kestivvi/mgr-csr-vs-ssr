@@ -1,25 +1,32 @@
-FROM denoland/deno:alpine-2.7.13
-
-# Set up work directory
+# Stage 1: Build the Fresh application
+FROM denoland/deno:alpine-2.7.13 AS builder
 WORKDIR /app
 
 # Copy project files
 COPY . .
 
-# Build the Fresh app (produces _fresh/server.js)
+# Build the Fresh app
 RUN deno task build
 
-# Cache the built server for faster startup
-RUN deno cache _fresh/server.js
+# Stage 2: Run the application
+FROM denoland/deno:alpine-2.7.13 AS runner
+WORKDIR /app
+
+# Set up non-root user and directories
+RUN chown deno:deno /app
+
+# Switch to non-root user
+USER deno
+
+# Copy built application from builder
+COPY --from=builder --chown=deno:deno /app ./
 
 # Expose Fresh default port
 EXPOSE 8000
 
-# Allow setting deployment id for Fresh caching
-ARG GIT_REVISION
-ENV DENO_DEPLOYMENT_ID=${GIT_REVISION}
+# Set environment variables
+ENV PORT=8000 \
+    DENO_DEPLOYMENT_ID=production
 
 # Run the built server
 CMD ["deno", "serve", "-A", "_fresh/server.js"]
-
-

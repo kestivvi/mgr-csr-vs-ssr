@@ -1,48 +1,33 @@
-# Dockerfile.prod.bun.explicit
-
-# ---- Stage 1: Install Production Dependencies ----
-# This stage creates a layer with just the production node_modules.
-# It will be cached and reused if package.json or bun.lock doesn't change.
-FROM oven/bun:1.3.13-alpine AS deps
-WORKDIR /app
-COPY package.json bun.lock* ./
-# Install production-only dependencies
-# --bun is not applicable to 'bun install'
-RUN bun install --production
-
-
-# ---- Stage 2: Build the SvelteKit Application ----
-# This stage builds the actual application code.
-# It installs all dependencies (including dev) and runs the build script.
+# Stage 1: Build the SvelteKit application with Bun
 FROM oven/bun:1.3.13-alpine AS builder
 WORKDIR /app
+
+# Copy lock files to leverage layer caching
 COPY package.json bun.lock* ./
-# Install all dependencies
-RUN bun install
+RUN bun install --frozen-lockfile
+
+# Copy source code and build
 COPY . .
-# Build the SvelteKit application, explicitly using the bun runtime
 RUN bun run --bun build
 
-
-# ---- Stage 3: Production Runner ----
-# This is the final, lean image that will be deployed.
-# It copies the necessary artifacts from the previous stages.
+# Stage 2: Run the application
 FROM oven/bun:1.3.13-alpine AS runner
 WORKDIR /app
 
-# Set environment variables for the server
-ENV NODE_ENV=production
+# Set production environment
+ENV NODE_ENV=production \
+    PORT=3000 \
+    HOSTNAME=0.0.0.0
 
-# Copy the pre-installed production dependencies from the 'deps' stage
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/package.json ./
+# The official Bun images come with a non-root 'bun' user.
+USER bun
 
-# Copy the built application from the 'builder' stage.
+# Copy built application and production dependencies
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/build ./build
 
-# Expose the port the app will run on
 EXPOSE 3000
 
-# The command to start the SvelteKit server
-# Explicitly use the --bun flag to run the server entrypoint
+# Start the SvelteKit server using Bun runtime
 CMD ["bun", "--bun", "build/index.js"]

@@ -1,5 +1,5 @@
 services:
-  next-app:
+  next-app-deno:
     build: .
     image: ssr-nextjs-deno-app
     restart: unless-stopped
@@ -10,16 +10,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.nginx
+    image: ssr-nextjs-deno-nginx
     restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
       - "8060:8060"
-    volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf
-      - /var/log/ssr-nextjs-deno-nginx:/var/log/nginx
     depends_on:
-      - next-app
+      - next-app-deno
     networks:
       - app-net
 

@@ -1,32 +1,33 @@
 # Stage 1: Build the application with Bun
-# Use the official Bun image. The default is based on Debian, which is fine for building.
-FROM oven/bun:1.3.13 AS builder
+FROM oven/bun:1.3.13-alpine AS builder
 WORKDIR /app
 
-# Bun automatically uses a binary lockfile (bun.lock) for faster installs.
-# Using --frozen-lockfile is the best practice for CI/build environments.
+# Copy lock files to leverage layer caching
 COPY package.json bun.lock* ./
 RUN bun install --frozen-lockfile
 
 # Copy the rest of the application source code
 COPY . .
 
-# Build the Next.js application using Bun's script runner
+# Build the Next.js application
 RUN bun --bun run build
 
 # Stage 2: Production image
-# Use the lightweight Alpine variant of the Bun image for the final stage
 FROM oven/bun:1.3.13-alpine AS runner
 WORKDIR /app
 
-ENV NODE_ENV=production
+# Set production environment and disable telemetry
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    PORT=3000 \
+    HOSTNAME=0.0.0.0
 
-# Copy only the necessary standalone output from the builder stage
+# Copy standalone build and assets
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
 
 # The official Bun images come with a non-root 'bun' user.
-# Using it is a security best practice.
 USER bun
 
 EXPOSE 3000

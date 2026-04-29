@@ -10,6 +10,7 @@ orchestrator/src/orchestrator.egg-info/
 
 # --- Project Specific ---
 results/
+verify_logs/
 notes.md
 .cursor
 /tmp/ansible_fact_cache
