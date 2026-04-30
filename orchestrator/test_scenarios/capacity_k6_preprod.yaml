@@ -3,7 +3,7 @@ num_runs: 1
 
 capacity_k6_options:
   peak_rate: 12000
-  ramp_up: 5m
+  ramp_up: 30m
   sustain: 1m
   ramp_down: 1m
   start_rate: 1

@@ -1,8 +1,8 @@
 test_type: load
-num_runs: 3
+num_runs: 5
 
 load_options:
-  rps: 100
+  rps: 50
   warmup: 30s
   duration: 60s
   after: 15s

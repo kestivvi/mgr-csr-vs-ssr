@@ -100,7 +100,7 @@
 
     - name: Output precise timestamps for orchestrator
       ansible.builtin.debug:
-        msg: 'ORCHESTRATOR_TIMESTAMPS::{"start": "{{ measure_start_timestamp.stdout }}", "end": "{{ end_timestamp_result.stdout }}"}'
+        msg: 'ORCHESTRATOR_TIMESTAMPS::{"start": {{ measure_start_timestamp.stdout }}, "end": {{ end_timestamp_result.stdout }}}'
 
     - name: Output wrk results for orchestrator
       ansible.builtin.debug:

@@ -6,6 +6,7 @@ class RequiredChampionResult(TypedDict):
     champ1: str
     champ2: str
 
+
 class ChampionResult(RequiredChampionResult, total=False):
     p_value: float
     cohen_d: float

@@ -28,8 +28,8 @@ def extract_marker(output: str, marker: str) -> Optional[Dict[str, Any]]:
 test_output = (
     "\n"
     " \x1b[0;32mok: [mgr-load-generator-CSR-Vanilla] => { \x1b[0m \n"
-    " \x1b[0;32m    \"msg\": \"ORCHESTRATOR_TIMESTAMPS::{\\\"start\\\": "
-    "\\\"1777234413\\\", \\\"end\\\": \\\"1777234444\\\"}\" \x1b[0m \n"
+    ' \x1b[0;32m    "msg": "ORCHESTRATOR_TIMESTAMPS::{\\"start\\": '
+    '\\"1777234413\\", \\"end\\": \\"1777234444\\"}" \x1b[0m \n'
     " \x1b[0;32m} \x1b[0m \n"
 )
 
@@ -42,9 +42,9 @@ assert result == {"start": "1777234413", "end": "1777234444"}
 # Test case 2: WRK results
 wrk_output = (
     "\n"
-    " \x1b[0;32m    \"msg\": \"WRK_RESULTS::{\\\"rps\\\": 29276.29, "
-    "\\\"latency_avg\\\": \\\"5.05ms\\\", \\\"transfer_per_sec\\\": "
-    "\\\"15.16MB\\\"}\" \x1b[0m \n"
+    ' \x1b[0;32m    "msg": "WRK_RESULTS::{\\"rps\\": 29276.29, '
+    '\\"latency_avg\\": \\"5.05ms\\", \\"transfer_per_sec\\": '
+    '\\"15.16MB\\"}" \x1b[0m \n'
 )
 marker2 = "WRK_RESULTS::"
 result2 = extract_marker(wrk_output, marker2)

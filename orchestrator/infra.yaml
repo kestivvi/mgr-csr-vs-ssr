@@ -5,7 +5,7 @@ my_ip: 46.205.195.40/32
 
 # Instance Types
 app_server_instance_type: c8g.medium
-load_generator_instance_type: c8g.medium
+load_generator_instance_type: c8g.2xlarge
 monitoring_server_instance_type: t4g.small
 
 # Technologies to deploy
@@ -74,10 +74,10 @@ technologies:
     purpose: "Hosts NextJS Server-Side Rendered application"
     app_dir: "apps/ssr-nextjs-bun"
 
-  # "SSR-NextJS-Deno":
-  #   description: "Application Server (SSR-NextJS-Deno)"
-  #   purpose: "Hosts NextJS Server-Side Rendered application"
-  #   app_dir: "apps/ssr-nextjs-deno"
+  # # # "SSR-NextJS-Deno":
+  # # #   description: "Application Server (SSR-NextJS-Deno)"
+  # # #   purpose: "Hosts NextJS Server-Side Rendered application"
+  # # #   app_dir: "apps/ssr-nextjs-deno"
 
   "SSR-NuxtJS":
     description: "Application Server (SSR-NuxtJS)"

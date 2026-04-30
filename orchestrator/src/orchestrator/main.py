@@ -26,6 +26,7 @@ def setup(
     """
     console.print(f"[yellow]Setup command initiated with config: {infra_path}...[/yellow]")
     from orchestrator.actions.setup import cli as setup_cli
+
     setup_cli.run(infra_path=infra_path, force=force)
 
 
@@ -57,6 +58,7 @@ def test_load(
 ) -> None:
     """Run standard [cyan]load[/cyan] tests."""
     from orchestrator.actions.test import cli as test_cli
+
     test_cli.run(
         mode="load",
         num_runs=num_runs,
@@ -91,6 +93,7 @@ def test_capacity(
 ) -> None:
     """Run [cyan]capacity[/cyan] tests (Thesis Standard RPS Ramping)."""
     from orchestrator.actions.test import cli as test_cli
+
     test_cli.run(
         mode="capacity",
         num_runs=num_runs,
@@ -115,6 +118,7 @@ def test_file(
 ) -> None:
     """Run experiments from a custom [cyan]YAML file[/cyan]."""
     from orchestrator.actions.test import cli as test_cli
+
     test_cli.run(
         mode="file",
         path=path,
@@ -151,6 +155,7 @@ def analyze(
     """
     console.print(f"[yellow]Analysis initiated for: {results_dir}[/yellow]")
     from orchestrator.actions.analyze import cli as analyze_cli
+
     analyze_cli.run(results_dir=results_dir, report_type=report_type, champions=champions)
 
 
@@ -161,6 +166,7 @@ def destroy() -> None:
     """
     console.print("[red]Teardown initiated...[/red]")
     from orchestrator.actions.destroy import cli as destroy_cli
+
     destroy_cli.run()
 
 
@@ -171,7 +177,10 @@ def verify(
         typer.Option(
             "--apps",
             "--app",
-            help="Filter apps by name. Supports [bold]partial matches[/bold] and [bold]comma-separated lists[/bold] (e.g., 'nextjs,react').",
+            help=(
+                "Filter apps by name. Supports [bold]partial matches[/bold] and "
+                "[bold]comma-separated lists[/bold] (e.g., 'nextjs,react')."
+            ),
         ),
     ] = None,
 ) -> None:

@@ -116,7 +116,7 @@
 
     - name: Output precise timestamps for orchestrator
       ansible.builtin.debug:
-        msg: 'ORCHESTRATOR_TIMESTAMPS::{"start": "{{ start_timestamp_result.stdout }}", "end": "{{ end_timestamp_result.stdout }}"}'
+        msg: 'ORCHESTRATOR_TIMESTAMPS::{"start": {{ start_timestamp_result.stdout }}, "end": {{ end_timestamp_result.stdout }}}'
 
     - name: Display k6 container logs for debugging
       ansible.builtin.debug:

@@ -16,7 +16,7 @@ def run_command(
     """Runs a command and streams output to the console (if not quiet) and optionally to a file."""
     if not quiet:
         console.print(f"[bold cyan]Executing:[/bold cyan] {' '.join(command)}")
-    
+
     try:
         process = subprocess.Popen(
             command,
@@ -42,10 +42,10 @@ def run_command(
                 chunk = process.stdout.read(1024)
                 if not chunk:
                     break
-                
+
                 if not quiet:
                     console.print(Text.from_ansi(chunk), end="")
-                
+
                 if log_file:
                     log_file.write(chunk)
                     log_file.flush()

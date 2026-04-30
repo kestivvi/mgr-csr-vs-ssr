@@ -53,7 +53,7 @@ def run_verify(app_filter: str | None = None) -> None:
 
         for app_path in apps:
             app_name = app_path.name
-            
+
             build_log = run_log_dir / f"{app_name}-build.txt"
             run_log = run_log_dir / f"{app_name}-run.txt"
             test_log = run_log_dir / f"{app_name}-test.txt"
@@ -87,7 +87,9 @@ def run_verify(app_filter: str | None = None) -> None:
                 if rc == 0:
                     # Test
                     progress.update(task, description=f"[cyan]Testing [bold]{app_name}[/bold]...")
-                    test_result = test_app_with_curl(app_path, test_log, quiet=False, progress=progress)
+                    test_result = test_app_with_curl(
+                        app_path, test_log, quiet=False, progress=progress
+                    )
                     app_result["Test"] = "PASS" if test_result else "FAIL"
 
                     # Append container logs to run log
@@ -110,7 +112,9 @@ def run_verify(app_filter: str | None = None) -> None:
                 and app_result["Test"] == "PASS"
             ):
                 app_result["Status"] = "PASS"
-                progress.console.print(f"[bold green]✓ {app_name} passed verification.[/bold green]")
+                progress.console.print(
+                    f"[bold green]✓ {app_name} passed verification.[/bold green]"
+                )
             else:
                 app_result["Status"] = "FAIL"
                 progress.console.print(f"[bold red]✗ {app_name} failed verification.[/bold red]")
@@ -119,7 +123,7 @@ def run_verify(app_filter: str | None = None) -> None:
             progress.advance(task)
 
     # 4. Generate results.md
-    from tabulate import tabulate
+    from tabulate import tabulate  # type: ignore[import-untyped]
 
     summary_table = tabulate(results, headers="keys", tablefmt="github")
     results_file = run_log_dir / "results.md"
@@ -144,7 +148,7 @@ def test_app_with_curl(
 
     if not quiet:
         output.print(f"[cyan]Testing {app_name} at localhost:80...[/cyan]")
-    
+
     max_retries = 15
     delay = 2
 
@@ -168,10 +172,12 @@ def test_app_with_curl(
 
         if not quiet:
             output.print(
-                f"[yellow]Attempt {i+1}/{max_retries}: {app_name} not ready yet, retrying...[/yellow]"
+                f"[yellow]Attempt {i + 1}/{max_retries}: {app_name} not ready, retrying...[/yellow]"
             )
         time.sleep(delay)
 
     if not quiet:
-        output.print(f"[bold red]Test failed for {app_name} after {max_retries} attempts.[/bold red]")
+        output.print(
+            f"[bold red]Test failed for {app_name} after {max_retries} attempts.[/bold red]"
+        )
     return False

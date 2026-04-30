@@ -65,7 +65,7 @@ def create_scorecard_heatmap(analyzer: PerformanceAnalyzer) -> Optional[Path]:
             if not match.empty:
                 group = match["group"].iloc[0]
                 label.set_color(PLOT_PALETTE.get(group, "black"))
-                label.set_weight("bold")
+                label.set_fontweight("bold")
 
     plt.yticks(rotation=0)
     plt.tight_layout()
@@ -120,7 +120,7 @@ def create_comparison_plot(
             if not match.empty:
                 group = match["group"].iloc[0]
                 label.set_color(PLOT_PALETTE.get(group, "black"))
-                label.set_weight("bold")
+                label.set_fontweight("bold")
     plt.grid(axis="y", linestyle="--", alpha=0.7)
     plt.tight_layout()
 
@@ -196,15 +196,13 @@ def create_timeseries_plot(
         tech = text.get_text()
         if tech in tech_colors:
             text.set_color(tech_colors[tech])
-            text.set_weight("bold")
+            text.set_fontweight("bold")
 
     plt.grid(True, which="both", linestyle="--", linewidth=0.5)
     plt.tight_layout()
 
     group_suffix = f"_{group_filter.lower().replace('-', '_')}" if group_filter else ""
-    base_filename = (
-        f"{metric_name.lower().replace(' ', '_')}{group_suffix}_timeseries_overview.png"
-    )
+    base_filename = f"{metric_name.lower().replace(' ', '_')}{group_suffix}_timeseries_overview.png"
     path = Path(analyzer.plots_dir) / re.sub(r"[^a-z0-9_.-]", "", base_filename)
     plt.savefig(path)
     plt.close()

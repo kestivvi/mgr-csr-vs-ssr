@@ -189,12 +189,15 @@ class TestRunner:
         timestamps = self._extract_marker(output, TIMESTAMP_MARKER)
         wrk_results = self._extract_marker(output, WRK_RESULT_MARKER) if tool == "wrk" else None
 
-        if timestamps and measurement_window:
-            # Adjust timestamps to the middle measurement window
-            # Ensure they are numbers as k6 might return them as strings
-            base_start = float(timestamps["start"])
-            timestamps["start"] = base_start + measurement_window["warmup"]
-            timestamps["end"] = timestamps["start"] + measurement_window["duration"]
+        if timestamps:
+            timestamps["start"] = float(timestamps["start"])
+            timestamps["end"] = float(timestamps["end"])
+            if measurement_window:
+                # Adjust timestamps to the middle measurement window
+                # Ensure they are numbers as k6 might return them as strings
+                base_start = timestamps["start"]
+                timestamps["start"] = base_start + measurement_window["warmup"]
+                timestamps["end"] = timestamps["start"] + measurement_window["duration"]
 
         if not r.status == "successful" or not timestamps:
             msg = (

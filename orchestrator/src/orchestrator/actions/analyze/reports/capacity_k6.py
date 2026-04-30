@@ -38,15 +38,9 @@ def compute_capacity_metrics(analyzer: PerformanceAnalyzer) -> Optional[pd.DataF
         sustained_rps = float(rolling_mins.max())
         peak_rps = float(pivot["k6_successful_html_reqs_rate"].max())
         sustained_time = rolling_mins.idxmax()
-        cpu_at = (
-            float(pivot.loc[sustained_time, "cpu"])
-            if sustained_time in pivot.index
-            else 0.0
-        )
+        cpu_at = float(pivot.loc[sustained_time, "cpu"]) if sustained_time in pivot.index else 0.0
         ram_at = (
-            float(pivot.loc[sustained_time, "memory"])
-            if sustained_time in pivot.index
-            else 0.0
+            float(pivot.loc[sustained_time, "memory"]) if sustained_time in pivot.index else 0.0
         )
         results.append(
             {
@@ -60,11 +54,7 @@ def compute_capacity_metrics(analyzer: PerformanceAnalyzer) -> Optional[pd.DataF
         )
 
     return (
-        pd.DataFrame(results)
-        .groupby("server_type")
-        .mean()
-        .drop(columns="run_number")
-        .reset_index()
+        pd.DataFrame(results).groupby("server_type").mean().drop(columns="run_number").reset_index()
     )
 
 
@@ -103,9 +93,7 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, summary: pd.DataFrame
     tech_to_group = {
         tech.lower(): group for group, techs in analyzer.groups_config.items() for tech in techs
     }
-    summary["group"] = (
-        summary["server_type"].str.lower().map(tech_to_group).fillna("Uncategorized")
-    )
+    summary["group"] = summary["server_type"].str.lower().map(tech_to_group).fillna("Uncategorized")
 
     comparisons = {
         "sustained_rps": "capacity_rps_comparison.png",
@@ -146,7 +134,7 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, summary: pd.DataFrame
             if not match.empty:
                 group = match["group"].iloc[0]
                 label.set_color(PLOT_PALETTE.get(group, "black"))
-                label.set_weight("bold")
+                label.set_fontweight("bold")
 
         plt.legend(title="Group", loc="lower right")
         plt.tight_layout()
