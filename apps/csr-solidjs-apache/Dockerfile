@@ -6,41 +6,45 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# Stage 2: Serve the application with Apache
+# Stage 2: Serve with Apache
 FROM httpd:2.4.66-alpine3.23
 
-# Install Apache Exporter for Prometheus monitoring
-RUN apk add --no-cache wget && \
-    wget -O /tmp/apache_exporter.tar.gz https://github.com/Lusitaniae/apache_exporter/releases/download/v0.11.0/apache_exporter-0.11.0.linux-amd64.tar.gz && \
-    tar -xzf /tmp/apache_exporter.tar.gz -C /tmp && \
-    mv /tmp/apache_exporter-0.11.0.linux-amd64/apache_exporter /usr/local/bin/ && \
-    chmod +x /usr/local/bin/apache_exporter && \
-    rm -rf /tmp/apache_exporter*
+# Apache Exporter (build-only deps in same layer, then removed)
+RUN apk add --no-cache --virtual .build-deps wget tar \
+    && wget -O /tmp/apache_exporter.tar.gz \
+        https://github.com/Lusitaniae/apache_exporter/releases/download/v0.11.0/apache_exporter-0.11.0.linux-amd64.tar.gz \
+    && tar -xzf /tmp/apache_exporter.tar.gz -C /tmp \
+    && mv /tmp/apache_exporter-0.11.0.linux-amd64/apache_exporter /usr/local/bin/ \
+    && chmod +x /usr/local/bin/apache_exporter \
+    && rm -rf /tmp/apache_exporter* \
+    && apk del .build-deps
 
-# Copy built application to standard Apache path
-COPY --from=builder /app/dist /usr/local/apache2/htdocs
-
-# Copy Apache configuration
-COPY apache.conf /usr/local/apache2/conf/extra/httpd-vhosts.conf
-
-# Enable virtual hosts (modules are now loaded in apache.conf)
-RUN echo "Include conf/extra/httpd-vhosts.conf" >> /usr/local/apache2/conf/httpd.conf
-
-# Create log directories and SSL dir, generate self-signed cert
-RUN mkdir -p /var/log/apache2 /usr/local/apache2/ssl \
-    && apk add --no-cache openssl \
+# Self-signed cert at build time (openssl removed after)
+RUN apk add --no-cache --virtual .ssl-deps openssl \
+    && mkdir -p /usr/local/apache2/ssl /var/log/apache2 \
     && openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
         -keyout /usr/local/apache2/ssl/key.pem \
         -out /usr/local/apache2/ssl/cert.pem \
-        -subj "/CN=localhost"
+        -subj "/CN=localhost" \
+    && apk del .ssl-deps
 
-# Expose ports
+# Built app
+COPY --from=builder /app/dist /usr/local/apache2/htdocs
+
+# Configs
+COPY apache.conf /usr/local/apache2/conf/extra/httpd-vhosts.conf
+COPY mpm.conf    /usr/local/apache2/conf/extra/httpd-mpm-tuning.conf
+
+# Wire them in. Also disable the default prefork MPM line if present and
+# load event MPM via mpm.conf. Raise file descriptor limit for the process.
+RUN sed -i 's|^LoadModule mpm_.*|# &|' /usr/local/apache2/conf/httpd.conf \
+    && echo "Include conf/extra/httpd-mpm-tuning.conf" >> /usr/local/apache2/conf/httpd.conf \
+    && echo "Include conf/extra/httpd-vhosts.conf" >> /usr/local/apache2/conf/httpd.conf
+
 EXPOSE 80 443 8060 9117
 
-# Create startup script
-RUN echo '#!/bin/sh' > /start.sh && \
-    echo 'apache_exporter --scrape_uri=http://localhost:8060/server-status?auto --telemetry.address=:9117 &' >> /start.sh && \
-    echo 'httpd-foreground' >> /start.sh && \
-    chmod +x /start.sh
+# Use exec form so signals reach httpd correctly
+RUN printf '#!/bin/sh\nset -e\nulimit -n 200000\napache_exporter --scrape_uri=http://localhost:8060/server-status?auto --telemetry.address=:9117 &\nexec httpd-foreground\n' > /start.sh \
+    && chmod +x /start.sh
 
 CMD ["/start.sh"]

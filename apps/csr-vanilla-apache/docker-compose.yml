@@ -6,6 +6,7 @@ services:
       - "80:80"
       - "443:443"
       - "8060:8060"
+      - "9117:9117"
     volumes:
       - ./apache.conf:/usr/local/apache2/conf/extra/httpd-vhosts.conf
       - /var/log/csr-vanilla-apache:/var/log/apache2
