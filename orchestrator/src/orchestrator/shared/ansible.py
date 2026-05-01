@@ -33,10 +33,16 @@ def get_ansible_env() -> dict[str, str]:
         else:
             console.print(
                 "[yellow]Warning:[/yellow] ansible_mitogen found but strategy "
-                "plugins path is missing. Using default strategy."
+                "plugins path is missing. Falling back to [bold green]free[/bold green] strategy."
             )
-            env["ANSIBLE_STRATEGY"] = "linear"
+            env["ANSIBLE_STRATEGY"] = "free"
     except ImportError:
-        env["ANSIBLE_STRATEGY"] = "linear"
+        # Fallback to 'free' strategy which is generally faster than 'linear'
+        env["ANSIBLE_STRATEGY"] = "free"
+        console.print(
+            "[bold yellow]Performance Tip:[/bold yellow] Mitogen not found. "
+            "Using [bold green]free[/bold green] strategy. "
+            "Install mitogen for 3x-5x speedup: [italic]pip install mitogen[/italic]"
+        )
 
     return env
