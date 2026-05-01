@@ -1,6 +1,8 @@
 services:
   qwik-app:
-    build: .
+    build:
+      context: .
+      target: runner
     image: ssr-qwik-city-app
     restart: unless-stopped
     networks:
@@ -9,7 +11,7 @@ services:
   nginx:
     build:
       context: .
-      dockerfile: Dockerfile.nginx
+      target: nginx
     image: ssr-qwik-city-nginx
     restart: unless-stopped
     ports:

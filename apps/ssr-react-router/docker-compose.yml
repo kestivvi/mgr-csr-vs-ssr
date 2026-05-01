@@ -1,6 +1,8 @@
 services:
   react-router-app:
-    build: .
+    build:
+      context: .
+      target: runner
     image: ssr-react-router-app
     restart: unless-stopped
     networks:
@@ -9,7 +11,7 @@ services:
   nginx:
     build:
       context: .
-      dockerfile: Dockerfile.nginx
+      target: nginx
     image: ssr-react-router-nginx
     restart: unless-stopped
     ports:

@@ -8,7 +8,9 @@ const config = defineConfig({
   plugins: [
     devtools(),
     tanstackStart(),
-    nitro(),
+    nitro({
+      compressPublicAssets: false
+    }),
     viteReact(),
   ],
 })

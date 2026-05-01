@@ -12,7 +12,11 @@ export default defineConfig(({ mode }) => ({
     mainFields: ['module'],
   },
   plugins: [
-    analog(),
+    analog({
+      nitro: {
+        compressPublicAssets: false
+      }
+    }),
   ],
   test: {
     globals: true,

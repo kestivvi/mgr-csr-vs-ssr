@@ -1,6 +1,8 @@
 services:
   angular-app:
-    build: .
+    build:
+      context: .
+      target: runner
     image: ssr-angular-app
     restart: unless-stopped
     networks:
@@ -9,7 +11,7 @@ services:
   nginx:
     build:
       context: .
-      dockerfile: Dockerfile.nginx
+      target: nginx
     image: ssr-angular-nginx
     restart: unless-stopped
     ports:

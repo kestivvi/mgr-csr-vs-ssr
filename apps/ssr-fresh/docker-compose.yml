@@ -1,6 +1,8 @@
 services:
   fresh-app:
-    build: .
+    build:
+      context: .
+      target: runner
     image: ssr-fresh-app
     restart: unless-stopped
     networks:
@@ -9,7 +11,7 @@ services:
   nginx:
     build:
       context: .
-      dockerfile: Dockerfile.nginx
+      target: nginx
     image: ssr-fresh-nginx
     restart: unless-stopped
     ports:

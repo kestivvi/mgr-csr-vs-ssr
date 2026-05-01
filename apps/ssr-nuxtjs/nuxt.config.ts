@@ -8,5 +8,8 @@ export default defineNuxtConfig({
     head: {
       title: 'Nuxt'
     }
+  },
+  nitro: {
+    compressPublicAssets: false
   }
 })
