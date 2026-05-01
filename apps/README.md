@@ -24,14 +24,13 @@ All applications use strict, verified Alpine-based tags for 2026:
 
 ## 📁 Application List
 
-The project includes **22 implementations** categorized by rendering strategy:
+The project includes **20 implementations** categorized by rendering strategy:
 
 ### SSR (Server-Side Rendering)
 - `ssr-tanstack-start-react`
 - `ssr-tanstack-start-solid`
 - `ssr-nextjs`
 - `ssr-nextjs-bun`
-- `ssr-nextjs-deno`
 - `ssr-nuxtjs`
 - `ssr-qwik-city`
 - `ssr-react-router`
@@ -40,7 +39,6 @@ The project includes **22 implementations** categorized by rendering strategy:
 - `ssr-svelte-kit-bun`
 - `ssr-angular`
 - `ssr-analogjs`
-- `ssr-fresh` (Deno)
 
 ### CSR (Client-Side Rendering)
 - `csr-react`

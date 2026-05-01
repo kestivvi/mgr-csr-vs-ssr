@@ -3,7 +3,12 @@ import { ActivatedRoute } from '@angular/router';
 
 @Component({
   selector: 'app-dynamic',
-  template: '<h1>Hello, {{ name }}</h1>',
+  template: `
+    <div>
+      <h1>Hello World</h1>
+      <p>Dynamic ID: {{ name }}</p>
+    </div>
+  `,
 })
 export default class DynamicComponent {
   private route = inject(ActivatedRoute);

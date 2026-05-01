@@ -5,7 +5,8 @@ export default function HelloWorldPage() {
   
   return (
     <div>
-      <h1>Hello, {params.name}</h1>
+      <h1>Hello World</h1>
+      <p>Dynamic ID: {params.name}</p>
     </div>
   );
 }

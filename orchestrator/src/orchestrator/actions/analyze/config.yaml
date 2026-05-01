@@ -23,7 +23,6 @@ groups:
     - ssr-solid-start
     - ssr-sveltekit
     - ssr-sveltekit-bun
-    - ssr-fresh
     - ssr-react-router
     - ssr-angular
     - ssr-tanstack-start-react
@@ -51,7 +50,6 @@ chart_order:
   - ssr-nextjs-bun
   - ssr-nextjs
   - ssr-analogjs
-  - ssr-fresh
   - ssr-react-router
   - ssr-angular
   - ssr-tanstack-start-react

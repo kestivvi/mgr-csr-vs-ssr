@@ -81,11 +81,6 @@ technologies:
   #   purpose: "Hosts NextJS Server-Side Rendered application"
   #   app_dir: "apps/ssr-nextjs-bun"
 
-  # "SSR-NextJS-Deno":
-  #   description: "Application Server (SSR-NextJS-Deno)"
-  #   purpose: "Hosts NextJS Server-Side Rendered application"
-  #   app_dir: "apps/ssr-nextjs-deno"
-
   # "SSR-NuxtJS":
   #   description: "Application Server (SSR-NuxtJS)"
   #   purpose: "Hosts NuxtJS Server-Side Rendered application"
@@ -130,8 +125,3 @@ technologies:
   #   description: "Application Server (SSR-Tanstack-Start-Solid)"
   #   purpose: "Hosts TanStack Start Solid Server-Side Rendered application"
   #   app_dir: "apps/ssr-tanstack-start-solid"
-
-  # "SSR-Fresh":
-  #   description: "Application Server (SSR-Fresh)"
-  #   purpose: "Hosts Fresh Server-Side Rendered application"
-  #   app_dir: "apps/ssr-fresh"

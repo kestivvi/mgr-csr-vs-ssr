@@ -39,12 +39,22 @@ app.use(
  * Handle all other requests by rendering the Angular application.
  */
 app.use((req, res, next) => {
+  console.log(`[Angular Engine] Handling request: ${req.url}`);
   angularApp
     .handle(req)
-    .then((response) =>
-      response ? writeResponseToNodeResponse(response, res) : next(),
-    )
-    .catch(next);
+    .then((response) => {
+      if (response) {
+        console.log(`[Angular Engine] Response generated for: ${req.url} (Status: ${response.status})`);
+        writeResponseToNodeResponse(response, res);
+      } else {
+        console.warn(`[Angular Engine] No response generated for: ${req.url}, falling back to next()`);
+        next();
+      }
+    })
+    .catch((err) => {
+      console.error(`[Angular Engine] Error handling request: ${req.url}`, err);
+      next(err);
+    });
 });
 
 /**

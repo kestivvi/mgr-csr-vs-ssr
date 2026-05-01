@@ -2,6 +2,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+import subprocess
 
 from rich.console import Console
 
@@ -9,6 +10,9 @@ from orchestrator.config import APPS_DIR, VERIFY_LOGS_BASE_DIR
 from orchestrator.shared.runner import run_command
 
 console = Console()
+
+MAX_RETRIES = 15
+RETRY_DELAY = 2
 
 
 def run_verify(app_filter: str | None = None) -> None:
@@ -129,12 +133,12 @@ def run_verify(app_filter: str | None = None) -> None:
                 ):
                     app_result["Status"] = "PASS"
                     progress.console.print(
-                        f"[bold green]✓ {app_name} passed verification.[/bold green]"
+                        f"[bold green]\u2713 {app_name} passed verification.[/bold green]"
                     )
                 else:
                     app_result["Status"] = "FAIL"
                     progress.console.print(
-                        f"[bold red]✗ {app_name} failed verification.[/bold red]"
+                        f"[bold red]\u2717 {app_name} failed verification.[/bold red]"
                     )
 
                 results.append(app_result)
@@ -167,8 +171,9 @@ def run_verify(app_filter: str | None = None) -> None:
 def test_app_with_curl(
     app_path: Path, log_path: Path, quiet: bool = False, progress: Any = None
 ) -> bool:
-    """Tests the app's root endpoint and favicon using curl over HTTP and HTTPS."""
+    """Refactored entry point for app verification using curl."""
     app_name = app_path.name
+    is_ssr = app_name.startswith("ssr-")
     output = progress.console if progress else console
 
     if not quiet:
@@ -176,89 +181,133 @@ def test_app_with_curl(
             f"[cyan]Testing {app_name} (root, favicon, dynamic) at localhost:80 & 443...[/cyan]"
         )
 
-    max_retries = 15
-    delay = 2
+    for i in range(MAX_RETRIES):
+        with open(log_path, "a") as f:
+            f.write(f"\n\n--- Attempt {i+1} for {app_name} ---\n")
 
-    # Protocols and ports to test
+        success = False
+        try:
+            if is_ssr:
+                success = _run_ssr_verification(app_path, log_path)
+            else:
+                success = _run_csr_verification(app_path, log_path)
+
+            if success:
+                if not quiet:
+                    tech = "SSR" if is_ssr else "CSR"
+                    msg = f"Success! {app_name} ({tech}) HTTP, HTTPS, and Dynamic Path are OK"
+                    if is_ssr:
+                        msg += ", and Content matches"
+                    output.print(f"[bold green]{msg}.[/bold green]")
+                return True
+
+        except Exception as e:
+            with open(log_path, "a") as f:
+                f.write(f"Error during verification: {e}\n")
+
+        if not quiet:
+            output.print(
+                f"[yellow]Attempt {i+1}: Verification failed for {app_name}, retrying in {RETRY_DELAY}s...[/yellow]"
+            )
+        time.sleep(RETRY_DELAY)
+
+    if not quiet:
+        output.print(
+            f"[bold red]Test failed for {app_name} after {MAX_RETRIES} attempts.[/bold red]"
+        )
+    return False
+
+
+def _run_ssr_verification(app_path: Path, log_path: Path) -> bool:
+    """Runs specific tests for SSR applications (Connectivity + Content)."""
     targets = [
         ("HTTP", "http://localhost:80"),
         ("HTTPS", "https://localhost:443"),
     ]
 
-    for i in range(max_retries):
-        # Clear log file for this attempt
-        with open(log_path, "w") as f:
-            f.write(f"--- Attempt {i+1} for {app_name} ---\n")
+    for proto, base_url in targets:
+        # 1. Root Page (200 OK + Hello World)
+        if not _verify_endpoint(base_url, app_path, log_path, check_content=True):
+            return False
 
-        all_protocols_reachable = True
-        for proto, base_url in targets:
-            # 1. Test Root Page (using -k for self-signed certs)
-            rc_root = run_command(
-                ["curl", "-isLk", base_url],
-                cwd=str(app_path),
-                log_path=log_path,
-                quiet=True,
-            )
+        # 2. Favicon (200 OK)
+        if not _verify_endpoint(
+            f"{base_url}/favicon.ico", app_path, log_path, headers_only=True
+        ):
+            return False
 
-            # 2. Test Favicon (using -k and -I for headers only)
-            rc_fav = run_command(
-                ["curl", "-IsLk", f"{base_url}/favicon.ico"],
-                cwd=str(app_path),
-                log_path=log_path,
-                quiet=True,
-            )
+        # 3. Dynamic Page (200 OK + Hello World)
+        if not _verify_endpoint(
+            f"{base_url}/dynamic/verify", app_path, log_path, check_content=True
+        ):
+            return False
 
-            # 3. Test Dynamic Path
-            rc_dyn = run_command(
-                ["curl", "-isLk", f"{base_url}/dynamic/verify"],
-                cwd=str(app_path),
-                log_path=log_path,
-                quiet=True,
-            )
+    return True
 
-            if rc_root != 0 or rc_fav != 0 or rc_dyn != 0:
-                if not quiet:
-                    output.print(
-                        f"[yellow]Attempt {i+1}: {proto} connection failed, retrying...[/yellow]"
-                    )
-                all_protocols_reachable = False
-                break
 
-        if not all_protocols_reachable:
-            time.sleep(delay)
-            continue
+def _run_csr_verification(app_path: Path, log_path: Path) -> bool:
+    """Runs specific tests for CSR applications (Connectivity only)."""
+    targets = [
+        ("HTTP", "http://localhost:80"),
+        ("HTTPS", "https://localhost:443"),
+    ]
 
-        content = log_path.read_text()
+    for proto, base_url in targets:
+        # 1. Root Page (200 OK)
+        if not _verify_endpoint(base_url, app_path, log_path):
+            return False
 
-        # Check for HTTP 200 in the responses.
-        # We expect 6 successful responses (root + favicon + dynamic for both HTTP and HTTPS).
-        # We check for various formats of 200 OK across HTTP/1.1 and HTTP/2.
-        success_count = (
-            content.count("200 OK")
-            + content.count("HTTP/2 200")
-            + content.count("HTTP/1.1 200")
+        # 2. Favicon (200 OK)
+        if not _verify_endpoint(
+            f"{base_url}/favicon.ico", app_path, log_path, headers_only=True
+        ):
+            return False
+
+        # 3. Dynamic Page (200 OK)
+        if not _verify_endpoint(f"{base_url}/dynamic/verify", app_path, log_path):
+            return False
+
+    return True
+
+
+def _verify_endpoint(
+    url: str,
+    app_path: Path,
+    log_path: Path,
+    check_content: bool = False,
+    headers_only: bool = False,
+) -> bool:
+    """Executes a single curl request and immediately validates the result."""
+    flags = "-IsLk" if headers_only else "-isLk"
+
+    try:
+        result = subprocess.run(
+            ["curl", flags, url],
+            cwd=str(app_path),
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
 
-        # Check for 'Hello World' content in root and dynamic responses
-        # We expect at least 4 occurrences (root HTTP, root HTTPS, dynamic HTTP, dynamic HTTPS)
-        content_count = content.lower().count("hello world")
+        with open(log_path, "a") as f:
+            f.write(f"\n>>> Request: {url} (Flags: {flags})\n")
+            if result.stdout:
+                f.write(result.stdout)
+            if result.stderr:
+                f.write(f"STDERR: {result.stderr}\n")
 
-        if success_count >= 6 and content_count >= 4:
-            if not quiet:
-                output.print(
-                    f"[bold green]Success! {app_name} HTTP, HTTPS, Dynamic Path, and Content are OK.[/bold green]"
-                )
-            return True
+        # 1. Check Status Code
+        if "HTTP/1.1 200" not in result.stdout and "HTTP/2 200" not in result.stdout:
+            return False
 
-        if not quiet:
-            output.print(
-                f"[yellow]Attempt {i+1}: Status check failed (found {success_count}/6 OKs, {content_count}/4 Hello Worlds), retrying...[/yellow]"
-            )
+        # 2. Check Content (if required)
+        if check_content:
+            if "hello world" not in result.stdout.lower():
+                return False
 
-        time.sleep(delay)
+        return True
 
-    if not quiet:
-        output.print(
-            f"[bold red]Test failed for {app_name} after {max_retries} attempts.[/bold red]"
-        )
-    return False
+    except Exception as e:
+        with open(log_path, "a") as f:
+            f.write(f"CURL EXECUTION ERROR for {url}: {e}\n")
+        return False

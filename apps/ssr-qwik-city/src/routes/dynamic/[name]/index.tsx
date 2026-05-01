@@ -6,7 +6,12 @@ export default component$(() => {
   const location = useLocation();
   const name = location.params.name || "Guest";
 
-  return <h1>Hello, {name}</h1>;
+  return (
+    <div>
+      <h1>Hello World</h1>
+      <p>Dynamic ID: {name}</p>
+    </div>
+  );
 });
 
 export const head: DocumentHead = {

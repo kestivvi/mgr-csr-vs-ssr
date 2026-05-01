@@ -1,3 +1,6 @@
 <template>
-  <h1>Hello, {{ $route.params.name }}</h1>
+  <div>
+    <h1>Hello World</h1>
+    <p>Dynamic ID: {{ $route.params.name }}</p>
+  </div>
 </template>
