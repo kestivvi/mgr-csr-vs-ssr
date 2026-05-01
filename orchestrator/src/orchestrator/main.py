@@ -146,6 +146,26 @@ def test_file(
     )
 
 
+@test_app.command(name="capacity_local_wrk")
+def test_capacity_local_wrk(
+    apps: Annotated[
+        Optional[str],
+        typer.Option(
+            "--apps",
+            "--app",
+            help="Filter apps by name (partial matches, comma-separated).",
+        ),
+    ] = None,
+    num_runs: Annotated[
+        int, typer.Option("--num-runs", help="Number of test runs per app", show_default=True)
+    ] = 1,
+) -> None:
+    """Run local [cyan]capacity benchmarks[/cyan] using wrk."""
+    from orchestrator.actions.test import cli as test_cli
+
+    test_cli.run_local_wrk(app_filter=apps, num_runs=num_runs)
+
+
 @test_app.command(name="stop")
 def test_stop() -> None:
     """[bold red]Emergency Stop[/bold red]: Kill all running k6 containers on all generators."""

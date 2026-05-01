@@ -66,3 +66,12 @@ def run(
         runner = TestRunner(None, overrides=overrides, config_dict=config_dict)
 
     runner.run_all()
+
+
+def run_local_wrk(app_filter: Optional[str] = None, num_runs: int = 1) -> None:
+    """
+    Run local capacity testing with wrk.
+    """
+    from orchestrator.actions.test.local_wrk import run_capacity_local_wrk
+
+    run_capacity_local_wrk(app_filter=app_filter, num_runs=num_runs)
