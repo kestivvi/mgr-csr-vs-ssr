@@ -151,6 +151,9 @@ def run_capacity_local_wrk(app_filter: str | None = None, num_runs: int = 1) -> 
     if results:
         from tabulate import tabulate
         
+        # Sort results by RPS_Avg descending
+        results.sort(key=lambda x: x["RPS_Avg"], reverse=True)
+
         # Format RPS for display
         display_results = []
         for r in results:
