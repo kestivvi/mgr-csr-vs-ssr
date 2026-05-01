@@ -10,6 +10,5 @@ prometheus-api-client
 ruff
 mypy
 types-PyYAML
-mitogen
 pydantic>=2.0.0
 tabulate
