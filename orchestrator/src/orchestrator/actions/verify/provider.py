@@ -173,7 +173,7 @@ def test_app_with_curl(
 
     if not quiet:
         output.print(
-            f"[cyan]Testing {app_name} (root + favicon) at localhost:80 & 443...[/cyan]"
+            f"[cyan]Testing {app_name} (root, favicon, dynamic) at localhost:80 & 443...[/cyan]"
         )
 
     max_retries = 15
@@ -208,7 +208,15 @@ def test_app_with_curl(
                 quiet=True,
             )
 
-            if rc_root != 0 or rc_fav != 0:
+            # 3. Test Dynamic Path
+            rc_dyn = run_command(
+                ["curl", "-isLk", f"{base_url}/dynamic/verify"],
+                cwd=str(app_path),
+                log_path=log_path,
+                quiet=True,
+            )
+
+            if rc_root != 0 or rc_fav != 0 or rc_dyn != 0:
                 if not quiet:
                     output.print(
                         f"[yellow]Attempt {i+1}: {proto} connection failed, retrying...[/yellow]"
@@ -223,7 +231,7 @@ def test_app_with_curl(
         content = log_path.read_text()
 
         # Check for HTTP 200 in the responses.
-        # We expect 4 successful responses (root + favicon for both HTTP and HTTPS).
+        # We expect 6 successful responses (root + favicon + dynamic for both HTTP and HTTPS).
         # We check for various formats of 200 OK across HTTP/1.1 and HTTP/2.
         success_count = (
             content.count("200 OK")
@@ -231,16 +239,20 @@ def test_app_with_curl(
             + content.count("HTTP/1.1 200")
         )
 
-        if success_count >= 4:
+        # Check for 'Hello World' content in root and dynamic responses
+        # We expect at least 4 occurrences (root HTTP, root HTTPS, dynamic HTTP, dynamic HTTPS)
+        content_count = content.lower().count("hello world")
+
+        if success_count >= 6 and content_count >= 4:
             if not quiet:
                 output.print(
-                    f"[bold green]Success! {app_name} HTTP and HTTPS are OK.[/bold green]"
+                    f"[bold green]Success! {app_name} HTTP, HTTPS, Dynamic Path, and Content are OK.[/bold green]"
                 )
             return True
 
         if not quiet:
             output.print(
-                f"[yellow]Attempt {i+1}: Status check failed (found {success_count}/4 OKs), retrying...[/yellow]"
+                f"[yellow]Attempt {i+1}: Status check failed (found {success_count}/6 OKs, {content_count}/4 Hello Worlds), retrying...[/yellow]"
             )
 
         time.sleep(delay)
