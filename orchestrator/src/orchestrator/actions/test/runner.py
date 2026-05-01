@@ -90,6 +90,8 @@ class TestRunner:
             / f"{self.test_type}_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
         )
         self.results_base_dir.mkdir(parents=True, exist_ok=True)
+        self.logs_dir = self.results_base_dir / "logs"
+        self.logs_dir.mkdir(parents=True, exist_ok=True)
 
         self.manager = Manager()
         self.shutdown_event = self.manager.Event()
@@ -186,7 +188,6 @@ class TestRunner:
             envvars=get_ansible_env(),
             quiet=True,
         )
-
         output = r.stdout.read()
         timestamps = self._extract_marker(output, TIMESTAMP_MARKER)
         wrk_results = self._extract_marker(output, WRK_RESULT_MARKER) if tool == "wrk" else None
@@ -201,12 +202,19 @@ class TestRunner:
                 timestamps["start"] = base_start + measurement_window["warmup"]
                 timestamps["end"] = timestamps["start"] + measurement_window["duration"]
 
+        # Save log file
+        log_filename = f"{run_prefix}_{scenario_name.lower().replace('-', '_')}.log"
+        log_path = self.logs_dir / log_filename
+        with open(log_path, "w") as f:
+            f.write(output)
+
         if not r.status == "successful" or not timestamps:
             msg = (
                 f"[{run_prefix}:{scenario_name}] Failed. "
                 f"Status: {r.status}, Timestamps: {bool(timestamps)}"
             )
             console.print(msg)
+            console.print(f"[dim yellow]Full log saved to:[/dim yellow] {log_path}")
             if not timestamps:
                 console.print(f"[dim yellow]Raw Output Snippet:[/dim yellow]\n{output[-500:]}")
             # Run teardown

@@ -5,7 +5,7 @@ my_ip: 46.205.195.40/32
 
 # Instance Types
 app_server_instance_type: c8g.medium
-load_generator_instance_type: c8g.xlarge
+load_generator_instance_type: c8g.2xlarge
 monitoring_server_instance_type: t4g.small
 
 # Technologies to deploy
@@ -59,10 +59,10 @@ technologies:
   ##########################
   # SSR
   ##########################
-  "SSR-AnalogJS":
-    description: "Application Server (SSR-AnalogJS)"
-    purpose: "Hosts AnalogJS Server-Side Rendered application"
-    app_dir: "apps/ssr-analogjs"
+  # "SSR-AnalogJS":
+  #   description: "Application Server (SSR-AnalogJS)"
+  #   purpose: "Hosts AnalogJS Server-Side Rendered application"
+  #   app_dir: "apps/ssr-analogjs"
 
   # "SSR-NextJS":
   #   description: "Application Server (SSR-NextJS)"
@@ -114,15 +114,15 @@ technologies:
     purpose: "Hosts Angular Server-Side Rendered application"
     app_dir: "apps/ssr-angular"
 
-  "SSR-Tanstack-Start-React":
-    description: "Application Server (SSR-Tanstack-Start-React)"
-    purpose: "Hosts TanStack Start React Server-Side Rendered application"
-    app_dir: "apps/ssr-tanstack-start-react"
+  # "SSR-Tanstack-Start-React":
+  #   description: "Application Server (SSR-Tanstack-Start-React)"
+  #   purpose: "Hosts TanStack Start React Server-Side Rendered application"
+  #   app_dir: "apps/ssr-tanstack-start-react"
 
-  "SSR-Tanstack-Start-Solid":
-    description: "Application Server (SSR-Tanstack-Start-Solid)"
-    purpose: "Hosts TanStack Start Solid Server-Side Rendered application"
-    app_dir: "apps/ssr-tanstack-start-solid"
+  # "SSR-Tanstack-Start-Solid":
+  #   description: "Application Server (SSR-Tanstack-Start-Solid)"
+  #   purpose: "Hosts TanStack Start Solid Server-Side Rendered application"
+  #   app_dir: "apps/ssr-tanstack-start-solid"
 
   # "SSR-Fresh":
   #   description: "Application Server (SSR-Fresh)"

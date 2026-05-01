@@ -16,6 +16,8 @@ def get_ansible_env() -> dict[str, str]:
     console = Console()
 
     try:
+        if os.environ.get("MGR_DISABLE_MITOGEN") == "true":
+            raise ImportError("Mitogen disabled by user")
         import ansible_mitogen
 
         mitogen_dir = os.path.dirname(ansible_mitogen.__file__)
