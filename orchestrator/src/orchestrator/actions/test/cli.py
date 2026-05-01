@@ -18,6 +18,8 @@ def run(
     sustain: Optional[str] = None,
     ramp_down: Optional[str] = None,
     start_rate: Optional[int] = None,
+    peak_rate_2: Optional[int] = None,
+    ramp_up_2: Optional[str] = None,
 ) -> None:
     """
     Core test execution logic.
@@ -47,6 +49,10 @@ def run(
         overrides["ramp_down"] = ramp_down
     if start_rate is not None:
         overrides["start_rate"] = start_rate
+    if peak_rate_2 is not None:
+        overrides["peak_rate_2"] = peak_rate_2
+    if ramp_up_2 is not None:
+        overrides["ramp_up_2"] = ramp_up_2
 
     if mode == "file":
         if path is None:

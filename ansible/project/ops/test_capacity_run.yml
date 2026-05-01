@@ -38,6 +38,8 @@
     capacity_peak_rate: 2000
     capacity_warmup: "0s"
     capacity_ramp_up: "10m"
+    capacity_peak_rate_2: 0
+    capacity_ramp_up_2: "0s"
     capacity_sustain: "5m"
     capacity_ramp_down: "1m"
     max_vus: 200
@@ -96,6 +98,8 @@
           -e CAPACITY_START_RATE="{{ capacity_start_rate }}"
           -e CAPACITY_PEAK_RATE="{{ capacity_peak_rate }}"
           -e CAPACITY_RAMP_UP_DURATION="{{ capacity_ramp_up }}"
+          -e CAPACITY_PEAK_RATE_2="{{ capacity_peak_rate_2 | default(0) }}"
+          -e CAPACITY_RAMP_UP_DURATION_2="{{ capacity_ramp_up_2 | default('0s') }}"
           -e CAPACITY_SUSTAIN_DURATION="{{ capacity_sustain }}"
           -e CAPACITY_RAMP_DOWN_DURATION="{{ capacity_ramp_down }}"
           -e MAX_VUS="{{ max_vus }}"

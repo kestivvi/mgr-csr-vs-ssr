@@ -31,6 +31,8 @@ const K6_DURATION = __ENV.SCRIPT_DURATION || '5m';
 const CAPACITY_START_RATE = parseInt(__ENV.CAPACITY_START_RATE || 10);
 const CAPACITY_PEAK_RATE = parseInt(__ENV.CAPACITY_PEAK_RATE || 10000);
 const CAPACITY_RAMP_UP_DURATION = __ENV.CAPACITY_RAMP_UP_DURATION || '10m';
+const CAPACITY_PEAK_RATE_2 = parseInt(__ENV.CAPACITY_PEAK_RATE_2 || 0);
+const CAPACITY_RAMP_UP_DURATION_2 = __ENV.CAPACITY_RAMP_UP_DURATION_2 || '0s';
 const CAPACITY_SUSTAIN_DURATION = __ENV.CAPACITY_SUSTAIN_DURATION || '5m';
 const CAPACITY_RAMP_DOWN_DURATION = __ENV.CAPACITY_RAMP_DOWN_DURATION || '1m';
 const MAX_VUS = parseInt(__ENV.MAX_VUS || 200);
@@ -38,18 +40,26 @@ const MAX_VUS = parseInt(__ENV.MAX_VUS || 200);
 
 const CAPACITY_WARMUP_DURATION = __ENV.CAPACITY_WARMUP_DURATION || '0s';
 
+const capacityStages = [
+  { target: CAPACITY_START_RATE, duration: CAPACITY_WARMUP_DURATION },
+  { target: CAPACITY_PEAK_RATE, duration: CAPACITY_RAMP_UP_DURATION },
+];
+
+if (CAPACITY_PEAK_RATE_2 > 0) {
+  capacityStages.push({ target: CAPACITY_PEAK_RATE_2, duration: CAPACITY_RAMP_UP_DURATION_2 });
+}
+
+const finalPeakRate = CAPACITY_PEAK_RATE_2 > 0 ? CAPACITY_PEAK_RATE_2 : CAPACITY_PEAK_RATE;
+capacityStages.push({ target: finalPeakRate, duration: CAPACITY_SUSTAIN_DURATION });
+capacityStages.push({ target: 0, duration: CAPACITY_RAMP_DOWN_DURATION });
+
 const capacityTestScenario = {
   executor: 'ramping-arrival-rate',
   startRate: CAPACITY_START_RATE,
   timeUnit: '1s',
   preAllocatedVUs: MAX_VUS,
   maxVUs: MAX_VUS,
-  stages: [
-    { target: CAPACITY_START_RATE, duration: CAPACITY_WARMUP_DURATION },
-    { target: CAPACITY_PEAK_RATE, duration: CAPACITY_RAMP_UP_DURATION },
-    { target: CAPACITY_PEAK_RATE, duration: CAPACITY_SUSTAIN_DURATION },
-    { target: 0, duration: CAPACITY_RAMP_DOWN_DURATION },
-  ],
+  stages: capacityStages,
 };
 
 const loadTestScenario = {
@@ -140,6 +150,10 @@ export function setup() {
   console.log(`[config] K6_TEST_PATH: ${K6_TEST_PATH}`);
   console.log(`[config] TIMEOUT (ms): ${TIMEOUT}`);
   console.log(`[config] Generated Test ID: ${testId}`);
+  console.log(`[config] CAPACITY_PEAK_RATE: ${CAPACITY_PEAK_RATE}`);
+  console.log(`[config] CAPACITY_RAMP_UP_DURATION: ${CAPACITY_RAMP_UP_DURATION}`);
+  console.log(`[config] CAPACITY_PEAK_RATE_2: ${CAPACITY_PEAK_RATE_2}`);
+  console.log(`[config] CAPACITY_RAMP_UP_DURATION_2: ${CAPACITY_RAMP_UP_DURATION_2}`);
   console.log(`[config] BACKOFF_TIMEOUT_S: ${BACKOFF_TIMEOUT_S}`);
   console.log(`[config] BACKOFF_5XX_S: ${BACKOFF_5XX_S}`);
   console.log('[config] Environment variable processing complete.');

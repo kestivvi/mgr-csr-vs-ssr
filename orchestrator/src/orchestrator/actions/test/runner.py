@@ -149,6 +149,8 @@ class TestRunner:
                     "capacity_warmup": opts.get("warmup"),
                     "capacity_peak_rate": opts.get("peak_rate"),
                     "capacity_ramp_up": opts.get("ramp_up"),
+                    "capacity_peak_rate_2": opts.get("peak_rate_2"),
+                    "capacity_ramp_up_2": opts.get("ramp_up_2"),
                     "capacity_sustain": opts.get("sustain"),
                     "capacity_ramp_down": opts.get("ramp_down"),
                     "max_vus": opts.get("max_vus"),

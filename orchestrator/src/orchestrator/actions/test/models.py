@@ -17,6 +17,8 @@ class CapacityK6Options(BaseModel):
     # Rate-based (Thesis Standard)
     peak_rate: int = 1000
     ramp_up: str = "5m"
+    peak_rate_2: Optional[int] = None
+    ramp_up_2: Optional[str] = None
     sustain: str = "1m"
     ramp_down: str = "1m"
     start_rate: int = 1

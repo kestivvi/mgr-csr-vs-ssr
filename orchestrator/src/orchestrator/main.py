@@ -90,6 +90,12 @@ def test_capacity(
     start_rate: Annotated[
         int, typer.Option("--start-rate", help="Starting RPS", show_default=True)
     ] = 1,
+    peak_rate_2: Annotated[
+        Optional[int], typer.Option("--peak-rate-2", help="Target RPS at peak 2")
+    ] = None,
+    ramp_up_2: Annotated[
+        Optional[str], typer.Option("--ramp-up-2", help="Ramp up 2 duration")
+    ] = None,
 ) -> None:
     """Run [cyan]capacity[/cyan] tests (Thesis Standard RPS Ramping)."""
     from orchestrator.actions.test import cli as test_cli
@@ -102,6 +108,8 @@ def test_capacity(
         sustain=sustain,
         ramp_down=ramp_down,
         start_rate=start_rate,
+        peak_rate_2=peak_rate_2,
+        ramp_up_2=ramp_up_2,
     )
 
 
@@ -115,6 +123,12 @@ def test_file(
     warmup: Annotated[Optional[str], typer.Option("--warmup", help="Override warmup")] = None,
     after: Annotated[Optional[str], typer.Option("--after", help="Override after")] = None,
     vus: Annotated[Optional[int], typer.Option("--vus", help="Override VUs")] = None,
+    peak_rate_2: Annotated[
+        Optional[int], typer.Option("--peak-rate-2", help="Override peak rate 2")
+    ] = None,
+    ramp_up_2: Annotated[
+        Optional[str], typer.Option("--ramp-up-2", help="Override ramp up 2 duration")
+    ] = None,
 ) -> None:
     """Run experiments from a custom [cyan]YAML file[/cyan]."""
     from orchestrator.actions.test import cli as test_cli
@@ -127,6 +141,8 @@ def test_file(
         warmup=warmup,
         after=after,
         vus=vus,
+        peak_rate_2=peak_rate_2,
+        ramp_up_2=ramp_up_2,
     )
 
 

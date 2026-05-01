@@ -13,6 +13,12 @@ capacity_k6_options:
   
   # How long to ramp up from start_rate to peak_rate
   ramp_up: 5m
+
+  # (Optional) Second target peak rate (RPS)
+  # peak_rate_2: 10000
+
+  # (Optional) How long to ramp up from peak_rate to peak_rate_2
+  # ramp_up_2: 5m
   
   # How long to maintain the peak_rate
   sustain: 1m
