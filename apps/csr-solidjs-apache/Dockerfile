@@ -44,7 +44,7 @@ RUN sed -i 's|^LoadModule mpm_.*|# &|' /usr/local/apache2/conf/httpd.conf \
 EXPOSE 80 443 8060 9117
 
 # Use exec form so signals reach httpd correctly
-RUN printf '#!/bin/sh\nset -e\nulimit -n 200000\napache_exporter --scrape_uri=http://localhost:8060/server-status?auto --telemetry.address=:9117 &\nexec httpd-foreground\n' > /start.sh \
+RUN printf '#!/bin/sh\nset -e\napache_exporter --scrape_uri=http://localhost:8060/server-status?auto --telemetry.address=:9117 &\nexec httpd-foreground\n' > /start.sh \
     && chmod +x /start.sh
 
 CMD ["/start.sh"]
