@@ -5,13 +5,10 @@ import viteReact from '@vitejs/plugin-react'
 import { nitro } from 'nitro/vite'
 
 const config = defineConfig({
-  resolve: {
-    tsconfigPaths: true,
-  },
   plugins: [
     devtools(),
-    nitro(),
     tanstackStart(),
+    nitro(),
     viteReact(),
   ],
 })

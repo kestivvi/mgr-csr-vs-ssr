@@ -1,4 +1,4 @@
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
+import { HeadContent, Outlet, Scripts, createRootRoute } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 
@@ -27,6 +27,7 @@ export const Route = createRootRoute({
   }),
 
   shellComponent: RootDocument,
+  component: () => <Outlet />,
 })
 
 function RootDocument({ children }: { children: React.ReactNode }) {
@@ -37,7 +38,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
-        {process.env.NODE_ENV === 'development' && (
+        {import.meta.env.DEV && (
           <TanStackDevtools
             config={{
               position: 'bottom-right',

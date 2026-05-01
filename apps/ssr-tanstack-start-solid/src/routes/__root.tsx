@@ -32,25 +32,18 @@ export const Route = createRootRoute({
       },
     ],
   }),
-  component: RootComponent,
+  shellComponent: RootDocument,
+  component: () => <Outlet />,
 })
-
-function RootComponent() {
-  return (
-    <RootDocument>
-      <Outlet />
-    </RootDocument>
-  )
-}
 
 function RootDocument({ children }: Readonly<{ children: Solid.JSX.Element }>) {
   return (
     <html lang="en">
       <head>
         <HydrationScript />
+        <HeadContent />
       </head>
       <body>
-        <HeadContent />
         <Solid.Suspense>{children}</Solid.Suspense>
         <Scripts />
       </body>

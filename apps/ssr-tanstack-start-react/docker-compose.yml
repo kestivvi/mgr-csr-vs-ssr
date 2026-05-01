@@ -13,9 +13,9 @@ services:
     image: ssr-tanstack-start-react-nginx
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
-      - "8060:8060"
+      - '80:80'
+      - '443:443'
+      - '8060:8060'
     depends_on:
       - tanstack-react-app
     networks:
