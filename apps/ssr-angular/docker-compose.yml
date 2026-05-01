@@ -13,9 +13,9 @@ services:
     image: ssr-angular-nginx
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
-      - "8060:8060"
+      - '80:80'
+      - '443:443'
+      - '8060:8060'
     depends_on:
       - angular-app
     networks:

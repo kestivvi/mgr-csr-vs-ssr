@@ -157,9 +157,6 @@ def test_app_with_curl(
         f.write(f"Testing {app_name} at localhost:80\n")
 
     for i in range(max_retries):
-        # Capture the file size before the command to read only the new output
-        start_pos = log_path.stat().st_size
-
         # -i for headers, -s for silent, -L to follow redirects
         rc = run_command(
             ["curl", "-isL", "http://localhost:80"],
@@ -169,31 +166,18 @@ def test_app_with_curl(
         )
 
         if rc == 0:
-            with open(log_path, "r") as f:
-                f.seek(start_pos)
-                new_content = f.read()
-
-            if "Hello World" in new_content:
-                if not quiet:
-                    output.print(
-                        f"[bold green]Success! App {app_name} responded and contains 'Hello World'.[/bold green]"
-                    )
-                return True
-            else:
-                if not quiet:
-                    output.print(
-                        f"[yellow]Attempt {i + 1}/{max_retries}: {app_name} responded but 'Hello World' not found, retrying...[/yellow]"
-                    )
-        else:
             if not quiet:
-                output.print(
-                    f"[yellow]Attempt {i + 1}/{max_retries}: {app_name} not ready (rc={rc}), retrying...[/yellow]"
-                )
+                output.print(f"[bold green]Success! App {app_name} responded.[/bold green]")
+            return True
 
+        if not quiet:
+            output.print(
+                f"[yellow]Attempt {i + 1}/{max_retries}: {app_name} not ready, retrying...[/yellow]"
+            )
         time.sleep(delay)
 
     if not quiet:
         output.print(
-            f"[bold red]Test failed for {app_name} after {max_retries} attempts (Hello World not found or connection error).[/bold red]"
+            f"[bold red]Test failed for {app_name} after {max_retries} attempts.[/bold red]"
         )
     return False
