@@ -62,7 +62,11 @@ HEALTHCHECK --interval=30s --timeout=3s \
 
 EXPOSE 80 443 8060
 
-# Statyki Fresh z etapu builder
-COPY --from=builder /app/_fresh/static/ /usr/share/nginx/html/_fresh/static/
+# Client assets (including Vite build and static files)
+COPY --from=builder /app/_fresh/client/ /usr/share/nginx/html/
+
+# Fresh 2.x expects assets under /_fresh/ prefix by default
+RUN mkdir -p /usr/share/nginx/html/_fresh && \
+    ln -s ../assets /usr/share/nginx/html/_fresh/assets
 
 CMD ["nginx", "-g", "daemon off;"]
