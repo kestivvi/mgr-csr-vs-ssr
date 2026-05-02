@@ -182,12 +182,6 @@ class TestRunner:
                 )
                 measurement_window = {"warmup": w_sec, "duration": d_sec}
 
-        # Define a path for the local results file (timestamp exchange)
-        local_results_dir = self.results_base_dir / "internal" / "timestamps"
-        local_results_dir.mkdir(parents=True, exist_ok=True)
-        local_results_path = local_results_dir / f"{run_prefix}_{scenario_name.lower().replace('-', '_')}.json"
-        extra_vars["local_results_path"] = str(local_results_path)
-
         # Run via ansible-runner
         r = ansible_runner.run(
             private_data_dir=str(ANSIBLE_DIR),
@@ -197,28 +191,15 @@ class TestRunner:
             quiet=True,
         )
         output = r.stdout.read()
-
-        # 1. Try to read timestamps from the local JSON file (Option 3)
-        timestamps = None
-        if local_results_path.exists():
-            try:
-                with open(local_results_path, "r") as f:
-                    timestamps = json.load(f)
-            except Exception as e:
-                console.print(f"[dim red]Failed to read results file {local_results_path}: {e}[/dim red]")
-
-        # 2. Fallback to regex extraction if the file is missing or malformed
-        if not timestamps:
-            timestamps = self._extract_marker(output, TIMESTAMP_MARKER)
-
+        timestamps = self._extract_marker(output, TIMESTAMP_MARKER)
         wrk_results = self._extract_marker(output, WRK_RESULT_MARKER) if tool == "wrk" else None
 
         if timestamps:
-            # Convert values to float (Ansible to_json might have made them strings or numbers)
             timestamps["start"] = float(timestamps["start"])
             timestamps["end"] = float(timestamps["end"])
             if measurement_window:
                 # Adjust timestamps to the middle measurement window
+                # Ensure they are numbers as k6 might return them as strings
                 base_start = timestamps["start"]
                 timestamps["start"] = base_start + measurement_window["warmup"]
                 timestamps["end"] = timestamps["start"] + measurement_window["duration"]
