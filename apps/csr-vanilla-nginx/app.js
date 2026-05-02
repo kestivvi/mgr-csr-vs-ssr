@@ -39,7 +39,8 @@ class SimpleRouter {
     renderDynamic(name) {
         return `
             <div>
-                <h1>Hello, ${name}</h1>
+                <h1>Hello World</h1>
+                <p>Dynamic ID: ${name}</p>
             </div>
         `;
     }

@@ -6,7 +6,12 @@ import { CommonModule } from '@angular/common';
   selector: 'app-dynamic',
   standalone: true,
   imports: [CommonModule],
-  template: '<h1>Hello, {{ name }}</h1>'
+  template: `
+    <div>
+      <h1>Hello World</h1>
+      <p>Dynamic ID: {{ name }}</p>
+    </div>
+  `
 })
 export class DynamicComponent {
   name: string = '';
