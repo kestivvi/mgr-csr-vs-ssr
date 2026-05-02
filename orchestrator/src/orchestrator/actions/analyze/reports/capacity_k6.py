@@ -66,9 +66,9 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, summary: pd.DataFrame
         "memory": "ram_usage_timeseries",
     }
     labels = {
-        "k6_successful_html_reqs_rate": "RPS (Throughput)",
-        "cpu": "CPU Usage (%)",
-        "memory": "Memory Usage (MB)",
+        "k6_successful_html_reqs_rate": "Przepustowość (RPS)",
+        "cpu": "Zużycie CPU (%)",
+        "memory": "Zużycie pamięci (MB)",
     }
     for metric, filename in metrics_to_plot.items():
         m_df = analyzer.raw_df[analyzer.raw_df["metric"] == metric]
@@ -77,10 +77,10 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, summary: pd.DataFrame
 
         plt.figure(figsize=(12, 7))
         sns.lineplot(data=m_df, x="time_sec", y="metric_value", hue="server_type", errorbar="sd")
-        plt.title(f"Capacity Test: {labels[metric]} Over Time")
-        plt.xlabel("Time (seconds)")
+        plt.title(f"Test pojemnościowy: {labels[metric]} w czasie")
+        plt.xlabel("Czas (sekundy)")
         plt.ylabel(labels[metric])
-        plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
+        plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left", title="Technologia")
         plt.tight_layout()
         plt.savefig(analyzer.plots_dir / f"{filename}.png")
         plt.close()
@@ -94,6 +94,12 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, summary: pd.DataFrame
         tech.lower(): group for group, techs in analyzer.groups_config.items() for tech in techs
     }
     summary["group"] = summary["server_type"].str.lower().map(tech_to_group).fillna("Uncategorized")
+    summary["display_name"] = summary["server_type"].str.replace(r"^(csr|ssr)-", "", regex=True)
+    
+    # Handle duplicate names by adding group suffix
+    name_counts = summary["display_name"].value_counts()
+    duplicate_names = name_counts[name_counts > 1].index
+    summary.loc[summary["display_name"].isin(duplicate_names), "display_name"] += " (" + summary["group"] + ")"
 
     comparisons = {
         "sustained_rps": "capacity_rps_comparison.png",
@@ -101,9 +107,9 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, summary: pd.DataFrame
         "ram_at_sustained": "capacity_ram_at_sustained_usage.png",
     }
     titles = {
-        "sustained_rps": "Maximum Sustained Throughput (RPS)",
-        "cpu_at_sustained": "CPU Usage at Sustained Throughput (%)",
-        "ram_at_sustained": "Memory Usage at Sustained Throughput (MB)",
+        "sustained_rps": "Maksymalna utrzymana przepustowość (utrzymany / szczytowy RPS)",
+        "cpu_at_sustained": "Zużycie CPU przy utrzymanej przepustowości (%)",
+        "ram_at_sustained": "Zużycie pamięci przy utrzymanej przepustowości (MB)",
     }
 
     for col, filename in comparisons.items():
@@ -115,7 +121,7 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, summary: pd.DataFrame
 
         sns.barplot(
             data=sorted_summary,
-            y="server_type",
+            y="display_name",
             x=col,
             hue="group",
             palette=PLOT_PALETTE,
@@ -124,19 +130,40 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, summary: pd.DataFrame
 
         plt.title(titles[col])
         plt.xlabel(titles[col].split("(")[-1].replace(")", ""))
-        plt.ylabel("Framework")
+        plt.ylabel("")
 
         # Color y-axis labels by group
         ax = plt.gca()
         for label in ax.get_yticklabels():
-            tech = label.get_text()
-            match = sorted_summary[sorted_summary["server_type"] == tech]
+            name = label.get_text()
+            # Find original tech name to get group
+            match = sorted_summary[sorted_summary["display_name"] == name]
             if not match.empty:
                 group = match["group"].iloc[0]
                 label.set_color(PLOT_PALETTE.get(group, "black"))
                 label.set_fontweight("bold")
 
-        plt.legend(title="Group", loc="lower right")
+        # Add value labels to bars
+        for i, p in enumerate(ax.patches):
+            width = p.get_width()
+            if width <= 0: continue
+            
+            if col == "sustained_rps":
+                # Get the corresponding peak_rps
+                peak = sorted_summary.iloc[i]["peak_rps"]
+                sust = sorted_summary.iloc[i]["sustained_rps"]
+                label_text = f"{sust:.0f} / {peak:.0f}"
+            else:
+                label_text = f"{width:.1f}"
+            
+            ax.annotate(label_text, 
+                        (width, p.get_y() + p.get_height() / 2), 
+                        ha='left', va='center', 
+                        xytext=(5, 0), 
+                        textcoords='offset points',
+                        fontsize=9)
+
+        plt.legend(title="Grupa", loc="lower right")
         plt.tight_layout()
         plt.savefig(analyzer.plots_dir / filename)
         plt.close()

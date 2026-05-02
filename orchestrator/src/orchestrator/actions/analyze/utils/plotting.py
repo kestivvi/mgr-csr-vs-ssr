@@ -24,6 +24,24 @@ def get_ordered_tech_list(analyzer: PerformanceAnalyzer, df: pd.DataFrame) -> Li
     return ordered + remaining
 
 
+def clean_tech_names_df(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+    if "server_type" not in df.columns or "group" not in df.columns:
+        return df
+    
+    # Create display names
+    df["display_name"] = df["server_type"].str.replace(r"^(csr|ssr)-", "", regex=True)
+    
+    # Handle duplicates across groups
+    # Group by display_name and count unique groups
+    counts = df.groupby("display_name")["group"].nunique()
+    dupes = counts[counts > 1].index
+    
+    mask = df["display_name"].isin(dupes)
+    df.loc[mask, "display_name"] = df.loc[mask, "display_name"] + " (" + df.loc[mask, "group"] + ")"
+    return df
+
+
 def create_scorecard_heatmap(analyzer: PerformanceAnalyzer) -> Optional[Path]:
     if analyzer.scorecard_ranks_df.empty or analyzer.scorecard_values_df.empty:
         return None
@@ -38,6 +56,19 @@ def create_scorecard_heatmap(analyzer: PerformanceAnalyzer) -> Optional[Path]:
     values_ordered = analyzer.scorecard_values_df.reindex(
         index=ordered_metrics, columns=ordered_techs
     )
+    
+    # Rename columns to display names
+    # Get mapping from original server_type to clean name
+    # We need a dataframe to use clean_tech_names_df
+    temp_df = pd.DataFrame({"server_type": ordered_techs})
+    # Get groups from raw_df
+    tech_to_group = analyzer.raw_df.groupby("server_type")["group"].first().to_dict()
+    temp_df["group"] = temp_df["server_type"].map(tech_to_group).fillna("Uncategorized")
+    temp_df = clean_tech_names_df(temp_df)
+    display_name_map = temp_df.set_index("server_type")["display_name"].to_dict()
+    
+    ranks_ordered.columns = [display_name_map.get(c, c) for c in ranks_ordered.columns]
+    values_ordered.columns = [display_name_map.get(c, c) for c in values_ordered.columns]
 
     ax = sns.heatmap(
         ranks_ordered,
@@ -48,9 +79,9 @@ def create_scorecard_heatmap(analyzer: PerformanceAnalyzer) -> Optional[Path]:
         cbar_kws={"label": "Performance Rank (1 is best)"},
     )
 
-    plt.title("Performance Scorecard", fontsize=16)
-    plt.xlabel("Technology (Ordered Best to Worst Overall)")
-    plt.ylabel("Metric")
+    plt.title("Karta wyników (Scorecard)", fontsize=16)
+    plt.xlabel("")
+    plt.ylabel("Metryka")
 
     # Color x-axis labels by group
     ax.set_xticks(np.arange(len(ordered_techs)) + 0.5)
@@ -58,14 +89,12 @@ def create_scorecard_heatmap(analyzer: PerformanceAnalyzer) -> Optional[Path]:
 
     # Map tech to group color
     for label in ax.get_xticklabels():
-        tech = label.get_text()
-        # Find group for this tech from raw_df
-        if not analyzer.raw_df.empty:
-            match = analyzer.raw_df[analyzer.raw_df["server_type"] == tech]
-            if not match.empty:
-                group = match["group"].iloc[0]
-                label.set_color(PLOT_PALETTE.get(group, "black"))
-                label.set_fontweight("bold")
+        name = label.get_text()
+        match = temp_df[temp_df["display_name"] == name]
+        if not match.empty:
+            group = match["group"].iloc[0]
+            label.set_color(PLOT_PALETTE.get(group, "black"))
+            label.set_fontweight("bold")
 
     plt.yticks(rotation=0)
     plt.tight_layout()
@@ -85,17 +114,23 @@ def create_comparison_plot(
 ) -> Optional[Path]:
     if df.empty:
         return None
-    plot_order = get_ordered_tech_list(analyzer, df)
+    df = clean_tech_names_df(df)
+    plot_order_orig = get_ordered_tech_list(analyzer, df)
+    
+    # Create mapping from orig to display for order
+    order_map = df.set_index("server_type")["display_name"].to_dict()
+    plot_order = [order_map[t] for t in plot_order_orig if t in order_map]
+
     plt.figure(figsize=(14, 8))
 
     if plot_type == "box":
         sns.boxplot(
-            data=df, x="server_type", y=stat_col, hue="group", dodge=False, order=plot_order
+            data=df, x="display_name", y=stat_col, hue="group", dodge=False, order=plot_order
         )
     elif plot_type == "violin":
         sns.violinplot(
             data=df,
-            x="server_type",
+            x="display_name",
             y=stat_col,
             hue="group",
             dodge=False,
@@ -104,9 +139,9 @@ def create_comparison_plot(
             order=plot_order,
         )
 
-    plt.title(f"Distribution of {metric_name}", fontsize=16)
+    plt.title(f"Rozkład: {metric_name}", fontsize=16)
     plt.ylabel(metric_name)
-    plt.xlabel("Technology")
+    plt.xlabel("")
 
     # Capture axis for tick manipulation
     ax = plt.gca()
@@ -114,9 +149,9 @@ def create_comparison_plot(
 
     # Map tech to group color
     for label in ax.get_xticklabels():
-        tech = label.get_text()
+        name = label.get_text()
         if not df.empty:
-            match = df[df["server_type"] == tech]
+            match = df[df["display_name"] == name]
             if not match.empty:
                 group = match["group"].iloc[0]
                 label.set_color(PLOT_PALETTE.get(group, "black"))
@@ -186,10 +221,10 @@ def create_timeseries_plot(
         )
 
     title_suffix = f" ({group_filter})" if group_filter else ""
-    plt.title(f"Time-Series: {metric_name}{title_suffix}", fontsize=16)
-    plt.xlabel("Time (seconds)")
+    plt.title(f"Serie czasowe: {metric_name}{title_suffix}", fontsize=16)
+    plt.xlabel("Czas (sekundy)")
     plt.ylabel(metric_name)
-    leg = plt.legend(title="Technology", bbox_to_anchor=(1.05, 1), loc="upper left")
+    leg = plt.legend(title="Technologia", bbox_to_anchor=(1.05, 1), loc="upper left")
 
     # Color legend labels to match line colors
     for text in leg.get_texts():

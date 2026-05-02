@@ -97,6 +97,7 @@
         --out experimental-prometheus-rw
         --tag "server={{ server_type | upper }}"
         /test/script.js
+        > /tmp/k6.log 2>&1
       register: k6_run_result
       changed_when: true
       timeout: "{{ k6_timeout_seconds | int }}"
@@ -110,13 +111,21 @@
       ansible.builtin.debug:
         msg: 'ORCHESTRATOR_TIMESTAMPS::{"start": {{ start_timestamp_result.stdout }}, "end": {{ end_timestamp_result.stdout }}}'
 
-    - name: Display k6 container logs for debugging
-      ansible.builtin.debug:
-        msg: "{{ k6_run_result.stdout_lines }}"
+    - name: Fetch k6 logs
+      ansible.builtin.fetch:
+        src: /tmp/k6.log
+        dest: "{{ k6_log_path }}"
+        flat: yes
+      when: k6_log_path is defined
 
     - name: Clean up the remote state file on successful completion
       ansible.builtin.file:
         path: "{{ remote_state_file }}"
+        state: absent
+
+    - name: Clean up the remote log file
+      ansible.builtin.file:
+        path: /tmp/k6.log
         state: absent
 
     - name: Clean up the remote script
