@@ -123,6 +123,13 @@
       ansible.builtin.debug:
         msg: 'ORCHESTRATOR_TIMESTAMPS::{"start": {{ start_timestamp_result.stdout }}, "end": {{ end_timestamp_result.stdout }}}'
 
+    - name: Save timestamps to local results file
+      ansible.builtin.copy:
+        content: "{{ {'start': start_timestamp_result.stdout, 'end': end_timestamp_result.stdout} | to_json }}"
+        dest: "{{ local_results_path }}"
+      delegate_to: localhost
+      when: local_results_path is defined
+
     - name: Fetch k6 logs
       ansible.builtin.fetch:
         src: /tmp/k6.log
