@@ -28,15 +28,15 @@ def clean_tech_names_df(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     if "server_type" not in df.columns or "group" not in df.columns:
         return df
-    
+
     # Create display names
     df["display_name"] = df["server_type"].str.replace(r"^(csr|ssr)-", "", regex=True)
-    
+
     # Handle duplicates across groups
     # Group by display_name and count unique groups
     counts = df.groupby("display_name")["group"].nunique()
     dupes = counts[counts > 1].index
-    
+
     mask = df["display_name"].isin(dupes)
     df.loc[mask, "display_name"] = df.loc[mask, "display_name"] + " (" + df.loc[mask, "group"] + ")"
     return df
@@ -56,7 +56,7 @@ def create_scorecard_heatmap(analyzer: PerformanceAnalyzer) -> Optional[Path]:
     values_ordered = analyzer.scorecard_values_df.reindex(
         index=ordered_metrics, columns=ordered_techs
     )
-    
+
     # Rename columns to display names
     # Get mapping from original server_type to clean name
     # We need a dataframe to use clean_tech_names_df
@@ -66,7 +66,7 @@ def create_scorecard_heatmap(analyzer: PerformanceAnalyzer) -> Optional[Path]:
     temp_df["group"] = temp_df["server_type"].map(tech_to_group).fillna("Uncategorized")
     temp_df = clean_tech_names_df(temp_df)
     display_name_map = temp_df.set_index("server_type")["display_name"].to_dict()
-    
+
     ranks_ordered.columns = [display_name_map.get(c, c) for c in ranks_ordered.columns]
     values_ordered.columns = [display_name_map.get(c, c) for c in values_ordered.columns]
 
@@ -116,7 +116,7 @@ def create_comparison_plot(
         return None
     df = clean_tech_names_df(df)
     plot_order_orig = get_ordered_tech_list(analyzer, df)
-    
+
     # Create mapping from orig to display for order
     order_map = df.set_index("server_type")["display_name"].to_dict()
     plot_order = [order_map[t] for t in plot_order_orig if t in order_map]

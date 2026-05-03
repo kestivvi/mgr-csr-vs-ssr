@@ -158,7 +158,10 @@ class TestRunner:
                     "max_vus": opts.get("max_vus"),
                     "k6_path_type": opts.get("path_type"),
                     "k6_request_timeout": opts.get("timeout"),
-                    "k6_log_path": str(self.logs_dir / f"{run_prefix}_{scenario_name.lower().replace('-', '_')}.log"),
+                    "k6_log_path": str(
+                        self.logs_dir
+                        / f"{run_prefix}_{scenario_name.lower().replace('-', '_')}.log"
+                    ),
                 }
                 extra_vars.update({k: v for k, v in mapped.items() if v is not None})
         else:
@@ -177,7 +180,10 @@ class TestRunner:
                         "max_vus": load_opts.vus,
                         "k6_path_type": load_opts.path_type,
                         "k6_request_timeout": load_opts.timeout,
-                        "k6_log_path": str(self.logs_dir / f"{run_prefix}_{scenario_name.lower().replace('-', '_')}.log"),
+                        "k6_log_path": str(
+                            self.logs_dir
+                            / f"{run_prefix}_{scenario_name.lower().replace('-', '_')}.log"
+                        ),
                     }
                 )
                 measurement_window = {"warmup": w_sec, "duration": d_sec}

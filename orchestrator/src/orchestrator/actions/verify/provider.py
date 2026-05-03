@@ -1,8 +1,8 @@
+import subprocess
 import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-import subprocess
 
 from rich.console import Console
 
@@ -73,9 +73,7 @@ def run_verify(app_filter: str | None = None) -> None:
 
                 try:
                     # Build
-                    progress.update(
-                        task, description=f"[cyan]Building [bold]{app_name}[/bold]..."
-                    )
+                    progress.update(task, description=f"[cyan]Building [bold]{app_name}[/bold]...")
                     rc = run_command(
                         ["docker-compose", "build"],
                         cwd=str(app_path),
@@ -144,13 +142,11 @@ def run_verify(app_filter: str | None = None) -> None:
                 results.append(app_result)
                 progress.advance(task)
     except KeyboardInterrupt:
-        console.print(
-            "\n[bold red]Verification interrupted by user. Cleaning up...[/bold red]"
-        )
+        console.print("\n[bold red]Verification interrupted by user. Cleaning up...[/bold red]")
 
     # 4. Generate results.md (even for partial runs)
     if results:
-        from tabulate import tabulate  # type: ignore[import-untyped]
+        from tabulate import tabulate
 
         summary_table = tabulate(results, headers="keys", tablefmt="github")
         results_file = run_log_dir / "results.md"
@@ -183,7 +179,7 @@ def test_app_with_curl(
 
     for i in range(MAX_RETRIES):
         with open(log_path, "a") as f:
-            f.write(f"\n\n--- Attempt {i+1} for {app_name} ---\n")
+            f.write(f"\n\n--- Attempt {i + 1} for {app_name} ---\n")
 
         success = False
         try:
@@ -207,7 +203,8 @@ def test_app_with_curl(
 
         if not quiet:
             output.print(
-                f"[yellow]Attempt {i+1}: Verification failed for {app_name}, retrying in {RETRY_DELAY}s...[/yellow]"
+                f"[yellow]Attempt {i + 1}: Verification failed for {app_name}, "
+                f"retrying in {RETRY_DELAY}s...[/yellow]"
             )
         time.sleep(RETRY_DELAY)
 
@@ -219,26 +216,28 @@ def test_app_with_curl(
 
 
 def _run_ssr_verification(app_path: Path, log_path: Path) -> bool:
-    """Runs specific tests for SSR applications (Connectivity + Content)."""
+    """Runs specific tests for SSR applications (Connectivity + Content + Gzip)."""
     targets = [
         ("HTTP", "http://localhost:80"),
         ("HTTPS", "https://localhost:443"),
     ]
 
-    for proto, base_url in targets:
-        # 1. Root Page (200 OK + Hello World)
-        if not _verify_endpoint(base_url, app_path, log_path, check_content=True):
+    for _proto, base_url in targets:
+        # 1. Root Page (200 OK + Hello World + Gzip)
+        if not _verify_endpoint(base_url, app_path, log_path, check_content=True, verify_gzip=True):
             return False
 
-        # 2. Favicon (200 OK)
-        if not _verify_endpoint(
-            f"{base_url}/favicon.ico", app_path, log_path, headers_only=True
-        ):
+        # 2. Favicon (200 OK - Gzip usually disabled for small assets)
+        if not _verify_endpoint(f"{base_url}/favicon.ico", app_path, log_path, headers_only=True):
             return False
 
-        # 3. Dynamic Page (200 OK + Hello World)
+        # 3. Dynamic Page (200 OK + Hello World + Gzip)
         if not _verify_endpoint(
-            f"{base_url}/dynamic/verify", app_path, log_path, check_content=True
+            f"{base_url}/dynamic/verify",
+            app_path,
+            log_path,
+            check_content=True,
+            verify_gzip=True,
         ):
             return False
 
@@ -246,25 +245,23 @@ def _run_ssr_verification(app_path: Path, log_path: Path) -> bool:
 
 
 def _run_csr_verification(app_path: Path, log_path: Path) -> bool:
-    """Runs specific tests for CSR applications (Connectivity only)."""
+    """Runs specific tests for CSR applications (Connectivity + Gzip)."""
     targets = [
         ("HTTP", "http://localhost:80"),
         ("HTTPS", "https://localhost:443"),
     ]
 
-    for proto, base_url in targets:
-        # 1. Root Page (200 OK)
-        if not _verify_endpoint(base_url, app_path, log_path):
+    for _proto, base_url in targets:
+        # 1. Root Page (200 OK + Gzip)
+        if not _verify_endpoint(base_url, app_path, log_path, verify_gzip=True):
             return False
 
         # 2. Favicon (200 OK)
-        if not _verify_endpoint(
-            f"{base_url}/favicon.ico", app_path, log_path, headers_only=True
-        ):
+        if not _verify_endpoint(f"{base_url}/favicon.ico", app_path, log_path, headers_only=True):
             return False
 
-        # 3. Dynamic Page (200 OK)
-        if not _verify_endpoint(f"{base_url}/dynamic/verify", app_path, log_path):
+        # 3. Dynamic Page (200 OK + Gzip)
+        if not _verify_endpoint(f"{base_url}/dynamic/verify", app_path, log_path, verify_gzip=True):
             return False
 
     return True
@@ -276,38 +273,53 @@ def _verify_endpoint(
     log_path: Path,
     check_content: bool = False,
     headers_only: bool = False,
+    verify_gzip: bool = False,
 ) -> bool:
-    """Executes a single curl request and immediately validates the result."""
-    flags = "-IsLk" if headers_only else "-isLk"
+    """Executes curl request(s) and validates the result, optionally checking gzip."""
+    modes: list[tuple[str, list[str]]] = [("standard", [])]
+    if verify_gzip:
+        # In gzip mode, we request gzip encoding and tell curl to decompress for content check
+        modes.append(("gzip", ["--compressed", "-H", "Accept-Encoding: gzip"]))
 
-    try:
-        result = subprocess.run(
-            ["curl", flags, url],
-            cwd=str(app_path),
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
+    for mode_name, extra_flags in modes:
+        flags = ["-IsLk"] if headers_only else ["-isLk"]
+        cmd = ["curl"] + flags + extra_flags + [url]
 
-        with open(log_path, "a") as f:
-            f.write(f"\n>>> Request: {url} (Flags: {flags})\n")
-            if result.stdout:
-                f.write(result.stdout)
-            if result.stderr:
-                f.write(f"STDERR: {result.stderr}\n")
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd=str(app_path),
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
 
-        # 1. Check Status Code
-        if "HTTP/1.1 200" not in result.stdout and "HTTP/2 200" not in result.stdout:
-            return False
+            with open(log_path, "a") as f:
+                f.write(
+                    f"\n>>> Request ({mode_name}): {url} (Flags: {' '.join(flags + extra_flags)})\n"
+                )
+                if result.stdout:
+                    f.write(result.stdout)
+                if result.stderr:
+                    f.write(f"STDERR: {result.stderr}\n")
 
-        # 2. Check Content (if required)
-        if check_content:
-            if "hello world" not in result.stdout.lower():
+            # 1. Check Status Code
+            if "HTTP/1.1 200" not in result.stdout and "HTTP/2 200" not in result.stdout:
                 return False
 
-        return True
+            # 2. Check Content (if required)
+            if check_content:
+                if "hello world" not in result.stdout.lower():
+                    return False
 
-    except Exception as e:
-        with open(log_path, "a") as f:
-            f.write(f"CURL EXECUTION ERROR for {url}: {e}\n")
-        return False
+            # 3. Check Gzip Header (if in gzip mode)
+            if mode_name == "gzip":
+                if "content-encoding: gzip" not in result.stdout.lower():
+                    return False
+
+        except Exception as e:
+            with open(log_path, "a") as f:
+                f.write(f"CURL EXECUTION ERROR for {url} ({mode_name}): {e}\n")
+            return False
+
+    return True

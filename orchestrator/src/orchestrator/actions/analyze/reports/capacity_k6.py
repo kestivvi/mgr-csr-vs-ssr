@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Optional
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
+from matplotlib.patches import Rectangle
 
 from ..config import PLOT_PALETTE
 from ..utils.reporting import write_report
@@ -95,11 +96,13 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, summary: pd.DataFrame
     }
     summary["group"] = summary["server_type"].str.lower().map(tech_to_group).fillna("Uncategorized")
     summary["display_name"] = summary["server_type"].str.replace(r"^(csr|ssr)-", "", regex=True)
-    
+
     # Handle duplicate names by adding group suffix
     name_counts = summary["display_name"].value_counts()
     duplicate_names = name_counts[name_counts > 1].index
-    summary.loc[summary["display_name"].isin(duplicate_names), "display_name"] += " (" + summary["group"] + ")"
+    summary.loc[summary["display_name"].isin(duplicate_names), "display_name"] += (
+        " (" + summary["group"] + ")"
+    )
 
     comparisons = {
         "sustained_rps": "capacity_rps_comparison.png",
@@ -145,9 +148,12 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, summary: pd.DataFrame
 
         # Add value labels to bars
         for i, p in enumerate(ax.patches):
+            if not isinstance(p, Rectangle):
+                continue
             width = p.get_width()
-            if width <= 0: continue
-            
+            if width <= 0:
+                continue
+
             if col == "sustained_rps":
                 # Get the corresponding peak_rps
                 peak = sorted_summary.iloc[i]["peak_rps"]
@@ -155,13 +161,16 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, summary: pd.DataFrame
                 label_text = f"{sust:.0f} / {peak:.0f}"
             else:
                 label_text = f"{width:.1f}"
-            
-            ax.annotate(label_text, 
-                        (width, p.get_y() + p.get_height() / 2), 
-                        ha='left', va='center', 
-                        xytext=(5, 0), 
-                        textcoords='offset points',
-                        fontsize=9)
+
+            ax.annotate(
+                label_text,
+                (width, p.get_y() + p.get_height() / 2),
+                ha="left",
+                va="center",
+                xytext=(5, 0),
+                textcoords="offset points",
+                fontsize=9,
+            )
 
         plt.legend(title="Grupa", loc="lower right")
         plt.tight_layout()

@@ -8,9 +8,18 @@ METRIC_CONFIG: Dict[str, Dict[str, Dict[str, Union[str, bool]]]] = {
         "network_tx": {"name": "Średnia przepustowość wyjściowa (MB/s)", "sort_ascending": True},
     },
     "std": {
-        "cpu": {"name": "Stabilność zużycia CPU (odchylenie stand.)", "sort_ascending": True},
-        "memory": {"name": "Stabilność zużycia pamięci (odchylenie stand.)", "sort_ascending": True},
-        "latency": {"name": "Stabilność latencji (odchylenie stand.)", "sort_ascending": True},
+        "cpu": {
+            "name": "Stabilność zużycia CPU (odchylenie stand.)",
+            "sort_ascending": True,
+        },
+        "memory": {
+            "name": "Stabilność zużycia pamięci (odchylenie stand.)",
+            "sort_ascending": True,
+        },
+        "latency": {
+            "name": "Stabilność latencji (odchylenie stand.)",
+            "sort_ascending": True,
+        },
         "network_tx": {
             "name": "Stabilność przepustowości wyjściowej (odchylenie stand.)",
             "sort_ascending": True,

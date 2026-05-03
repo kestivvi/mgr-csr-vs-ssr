@@ -2,7 +2,7 @@ import re
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, List, Dict
+from typing import Any, Dict
 
 from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
@@ -23,11 +23,10 @@ def parse_wrk_output(output: str) -> float:
 
 def wait_for_app_ready(app_path: Path, log_path: Path, progress: Any = None) -> bool:
     """Waits for the app to be reachable via HTTPS."""
-    output = progress.console if progress else console
     max_retries = 15
     delay = 2
 
-    for i in range(max_retries):
+    for _ in range(max_retries):
         rc = run_command(
             ["curl", "-isLk", "https://localhost"],
             cwd=str(app_path),
@@ -38,7 +37,7 @@ def wait_for_app_ready(app_path: Path, log_path: Path, progress: Any = None) -> 
             content = log_path.read_text()
             if "200 OK" in content or "HTTP/2 200" in content or "HTTP/1.1 200" in content:
                 return True
-        
+
         time.sleep(delay)
     return False
 
@@ -84,13 +83,13 @@ def run_capacity_local_wrk(app_filter: str | None = None, num_runs: int = 1) -> 
 
             for app_path in apps:
                 app_name = app_path.name
-                
+
                 app_result: Dict[str, Any] = {
                     "App": app_name,
                     "Status": "FAIL",
                     "RPS_Avg": 0.0,
                 }
-                
+
                 build_log = run_log_dir / f"{app_name}-build.txt"
                 run_log = run_log_dir / f"{app_name}-run.txt"
                 benchmark_log = run_log_dir / f"{app_name}-wrk.txt"
@@ -98,33 +97,64 @@ def run_capacity_local_wrk(app_filter: str | None = None, num_runs: int = 1) -> 
                 try:
                     # Build
                     progress.update(task, description=f"[cyan]Building [bold]{app_name}[/bold]...")
-                    rc = run_command(["docker-compose", "build"], cwd=str(app_path), log_path=build_log, quiet=True)
-                    
+                    rc = run_command(
+                        ["docker-compose", "build"],
+                        cwd=str(app_path),
+                        log_path=build_log,
+                        quiet=True,
+                    )
+
                     if rc == 0:
                         # Up
-                        progress.update(task, description=f"[cyan]Starting [bold]{app_name}[/bold]...")
-                        rc = run_command(["docker-compose", "up", "-d", "--force-recreate"], cwd=str(app_path), log_path=run_log, quiet=True)
-                        
+                        progress.update(
+                            task, description=f"[cyan]Starting [bold]{app_name}[/bold]..."
+                        )
+                        rc = run_command(
+                            ["docker-compose", "up", "-d", "--force-recreate"],
+                            cwd=str(app_path),
+                            log_path=run_log,
+                            quiet=True,
+                        )
+
                         if rc == 0:
                             # Wait for ready
                             if wait_for_app_ready(app_path, run_log, progress):
                                 rps_values = []
-                                
+
                                 # Warmup
-                                progress.update(task, description=f"[cyan]Warmup (10s) [bold]{app_name}[/bold]...")
-                                run_command(["wrk", "-t2", "-c100", "-d10s", "https://localhost"], cwd=str(app_path), log_path=benchmark_log, quiet=True)
-                                
+                                progress.update(
+                                    task,
+                                    description=f"[cyan]Warmup (10s) [bold]{app_name}[/bold]...",
+                                )
+                                run_command(
+                                    ["wrk", "-t2", "-c100", "-d10s", "https://localhost"],
+                                    cwd=str(app_path),
+                                    log_path=benchmark_log,
+                                    quiet=True,
+                                )
+
                                 # N Runs
                                 for i in range(1, num_runs + 1):
-                                    progress.update(task, description=f"[cyan]Test Run {i}/{num_runs} (10s) [bold]{app_name}[/bold]...")
-                                    
+                                    progress.update(
+                                        task,
+                                        description=(
+                                            f"[cyan]Test Run {i}/{num_runs} (10s) "
+                                            f"[bold]{app_name}[/bold]..."
+                                        ),
+                                    )
+
                                     # We use a temporary file for each run to parse it accurately
                                     run_tmp_log = run_log_dir / f"{app_name}-wrk-run-{i}.txt"
-                                    run_command(["wrk", "-t2", "-c100", "-d10s", "https://localhost"], cwd=str(app_path), log_path=run_tmp_log, quiet=True)
-                                    
+                                    run_command(
+                                        ["wrk", "-t2", "-c100", "-d10s", "https://localhost"],
+                                        cwd=str(app_path),
+                                        log_path=run_tmp_log,
+                                        quiet=True,
+                                    )
+
                                     rps = parse_wrk_output(run_tmp_log.read_text())
                                     rps_values.append(rps)
-                                    
+
                                     # Append to main benchmark log
                                     with open(benchmark_log, "a") as f:
                                         f.write(f"\n--- RUN {i} ---\n")
@@ -134,12 +164,19 @@ def run_capacity_local_wrk(app_filter: str | None = None, num_runs: int = 1) -> 
                                     avg_rps = sum(rps_values) / len(rps_values)
                                     app_result["RPS_Avg"] = avg_rps
                                     app_result["Status"] = "PASS"
-                                    progress.console.print(f"[bold green]✓ {app_name}: {avg_rps:.2f} req/s (avg of {num_runs})[/bold green]")
+                                    progress.console.print(
+                                        f"[bold green]✓ {app_name}: {avg_rps:.2f} req/s "
+                                        f"(avg of {num_runs})[/bold green]"
+                                    )
                             else:
-                                progress.console.print(f"[bold red]✗ {app_name} failed to become ready.[/bold red]")
+                                progress.console.print(
+                                    f"[bold red]✗ {app_name} failed to become ready.[/bold red]"
+                                )
                 finally:
                     # Always try to Down
-                    run_command(["docker-compose", "down"], cwd=str(app_path), log_path=run_log, quiet=True)
+                    run_command(
+                        ["docker-compose", "down"], cwd=str(app_path), log_path=run_log, quiet=True
+                    )
 
                 results.append(app_result)
                 progress.advance(task)
@@ -150,24 +187,22 @@ def run_capacity_local_wrk(app_filter: str | None = None, num_runs: int = 1) -> 
     # 4. Generate report
     if results:
         from tabulate import tabulate
-        
+
         # Sort results by RPS_Avg descending
         results.sort(key=lambda x: x["RPS_Avg"], reverse=True)
 
         # Format RPS for display
         display_results = []
         for r in results:
-            display_results.append({
-                "App": r["App"],
-                "Status": r["Status"],
-                "RPS Avg": f"{r['RPS_Avg']:.2f}"
-            })
+            display_results.append(
+                {"App": r["App"], "Status": r["Status"], "RPS Avg": f"{r['RPS_Avg']:.2f}"}
+            )
 
         summary_table = tabulate(display_results, headers="keys", tablefmt="github")
         results_file = run_log_dir / "results.md"
         with open(results_file, "w") as f:
             f.write(f"# Local Capacity Benchmark Results (wrk) - {timestamp}\n\n")
-            f.write(f"Parameters: `-t2 -c100 -d10s`\n")
+            f.write("Parameters: `-t2 -c100 -d10s`\n")
             f.write(f"Runs per app: {num_runs}\n\n")
             f.write(summary_table)
             f.write("\n")
