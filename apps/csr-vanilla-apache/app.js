@@ -1,6 +1,7 @@
 // Simple SPA Router - following KISS principle
 class SimpleRouter {
     constructor() {
+        this.count = 0;
         this.init();
     }
 
@@ -21,17 +22,22 @@ class SimpleRouter {
         if (dynamicMatch) {
             const name = dynamicMatch[1];
             app.innerHTML = this.renderDynamic(name);
-            return;
+        } else {
+            // Default to home page
+            app.innerHTML = this.renderHome();
         }
         
-        // Default to home page
-        app.innerHTML = this.renderHome();
+        this.bindEvents();
     }
 
     renderHome() {
         return `
             <div>
                 <h1>Hello World</h1>
+                <div>
+                    <p>Count: <span id="counter-value">${this.count}</span></p>
+                    <button id="counter-button">Increment</button>
+                </div>
             </div>
         `;
     }
@@ -41,8 +47,25 @@ class SimpleRouter {
             <div>
                 <h1>Hello World</h1>
                 <p>Dynamic ID: ${name}</p>
+                <div>
+                    <p>Count: <span id="counter-value">${this.count}</span></p>
+                    <button id="counter-button">Increment</button>
+                </div>
             </div>
         `;
+    }
+
+    bindEvents() {
+        const button = document.getElementById('counter-button');
+        if (button) {
+            button.onclick = () => {
+                this.count++;
+                const valueDisplay = document.getElementById('counter-value');
+                if (valueDisplay) {
+                    valueDisplay.innerText = this.count;
+                }
+            };
+        }
     }
 
 }

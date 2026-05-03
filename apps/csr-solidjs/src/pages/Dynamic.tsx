@@ -1,14 +1,19 @@
-import type { Component } from 'solid-js';
+import { createSignal, type Component } from 'solid-js';
 import { useParams } from '@solidjs/router';
 
 const Dynamic: Component = () => {
-  const params = useParams<{ name: string }>();
+  const params = useParams();
+  const [count, setCount] = createSignal(0);
 
   return (
-    <div>
+    <main>
       <h1>Hello World</h1>
       <p>Dynamic ID: {params.name}</p>
-    </div>
+      <div>
+        <p>Count: {count()}</p>
+        <button onClick={() => setCount(count() + 1)}>Increment</button>
+      </div>
+    </main>
   );
 };
 

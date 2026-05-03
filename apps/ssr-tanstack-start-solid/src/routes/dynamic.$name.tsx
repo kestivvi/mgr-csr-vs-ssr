@@ -1,15 +1,22 @@
-import { createFileRoute } from '@tanstack/solid-router'
+import { createSignal } from 'solid-js';
+import { createFileRoute } from '@tanstack/solid-router';
 
 export const Route = createFileRoute('/dynamic/$name')({
-  component: DynamicComponent,
-})
+  component: Dynamic,
+});
 
-function DynamicComponent() {
-  const params = Route.useParams()
+function Dynamic() {
+  const params = Route.useParams();
+  const [count, setCount] = createSignal(0);
+
   return (
-    <div>
+    <main>
       <h1>Hello World</h1>
-      <p>Dynamic ID: {params().name}</p>
-    </div>
-  )
+      <p>Dynamic ID: {params.name}</p>
+      <div>
+        <p>Count: {count()}</p>
+        <button onClick={() => setCount(count() + 1)}>Increment</button>
+      </div>
+    </main>
+  );
 }
