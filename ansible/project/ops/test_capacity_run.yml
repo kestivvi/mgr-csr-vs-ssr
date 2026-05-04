@@ -75,60 +75,65 @@
         dest: "{{ remote_state_file }}"
         mode: "0644"
 
-    - name: Run k6 capacity test synchronously
-      # noqa: command-instead-of-shell
-      ansible.builtin.shell:
-        cmd: >-
-          docker run --rm
-          --name {{ container_name }}
-          --network host
-          --ulimit nofile=250000:250000
-          --volume {{ remote_temp_script_path }}:/test/script.js:ro,z
-          -e K6_SCENARIO="capacity_test"
-          -e SERVER_TYPE="{{ server_type | upper }}"
-          -e TARGET_URL="{{ target_url }}"
-          -e K6_TEST_PATH="{{ k6_path_type }}"
-          -e K6_PROMETHEUS_RW_SERVER_URL="{{ prometheus_url }}/api/v1/write"
-          -e K6_PROMETHEUS_RW_TREND_AS_NATIVE_HISTOGRAM="true"
-          -e K6_LOG_OUTPUT="stdout"
-          -e TIMEOUT="{{ k6_request_timeout }}"
-          -e K6_BACKOFF_TIMEOUT_S="{{ k6_backoff_timeout_s | default(omit) }}"
-          -e K6_BACKOFF_5XX_S="{{ k6_backoff_5xx_s | default(omit) }}"
-          -e CAPACITY_WARMUP_DURATION="{{ capacity_warmup }}"
-          -e CAPACITY_START_RATE="{{ capacity_start_rate }}"
-          -e CAPACITY_PEAK_RATE="{{ capacity_peak_rate }}"
-          -e CAPACITY_RAMP_UP_DURATION="{{ capacity_ramp_up }}"
-          -e CAPACITY_PEAK_RATE_2="{{ capacity_peak_rate_2 | default(0) }}"
-          -e CAPACITY_RAMP_UP_DURATION_2="{{ capacity_ramp_up_2 | default('0s') }}"
-          -e CAPACITY_SUSTAIN_DURATION="{{ capacity_sustain }}"
-          -e CAPACITY_RAMP_DOWN_DURATION="{{ capacity_ramp_down }}"
-          -e MAX_VUS="{{ max_vus }}"
-          grafana/k6:latest
-          run
-          --insecure-skip-tls-verify
-          --out experimental-prometheus-rw
-          --tag "server={{ server_type | upper }}"
-          /test/script.js
-          > /tmp/k6.log 2>&1
-      register: k6_run_result
-      changed_when: true
-      timeout: "{{ k6_timeout_seconds | int }}"
+    - name: Run k6 test and fetch logs
+      block:
+        - name: Run k6 capacity test synchronously
+          # noqa: command-instead-of-shell
+          ansible.builtin.shell:
+            cmd: >-
+              docker run --rm
+              --name {{ container_name }}
+              --network host
+              --ulimit nofile=250000:250000
+              --volume {{ remote_temp_script_path }}:/test/script.js:ro,z
+              -e K6_SCENARIO="capacity_test"
+              -e SERVER_TYPE="{{ server_type | upper }}"
+              -e TARGET_URL="{{ target_url }}"
+              -e K6_TEST_PATH="{{ k6_path_type }}"
+              -e K6_PROMETHEUS_RW_SERVER_URL="{{ prometheus_url }}/api/v1/write"
+              -e K6_PROMETHEUS_RW_TREND_AS_NATIVE_HISTOGRAM="true"
+              -e K6_LOG_OUTPUT="stdout"
+              -e TIMEOUT="{{ k6_request_timeout }}"
+              -e K6_BACKOFF_TIMEOUT_S="{{ k6_backoff_timeout_s | default(omit) }}"
+              -e K6_BACKOFF_5XX_S="{{ k6_backoff_5xx_s | default(omit) }}"
+              -e CAPACITY_WARMUP_DURATION="{{ capacity_warmup }}"
+              -e CAPACITY_START_RATE="{{ capacity_start_rate }}"
+              -e CAPACITY_PEAK_RATE="{{ capacity_peak_rate }}"
+              -e CAPACITY_RAMP_UP_DURATION="{{ capacity_ramp_up }}"
+              -e CAPACITY_PEAK_RATE_2="{{ capacity_peak_rate_2 | default(0) }}"
+              -e CAPACITY_RAMP_UP_DURATION_2="{{ capacity_ramp_up_2 | default('0s') }}"
+              -e CAPACITY_SUSTAIN_DURATION="{{ capacity_sustain }}"
+              -e CAPACITY_RAMP_DOWN_DURATION="{{ capacity_ramp_down }}"
+              -e MAX_VUS="{{ max_vus }}"
+              grafana/k6:latest
+              run
+              --insecure-skip-tls-verify
+              --out experimental-prometheus-rw
+              --tag "server={{ server_type | upper }}"
+              /test/script.js
+              > /tmp/k6.log 2>&1
+          register: k6_run_result
+          changed_when: true
+          timeout: "{{ k6_timeout_seconds | int }}"
+      always:
+        - name: Get end timestamp on remote host
+          ansible.builtin.command: "date +%s"
+          register: end_timestamp_result
+          changed_when: false
+          ignore_errors: true
 
-    - name: Get end timestamp on remote host
-      ansible.builtin.command: "date +%s"
-      register: end_timestamp_result
-      changed_when: false
+        - name: Output precise timestamps for orchestrator
+          ansible.builtin.debug:
+            msg: 'ORCHESTRATOR_TIMESTAMPS::{"start": {{ start_timestamp_result.stdout }}, "end": {{ end_timestamp_result.stdout | default(start_timestamp_result.stdout) }}}'
+          when: start_timestamp_result is defined and start_timestamp_result.stdout is defined
 
-    - name: Output precise timestamps for orchestrator
-      ansible.builtin.debug:
-        msg: 'ORCHESTRATOR_TIMESTAMPS::{"start": {{ start_timestamp_result.stdout }}, "end": {{ end_timestamp_result.stdout }}}'
-
-    - name: Fetch k6 logs
-      ansible.builtin.fetch:
-        src: /tmp/k6.log
-        dest: "{{ k6_log_path }}"
-        flat: yes
-      when: k6_log_path is defined
+        - name: Fetch k6 logs
+          ansible.builtin.fetch:
+            src: /tmp/k6.log
+            dest: "{{ k6_log_path }}"
+            flat: yes
+          when: k6_log_path is defined
+          ignore_errors: true
 
     - name: (NEW) Clean up the remote state file on successful completion
       ansible.builtin.file:

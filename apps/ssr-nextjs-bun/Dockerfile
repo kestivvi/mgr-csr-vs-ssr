@@ -1,5 +1,5 @@
 # Stage 1: Build the application with Bun
-FROM oven/bun:1.3.13-alpine AS builder
+FROM oven/bun:1.3.13-slim AS builder
 WORKDIR /app
 
 # Copy lock files to leverage layer caching
@@ -13,14 +13,17 @@ COPY . .
 RUN bun --bun run build
 
 # Stage 2: Production image (Runtime)
-FROM oven/bun:1.3.13-alpine AS runner
+FROM oven/bun:1.3.13-slim AS runner
 WORKDIR /app
 
 # Set production environment and disable telemetry
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=3000 \
-    HOSTNAME=0.0.0.0
+    HOSTNAME=0.0.0.0 \
+    BUN_JSC_forceRAMSize=1610612736 \
+    BUN_GARBAGE_COLLECTOR_LEVEL=1 \
+    BUN_METRICS_SINK=0
 
 # Copy standalone build and assets
 COPY --from=builder /app/.next/standalone ./

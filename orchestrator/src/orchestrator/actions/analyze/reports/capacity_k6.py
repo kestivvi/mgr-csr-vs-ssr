@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING, Optional
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
-from matplotlib.patches import Rectangle
 
+from matplotlib.patches import Patch
 from ..config import PLOT_PALETTE
 from ..utils.reporting import write_report
 
@@ -15,10 +15,10 @@ if TYPE_CHECKING:
 
 
 def run_capacity_k6_analysis(analyzer: PerformanceAnalyzer) -> None:
-    summary = compute_capacity_metrics(analyzer)
-    if summary is not None:
-        generate_capacity_plots(analyzer, summary)
-        content = generate_capacity_report(analyzer, summary)
+    raw_results = compute_capacity_metrics(analyzer)
+    if raw_results is not None:
+        generate_capacity_plots(analyzer, raw_results)
+        content = generate_capacity_report(analyzer, raw_results)
         write_report(analyzer, content)
 
 
@@ -54,12 +54,10 @@ def compute_capacity_metrics(analyzer: PerformanceAnalyzer) -> Optional[pd.DataF
             }
         )
 
-    return (
-        pd.DataFrame(results).groupby("server_type").mean().drop(columns="run_number").reset_index()
-    )
+    return pd.DataFrame(results)
 
 
-def generate_capacity_plots(analyzer: PerformanceAnalyzer, summary: pd.DataFrame) -> None:
+def generate_capacity_plots(analyzer: PerformanceAnalyzer, raw_results: pd.DataFrame) -> None:
     # 1. Timeseries Plots
     metrics_to_plot = {
         "k6_successful_html_reqs_rate": "successful_throughput_rps_timeseries",
@@ -86,22 +84,25 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, summary: pd.DataFrame
         plt.savefig(analyzer.plots_dir / f"{filename}.png")
         plt.close()
 
-    # 2. Comparison Bar Charts (from summary)
-    if summary.empty:
+    # 2. Comparison Bar Charts
+    if raw_results.empty:
         return
 
     # Map server_type to group for coloring
     tech_to_group = {
         tech.lower(): group for group, techs in analyzer.groups_config.items() for tech in techs
     }
-    summary["group"] = summary["server_type"].str.lower().map(tech_to_group).fillna("Uncategorized")
-    summary["display_name"] = summary["server_type"].str.replace(r"^(csr|ssr)-", "", regex=True)
+
+    # Work on a copy for plotting
+    plot_df = raw_results.copy()
+    plot_df["group"] = plot_df["server_type"].str.lower().map(tech_to_group).fillna("Uncategorized")
+    plot_df["display_name"] = plot_df["server_type"].str.replace(r"^(csr|ssr)-", "", regex=True)
 
     # Handle duplicate names by adding group suffix
-    name_counts = summary["display_name"].value_counts()
+    name_counts = plot_df.groupby("display_name")["group"].nunique()
     duplicate_names = name_counts[name_counts > 1].index
-    summary.loc[summary["display_name"].isin(duplicate_names), "display_name"] += (
-        " (" + summary["group"] + ")"
+    plot_df.loc[plot_df["display_name"].isin(duplicate_names), "display_name"] += (
+        " (" + plot_df["group"] + ")"
     )
 
     comparisons = {
@@ -110,74 +111,205 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, summary: pd.DataFrame
         "ram_at_sustained": "capacity_ram_at_sustained_usage.png",
     }
     titles = {
-        "sustained_rps": "Maksymalna utrzymana przepustowość (utrzymany / szczytowy RPS)",
+        "sustained_rps": "Maksymalna utrzymana przepustowość (utrzymany RPS)",
         "cpu_at_sustained": "Zużycie CPU przy utrzymanej przepustowości (%)",
         "ram_at_sustained": "Zużycie pamięci przy utrzymanej przepustowości (MB)",
     }
 
     for col, filename in comparisons.items():
-        if col not in summary.columns:
+        if col not in plot_df.columns:
             continue
-        plt.figure(figsize=(12, 8))
-        # Sort by value for better comparison
-        sorted_summary = summary.sort_values(col, ascending=False)
+        plt.figure(figsize=(12, 10))
+        ax = plt.gca()
 
-        sns.barplot(
-            data=sorted_summary,
-            y="display_name",
-            x=col,
-            hue="group",
-            palette=PLOT_PALETTE,
-            dodge=False,
-        )
+        if col == "sustained_rps":
+            # Grouped bar chart for RPS (Peak vs Sustained)
+            rps_df = plot_df.melt(
+                id_vars=["display_name", "group", "run_number"],
+                value_vars=["sustained_rps", "peak_rps"],
+                var_name="metric_type",
+                value_name="rps"
+            )
+            rps_df["metric_type"] = rps_df["metric_type"].map({
+                "peak_rps": "Szczytowy",
+                "sustained_rps": "Utrzymany"
+            })
+            
+            # Sort by Peak mean
+            order = plot_df.groupby("display_name")["peak_rps"].mean().sort_values(ascending=False).index
+
+            sns.barplot(
+                data=rps_df,
+                y="display_name",
+                x="rps",
+                hue="metric_type",
+                hue_order=["Szczytowy", "Utrzymany"],
+                order=order,
+                palette={"Szczytowy": "#4C72B0", "Utrzymany": "#A0C4FF"},
+                capsize=0.1,
+                alpha=0.8,
+                ax=ax
+            )
+            sns.stripplot(
+                data=rps_df,
+                y="display_name",
+                x="rps",
+                hue="metric_type",
+                hue_order=["Szczytowy", "Utrzymany"],
+                palette={"Szczytowy": "#222222", "Utrzymany": "#222222"},
+                order=order,
+                size=3,
+                alpha=0.4,
+                dodge=True,
+                jitter=True,
+                legend=False,
+                ax=ax
+            )
+            
+            # Add value labels for both bars in the group
+            for i, name in enumerate(order):
+                for j, m_type in enumerate(["Szczytowy", "Utrzymany"]):
+                    m_key = "peak_rps" if j == 0 else "sustained_rps"
+                    subset = plot_df[plot_df["display_name"] == name][m_key]
+                    m = subset.mean()
+                    s = subset.std() if len(subset) > 1 else 0
+                    
+                    # Offset y position for grouped bars (default width is 0.8, so offset is 0.2)
+                    y_pos = i - 0.2 if j == 0 else i + 0.2
+                    extent = max(m + s, subset.max())
+                    
+                    label_text = f"{m:.0f} (±{s:.1f})"
+                    ax.annotate(
+                        label_text,
+                        (extent, y_pos),
+                        ha="left",
+                        va="center",
+                        xytext=(8, 0),
+                        textcoords="offset points",
+                        fontsize=8,
+                        color="#222222"
+                    )
+            # Manual coloring for SSR (Red) and CSR (Blue)
+            n_techs = len(order)
+            for i, patch in enumerate(ax.patches):
+                if i >= 2 * n_techs:
+                    break
+                tech_idx = i % n_techs
+                is_sustained = i >= n_techs
+                tech_name = order[tech_idx]
+                group = plot_df[plot_df["display_name"] == tech_name]["group"].iloc[0].lower()
+                
+                if group == "ssr":
+                    color = "#d62728" if not is_sustained else "#ff9f9b"
+                else:
+                    color = "#1f77b4" if not is_sustained else "#a1c9f4"
+                patch.set_facecolor(color)
+                patch.set_edgecolor("white")
+            
+            # Custom legend for the complex color scheme
+            legend_elements = [
+                Patch(facecolor='#d62728', label='SSR - Szczytowy'),
+                Patch(facecolor='#ff9f9b', label='SSR - Utrzymany'),
+                Patch(facecolor='#1f77b4', label='CSR - Szczytowy'),
+                Patch(facecolor='#a1c9f4', label='CSR - Utrzymany')
+            ]
+            plt.legend(handles=legend_elements, title="Technologia i typ RPS", loc="lower right", fontsize=8)
+        else:
+            # Standard bar chart for CPU/RAM
+            order = plot_df.groupby("display_name")[col].mean().sort_values(ascending=False).index
+            sns.barplot(
+                data=plot_df,
+                y="display_name",
+                x=col,
+                hue="group",
+                order=order,
+                palette=PLOT_PALETTE,
+                dodge=False,
+                errorbar="sd",
+                capsize=0.1,
+                alpha=0.8,
+                ax=ax
+            )
+            sns.stripplot(
+                data=plot_df,
+                y="display_name",
+                x=col,
+                color="#333333",
+                order=order,
+                size=4,
+                alpha=0.6,
+                dodge=False,
+                jitter=True,
+                ax=ax
+            )
+
+            # Add labels for single bars
+            means = plot_df.groupby("display_name")[col].mean()
+            stds = plot_df.groupby("display_name")[col].std().fillna(0)
+            for i, name in enumerate(order):
+                m, s = means[name], stds[name]
+                group_data = plot_df[plot_df["display_name"] == name][col]
+                extent = max(m + s, group_data.max())
+                label_text = f"{m:.1f} (±{s:.2f})" if s > 0 else f"{m:.1f}"
+                ax.annotate(
+                    label_text,
+                    (extent, i),
+                    ha="left",
+                    va="center",
+                    xytext=(8, 0),
+                    textcoords="offset points",
+                    fontsize=9,
+                )
+            plt.legend(title="Grupa", loc="lower right")
 
         plt.title(titles[col])
         plt.xlabel(titles[col].split("(")[-1].replace(")", ""))
         plt.ylabel("")
 
         # Color y-axis labels by group
-        ax = plt.gca()
         for label in ax.get_yticklabels():
             name = label.get_text()
-            # Find original tech name to get group
-            match = sorted_summary[sorted_summary["display_name"] == name]
+            match = plot_df[plot_df["display_name"] == name]
             if not match.empty:
                 group = match["group"].iloc[0]
                 label.set_color(PLOT_PALETTE.get(group, "black"))
                 label.set_fontweight("bold")
 
-        # Add value labels to bars
-        for i, p in enumerate(ax.patches):
-            if not isinstance(p, Rectangle):
-                continue
-            width = p.get_width()
-            if width <= 0:
-                continue
-
-            if col == "sustained_rps":
-                # Get the corresponding peak_rps
-                peak = sorted_summary.iloc[i]["peak_rps"]
-                sust = sorted_summary.iloc[i]["sustained_rps"]
-                label_text = f"{sust:.0f} / {peak:.0f}"
-            else:
-                label_text = f"{width:.1f}"
-
-            ax.annotate(
-                label_text,
-                (width, p.get_y() + p.get_height() / 2),
-                ha="left",
-                va="center",
-                xytext=(5, 0),
-                textcoords="offset points",
-                fontsize=9,
-            )
-
-        plt.legend(title="Grupa", loc="lower right")
         plt.tight_layout()
         plt.savefig(analyzer.plots_dir / filename)
         plt.close()
 
 
-def generate_capacity_report(analyzer: PerformanceAnalyzer, summary: pd.DataFrame) -> str:
-    report = [f"# Capacity Report for `{analyzer.input_dir.name}`", summary.to_markdown()]
+def generate_capacity_report(analyzer: PerformanceAnalyzer, raw_results: pd.DataFrame) -> str:
+    summary = raw_results.groupby("server_type").agg({
+        "sustained_rps": ["mean", "std"],
+        "peak_rps": ["mean", "std"],
+        "cpu_at_sustained": ["mean", "std"],
+        "ram_at_sustained": ["mean", "std"]
+    })
+
+    # Flatten multi-index columns
+    summary.columns = [f"{col}_{stat}" for col, stat in summary.columns]
+    summary = summary.reset_index()
+
+    # Create a user-friendly table
+    rows = []
+    for _, row in summary.iterrows():
+        cpu_val = f"{row['cpu_at_sustained_mean']:.1f} (±{row['cpu_at_sustained_std']:.2f})"
+        ram_val = f"{row['ram_at_sustained_mean']:.1f} (±{row['ram_at_sustained_std']:.2f})"
+        rows.append({
+            "Technologia": row["server_type"],
+            "Utrzymany RPS": f"{row['sustained_rps_mean']:.1f} (±{row['sustained_rps_std']:.2f})",
+            "Szczytowy RPS": f"{row['peak_rps_mean']:.1f} (±{row['peak_rps_std']:.2f})",
+            "CPU @ Sustained (%)": cpu_val,
+            "RAM @ Sustained (MB)": ram_val
+        })
+
+    report = [
+        f"# Capacity Report for `{analyzer.input_dir.name}`",
+        "\n### Podsumowanie wyników zagregowanych",
+        pd.DataFrame(rows).to_markdown(index=False),
+        "\n*Wartości w nawiasach oznaczają odchylenie standardowe "
+        "(standard deviation) z wielu prób.*"
+    ]
     return "\n".join(report)

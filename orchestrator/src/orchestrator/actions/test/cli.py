@@ -8,6 +8,7 @@ def run(
     mode: str,
     path: Optional[str] = None,
     num_runs: Optional[int] = None,
+    inter_run_delay: Optional[str] = None,
     duration: Optional[str] = None,
     warmup: Optional[str] = None,
     after: Optional[str] = None,
@@ -27,6 +28,8 @@ def run(
     overrides: Dict[str, Any] = {}
     if num_runs is not None:
         overrides["num_runs"] = num_runs
+    if inter_run_delay is not None:
+        overrides["inter_run_delay"] = inter_run_delay
     if duration is not None:
         overrides["duration"] = duration
     if warmup is not None:

@@ -38,6 +38,7 @@ class CapacityWrkOptions(BaseModel):
 class ExperimentConfig(BaseModel):
     test_type: str = Field(..., description="load, capacity_k6, or capacity_wrk")
     num_runs: int = 1
+    inter_run_delay: str = "1m"
     load_options: Optional[LoadOptions] = None
     capacity_k6_options: Optional[CapacityK6Options] = None
     capacity_wrk_options: Optional[CapacityWrkOptions] = None

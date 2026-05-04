@@ -1,11 +1,12 @@
 test_type: capacity_k6
-num_runs: 1
+num_runs: 3
+inter_run_delay: 1m
 
 capacity_k6_options:
   peak_rate: 1000
-  ramp_up: 10m
+  ramp_up: 3m
   peak_rate_2: 10000
-  ramp_up_2: 10m
+  ramp_up_2: 3m
   sustain: 1m
   ramp_down: 1m
   start_rate: 1

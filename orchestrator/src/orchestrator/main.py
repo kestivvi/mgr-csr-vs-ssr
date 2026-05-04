@@ -42,6 +42,15 @@ def test_load(
     num_runs: Annotated[
         int, typer.Option("--num-runs", help="Number of runs", show_default=True)
     ] = 1,
+    inter_run_delay: Annotated[
+        str,
+        typer.Option(
+            "--inter-run-delay",
+            "--delay",
+            help="Break duration between runs (e.g. 1m, 30s)",
+            show_default=True,
+        ),
+    ] = "1m",
     duration: Annotated[
         str, typer.Option("--duration", help="Test (middle) duration", show_default=True)
     ] = "1m",
@@ -62,6 +71,7 @@ def test_load(
     test_cli.run(
         mode="load",
         num_runs=num_runs,
+        inter_run_delay=inter_run_delay,
         duration=duration,
         warmup=warmup,
         after=after,
@@ -75,6 +85,15 @@ def test_capacity(
     num_runs: Annotated[
         int, typer.Option("--num-runs", help="Number of runs", show_default=True)
     ] = 1,
+    inter_run_delay: Annotated[
+        str,
+        typer.Option(
+            "--inter-run-delay",
+            "--delay",
+            help="Break duration between runs (e.g. 1m, 30s)",
+            show_default=True,
+        ),
+    ] = "1m",
     peak_rate: Annotated[
         int, typer.Option("--peak-rate", help="Target RPS at peak", show_default=True)
     ] = 1000,
@@ -103,6 +122,7 @@ def test_capacity(
     test_cli.run(
         mode="capacity",
         num_runs=num_runs,
+        inter_run_delay=inter_run_delay,
         peak_rate=peak_rate,
         ramp_up=ramp_up,
         sustain=sustain,
@@ -118,6 +138,14 @@ def test_file(
     path: Annotated[str, typer.Argument(help="Path to custom experiment config")],
     num_runs: Annotated[
         Optional[int], typer.Option("--num-runs", help="Override number of runs")
+    ] = None,
+    inter_run_delay: Annotated[
+        Optional[str],
+        typer.Option(
+            "--inter-run-delay",
+            "--delay",
+            help="Override break duration between runs (e.g. 1m, 30s)",
+        ),
     ] = None,
     duration: Annotated[Optional[str], typer.Option("--duration", help="Override duration")] = None,
     warmup: Annotated[Optional[str], typer.Option("--warmup", help="Override warmup")] = None,
@@ -137,6 +165,7 @@ def test_file(
         mode="file",
         path=path,
         num_runs=num_runs,
+        inter_run_delay=inter_run_delay,
         duration=duration,
         warmup=warmup,
         after=after,

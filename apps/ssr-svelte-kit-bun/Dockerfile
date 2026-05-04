@@ -1,5 +1,5 @@
 # Stage 1: Build the SvelteKit application with Bun
-FROM oven/bun:1.3.13-alpine AS builder
+FROM oven/bun:1.3.13-slim AS builder
 WORKDIR /app
 
 # Copy lock files to leverage layer caching
@@ -11,7 +11,7 @@ COPY . .
 RUN bun run --bun build
 
 # Stage 2: Run the application (Production Runtime)
-FROM oven/bun:1.3.13-alpine AS runner
+FROM oven/bun:1.3.13-slim AS runner
 WORKDIR /app
 
 # Set production environment

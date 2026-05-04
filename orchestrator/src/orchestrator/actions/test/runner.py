@@ -1,6 +1,7 @@
 import datetime
 import json
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import Manager
 from pathlib import Path
@@ -69,8 +70,8 @@ class TestRunner:
             for key, value in overrides.items():
                 if value is not None:
                     console.print(f"[bold yellow]Override:[/bold yellow] Setting {key} to {value}")
-                    if key == "num_runs":
-                        raw_config["num_runs"] = value
+                    if key in ["num_runs", "inter_run_delay"]:
+                        raw_config[key] = value
                     else:
                         # Auto-detect which options block to update
                         for opt_key in [
@@ -211,6 +212,7 @@ class TestRunner:
                 timestamps["end"] = timestamps["start"] + measurement_window["duration"]
 
         # Save log file (Note: For k6, logs are now fetched directly by the playbook to avoid OOM)
+        log_path = None
         if tool == "wrk":
             log_filename = f"{run_prefix}_{scenario_name.lower().replace('-', '_')}.log"
             log_path = self.logs_dir / log_filename
@@ -223,7 +225,8 @@ class TestRunner:
                 f"Status: {r.status}, Timestamps: {bool(timestamps)}"
             )
             console.print(msg)
-            console.print(f"[dim yellow]Full log saved to:[/dim yellow] {log_path}")
+            if log_path:
+                console.print(f"[dim yellow]Full log saved to:[/dim yellow] {log_path}")
             if not timestamps:
                 console.print(f"[dim yellow]Raw Output Snippet:[/dim yellow]\n{output[-500:]}")
             # Run teardown
@@ -310,6 +313,15 @@ class TestRunner:
                         with open(res_path, "w") as out_file:
                             json.dump(res["wrk_results"], out_file, indent=2)
                         console.print(f"[green]Saved wrk results to {res_path}[/green]")
+
+                if run < self.num_runs:
+                    delay_sec = parse_duration_to_seconds(self.config.inter_run_delay)
+                    console.print(
+                        f"\n[bold yellow]Wait period:[/bold yellow] "
+                        f"Sleeping for {self.config.inter_run_delay} ({delay_sec}s) "
+                        "before next run..."
+                    )
+                    time.sleep(delay_sec)
 
             # 3. Save metadata for analyzer
             metadata = {
