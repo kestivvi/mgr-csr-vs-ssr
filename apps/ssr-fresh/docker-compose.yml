@@ -1,0 +1,32 @@
+services:
+  fresh-app:
+    build:
+      context: .
+      target: runner
+    image: ssr-fresh-app
+    restart: unless-stopped
+    networks:
+      - app-net
+    deploy:
+      resources:
+        limits:
+          memory: 1536M
+
+  nginx:
+    build:
+      context: .
+      target: nginx
+    image: ssr-fresh-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8060:8060"
+    depends_on:
+      - fresh-app
+    networks:
+      - app-net
+
+networks:
+  app-net:
+    driver: bridge

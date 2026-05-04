@@ -1,7 +1,7 @@
 import './globals.css'
 
 export const metadata = {
-  title: 'Next.js',
+  title: 'MGR - Next.js',
 };
 
 
@@ -11,7 +11,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html>
+    <html lang="pl">
       <body>{children}</body>
     </html>
   );
