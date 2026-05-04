@@ -7,8 +7,8 @@ export default function App({ Component }: PageProps) {
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>MGR - Fresh</title>
-        <link rel="icon" href="/static/favicon.ico" />
-        <link rel="stylesheet" href="/static/styles.css" />
+        <link rel="icon" href="/favicon.ico" />
+        <link rel="stylesheet" href="/styles.css" />
       </head>
       <body>
         <Component />

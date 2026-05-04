@@ -1,0 +1,28 @@
+services:
+  ssr-lit-app:
+    build:
+      context: .
+      target: runner
+    image: ssr-lit-app
+    restart: unless-stopped
+    networks:
+      - app-net
+
+  nginx:
+    build:
+      context: .
+      target: nginx
+    image: ssr-lit-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8060:8060"
+    depends_on:
+      - ssr-lit-app
+    networks:
+      - app-net
+
+networks:
+  app-net:
+    driver: bridge

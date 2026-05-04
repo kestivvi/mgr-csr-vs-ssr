@@ -56,6 +56,11 @@ technologies:
     purpose: "Hosts Vue Client-Side Rendered application"
     app_dir: "apps/csr-vue"
 
+  "CSR-Lit":
+    description: "Application Server (CSR-Lit-Nginx)"
+    purpose: "Hosts Lit Client-Side Rendered application"
+    app_dir: "apps/csr-lit"
+
   ##########################
   # SSR
   ##########################
@@ -118,3 +123,13 @@ technologies:
     description: "Application Server (SSR-Tanstack-Start-Solid)"
     purpose: "Hosts TanStack Start Solid Server-Side Rendered application"
     app_dir: "apps/ssr-tanstack-start-solid"
+
+  "SSR-Fresh":
+    description: "Application Server (SSR-Fresh)"
+    purpose: "Hosts Fresh Server-Side Rendered application"
+    app_dir: "apps/ssr-fresh"
+
+  "SSR-Lit":
+    description: "Application Server (SSR-Lit)"
+    purpose: "Hosts Lit Server-Side Rendered application"
+    app_dir: "apps/ssr-lit"

@@ -47,7 +47,7 @@ All applications use verified Alpine-based images to ensure minimum overhead and
 
 ## 📁 Application Registry
 
-The project currently encompasses **21 implementations** (8 CSR/SSG, 13 SSR):
+The project currently encompasses **23 implementations** (9 CSR/SSG, 14 SSR):
 
 ### SSR (Server-Side Rendering)
 | App Name | Framework | Runtime |
@@ -55,6 +55,7 @@ The project currently encompasses **21 implementations** (8 CSR/SSG, 13 SSR):
 | `ssr-analogjs` | AnalogJS / Angular | Node.js |
 | `ssr-angular` | Angular SSR | Node.js |
 | `ssr-fresh` | Fresh 2.0 / Preact | Deno |
+| `ssr-lit` | Lit | Node.js |
 | `ssr-nextjs` | Next.js / React | Node.js |
 | `ssr-nextjs-bun` | Next.js / React | Bun |
 | `ssr-nuxtjs` | Nuxt / Vue | Node.js |
@@ -70,6 +71,7 @@ The project currently encompasses **21 implementations** (8 CSR/SSG, 13 SSR):
 | App Name | Framework / Type | Server |
 | :--- | :--- | :--- |
 | `csr-angular` | Angular | Nginx |
+| `csr-lit` | Lit | Nginx |
 | `csr-react` | React | Nginx |
 | `csr-solidjs` | SolidJS | Nginx |
 | `csr-solidjs-apache` | SolidJS | Apache |
