@@ -7,7 +7,7 @@ import pandas as pd
 import yaml
 from rich.console import Console
 
-from orchestrator.shared.research import Experiment, ExperimentLoader
+from orchestrator.shared.research import Experiment, ExperimentLoader, ResearchArtifact
 
 from .reports.capacity_k6 import run_capacity_k6_analysis
 from .reports.capacity_wrk import run_capacity_wrk_analysis
@@ -18,10 +18,17 @@ console = Console()
 
 
 class PerformanceAnalyzer:
-    def __init__(self, input_dir: Path, report_type: str, champions: Optional[List[str]] = None):
+    def __init__(
+        self,
+        input_dir: Path,
+        report_type: str,
+        champions: Optional[List[str]] = None,
+        force: bool = False,
+    ):
         self.input_dir = input_dir
         self.report_type = report_type
         self.champions_list = champions or []
+        self.force = force
 
         # Create timestamped output directory
         ts = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -47,6 +54,11 @@ class PerformanceAnalyzer:
 
     def run(self) -> None:
         console.print(f"[bold cyan]Starting analysis for:[/bold cyan] {self.input_dir}")
+        
+        if not self.input_dir.exists():
+            console.print(f"[bold red]Error: Input directory does not exist:[/bold red] {self.input_dir}")
+            return
+            
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.plots_dir.mkdir(parents=True, exist_ok=True)
 
@@ -54,10 +66,23 @@ class PerformanceAnalyzer:
             console.print("[bold red]Analysis aborted: Configuration loading failed.[/bold red]")
             return
 
-        # Use the deep loader
+        # Use the deep Research Artifact
+        artifact = ResearchArtifact(self.input_dir)
+
+        # Consistency Guard (Strict on Export)
+        if not artifact.is_consistent:
+            console.print("[bold yellow]WARNING: Research Artifact is inconsistent.[/bold yellow]")
+            for warning in artifact.warnings:
+                console.print(f"  - {warning}")
+
+            if not self.force:
+                console.print("[bold red]Analysis aborted: Research Contract violated.[/bold red]")
+                console.print("Use --force to analyze inconsistent data.")
+                return
+
         loader = ExperimentLoader(groups_config=self.groups_config)
         try:
-            self.experiment = loader.load(self.input_dir)
+            self.experiment = loader.load(artifact)
             self.raw_df = self.experiment.metrics
             if self.experiment.wrk_results is not None:
                 self.wrk_df = self.experiment.wrk_results

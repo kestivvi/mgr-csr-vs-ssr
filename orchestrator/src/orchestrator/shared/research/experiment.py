@@ -1,12 +1,10 @@
-import glob
 import json
 import re
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
-import yaml
 
+from .artifact import ResearchArtifact
 from .schema import Column, MetricName
 
 
@@ -28,7 +26,7 @@ class Experiment:
 
     @property
     def test_type(self) -> str:
-        return self.metadata.get("test_type", "unknown")
+        return str(self.metadata.get("test_type", "unknown"))
 
 
 class ExperimentLoader:
@@ -42,58 +40,37 @@ class ExperimentLoader:
             tech.lower(): group for group, techs in self.groups_config.items() for tech in techs
         }
 
-    def load(self, path: Path) -> Experiment:
-        path = Path(path)
-        if not path.exists():
-            raise FileNotFoundError(f"Result directory not found: {path}")
-
-        # 1. Load Metadata
-        metadata = self._load_metadata(path)
+    def load(self, artifact: ResearchArtifact) -> Experiment:
+        # 1. Use Metadata from artifact
+        metadata = artifact.metadata
 
         # 2. Load Metrics (Resource utilization)
-        metrics_df = self._load_metrics(path)
+        metrics_df = self._load_metrics(artifact)
 
-        # 3. Load Tool Results (Dirty wrk tests)
-        wrk_df = self._load_wrk_results(path)
+        # 3. Load Tool Results
+        wrk_df = self._load_wrk_results(artifact)
 
         return Experiment(metadata=metadata, metrics=metrics_df, wrk_results=wrk_df)
 
-    def _load_metadata(self, path: Path) -> Dict[str, Any]:
-        meta_path = path / "metadata.yaml"
-        if not meta_path.exists():
-            return {}
-        with open(meta_path, "r") as f:
-            return yaml.safe_load(f)
-
-    def _load_metrics(self, path: Path) -> pd.DataFrame:
-        metrics_dir = path / "metrics"
-        if not metrics_dir.is_dir():
-            return pd.DataFrame()
-
-        all_files = glob.glob(str(metrics_dir / "*.csv"))
-        if not all_files:
+    def _load_metrics(self, artifact: ResearchArtifact) -> pd.DataFrame:
+        runs = artifact.get_runs()
+        if not runs:
             return pd.DataFrame()
 
         all_long_dfs = []
-        filename_regex = re.compile(r"^(\d+)_(.*)$")
-
-        for f in all_files:
-            p = Path(f)
-            match = filename_regex.match(p.stem)
-            if not match:
+        for run in runs:
+            if not run.metrics_path:
                 continue
-            run_num, tech_raw = match.groups()
 
-            wide_df = pd.read_csv(f)
+            wide_df = pd.read_csv(run.metrics_path)
             long_df = pd.melt(
                 wide_df,
                 id_vars=[Column.TIMESTAMP],
                 var_name=Column.METRIC,
                 value_name=Column.VALUE,
             )
-            long_df[Column.RUN_NUMBER] = int(run_num)
-            tech = tech_raw.replace("_", "-")
-            long_df[Column.SERVER_TYPE] = tech
+            long_df[Column.RUN_NUMBER] = run.run_id
+            long_df[Column.SERVER_TYPE] = run.server_type
 
             # Apply Taxonomy
             long_df[Column.GROUP] = (
@@ -131,20 +108,17 @@ class ExperimentLoader:
         df.loc[df[Column.METRIC] == MetricName.NETWORK_TX, Column.VALUE] /= 1024 * 1024
         df.loc[df[Column.METRIC] == MetricName.NETWORK_RX, Column.VALUE] /= 1024 * 1024
 
-    def _load_wrk_results(self, path: Path) -> Optional[pd.DataFrame]:
-        wrk_dir = path / "tool_results"
-        all_files = glob.glob(str(wrk_dir / "*_wrk.json"))
-        if not all_files:
+    def _load_wrk_results(self, artifact: ResearchArtifact) -> Optional[pd.DataFrame]:
+        runs = artifact.get_runs()
+        if not runs:
             return None
 
         records = []
-        for f in all_files:
-            p = Path(f)
-            parts = p.stem.split("_")
-            run_num = int(parts[0])
-            tech = "-".join(parts[1:-1])
+        for run in runs:
+            if not run.results_path:
+                continue
 
-            with open(f, "r") as jf:
+            with open(run.results_path, "r") as jf:
                 res = json.load(jf)
 
                 # Parsing latency strings (e.g. "1.2ms", "500us")
@@ -158,9 +132,11 @@ class ExperimentLoader:
 
                 records.append(
                     {
-                        Column.RUN_NUMBER: run_num,
-                        Column.SERVER_TYPE: tech,
-                        Column.GROUP: self._tech_to_group.get(tech.lower(), "Uncategorized"),
+                        Column.RUN_NUMBER: run.run_id,
+                        Column.SERVER_TYPE: run.server_type,
+                        Column.GROUP: self._tech_to_group.get(
+                            run.server_type.lower(), "Uncategorized"
+                        ),
                         "rps": float(res.get("rps", 0.0)),
                         "latency_ms": lat_val,
                     }

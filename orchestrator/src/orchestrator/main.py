@@ -220,6 +220,12 @@ def analyze(
         Optional[list[str]],
         typer.Option(help="Two technologies to compare for 'champions' report"),
     ] = None,
+    force: Annotated[
+        bool,
+        typer.Option(
+            "--force", help="Force analysis of inconsistent data (Research Contract violation)"
+        ),
+    ] = False,
 ) -> None:
     """
     [bold magenta]Analyze[/bold magenta]: Generate statistical reports and plots from results.
@@ -227,7 +233,9 @@ def analyze(
     console.print(f"[yellow]Analysis initiated for: {results_dir}[/yellow]")
     from orchestrator.actions.analyze import cli as analyze_cli
 
-    analyze_cli.run(results_dir=results_dir, report_type=report_type, champions=champions)
+    analyze_cli.run(
+        results_dir=results_dir, report_type=report_type, champions=champions, force=force
+    )
 
 
 @app.command()
