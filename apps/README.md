@@ -47,13 +47,14 @@ All applications use verified Alpine-based images to ensure minimum overhead and
 
 ## 📁 Application Registry
 
-The project currently encompasses **23 implementations** (9 CSR/SSG, 14 SSR):
+The project currently encompasses **24 implementations** (9 CSR/SSG, 15 SSR):
 
 ### SSR (Server-Side Rendering)
 | App Name | Framework | Runtime |
 | :--- | :--- | :--- |
 | `ssr-analogjs` | AnalogJS / Angular | Node.js |
 | `ssr-angular` | Angular SSR | Node.js |
+| `ssr-astro` | Astro | Node.js |
 | `ssr-fresh` | Fresh 2.0 / Preact | Deno |
 | `ssr-lit` | Lit | Node.js |
 | `ssr-nextjs` | Next.js / React | Node.js |

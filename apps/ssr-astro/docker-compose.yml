@@ -1,0 +1,28 @@
+services:
+  astro-app:
+    build:
+      context: .
+      target: runner
+    container_name: mgr-astro-app
+    restart: unless-stopped
+    networks:
+      - mgr-network
+
+  nginx-proxy:
+    build:
+      context: .
+      target: nginx
+    container_name: mgr-astro-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8060:8060"
+    depends_on:
+      - astro-app
+    restart: unless-stopped
+    networks:
+      - mgr-network
+
+networks:
+  mgr-network:
+    driver: bridge
