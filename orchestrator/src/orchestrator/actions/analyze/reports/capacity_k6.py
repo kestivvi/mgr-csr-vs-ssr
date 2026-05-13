@@ -7,6 +7,8 @@ import pandas as pd
 import seaborn as sns
 from matplotlib.patches import Patch
 
+from orchestrator.shared.research import Column, MetricName
+
 from ..config import PLOT_PALETTE
 from ..utils.reporting import write_report
 
@@ -15,6 +17,8 @@ if TYPE_CHECKING:
 
 
 def run_capacity_k6_analysis(analyzer: PerformanceAnalyzer) -> None:
+    if analyzer.raw_df.empty:
+        return
     raw_results = compute_capacity_metrics(analyzer)
     if raw_results is not None:
         generate_capacity_plots(analyzer, raw_results)
@@ -23,30 +27,43 @@ def run_capacity_k6_analysis(analyzer: PerformanceAnalyzer) -> None:
 
 
 def compute_capacity_metrics(analyzer: PerformanceAnalyzer) -> Optional[pd.DataFrame]:
-    required = ["k6_successful_html_reqs_rate", "k6_total_html_reqs_rate", "cpu", "memory"]
-    available = analyzer.raw_df["metric"].unique()
+    required = [
+        MetricName.K6_SUCCESSFUL_RPS,
+        MetricName.K6_TOTAL_RPS,
+        MetricName.CPU,
+        MetricName.MEMORY,
+    ]
+    available = analyzer.raw_df[Column.METRIC].unique()
     if not all(m in available for m in required):
         return None
 
     results = []
-    for (tech, run), run_df in analyzer.raw_df.groupby(["server_type", "run_number"]):
+    for (tech, run), run_df in analyzer.raw_df.groupby([Column.SERVER_TYPE, Column.RUN_NUMBER]):
         pivot = (
-            run_df.pivot_table(index="time_sec", columns="metric", values="metric_value")
+            run_df.pivot_table(index=Column.TIME_SEC, columns=Column.METRIC, values=Column.VALUE)
             .reindex(columns=required)
             .fillna(0)
         )
-        rolling_mins = pivot["k6_successful_html_reqs_rate"].rolling(window=30, min_periods=1).min()
+        rolling_mins = pivot[MetricName.K6_SUCCESSFUL_RPS].rolling(window=30, min_periods=1).min()
         sustained_rps = float(rolling_mins.max())
-        peak_rps = float(pivot["k6_successful_html_reqs_rate"].max())
+        peak_rps = float(pivot[MetricName.K6_SUCCESSFUL_RPS].max())
         sustained_time = rolling_mins.idxmax()
-        cpu_at = float(pivot.loc[sustained_time, "cpu"]) if sustained_time in pivot.index else 0.0
-        ram_at = (
-            float(pivot.loc[sustained_time, "memory"]) if sustained_time in pivot.index else 0.0
+        cpu_at = (
+            float(pivot.loc[sustained_time, MetricName.CPU])
+            if sustained_time in pivot.index
+            else 0.0
         )
+        ram_at = (
+            float(pivot.loc[sustained_time, MetricName.MEMORY])
+            if sustained_time in pivot.index
+            else 0.0
+        )
+        group = run_df[Column.GROUP].iloc[0]
         results.append(
             {
-                "server_type": tech,
-                "run_number": run,
+                Column.GROUP: group,
+                Column.SERVER_TYPE: tech,
+                Column.RUN_NUMBER: run,
                 "sustained_rps": sustained_rps,
                 "peak_rps": peak_rps,
                 "cpu_at_sustained": cpu_at,
@@ -60,22 +77,24 @@ def compute_capacity_metrics(analyzer: PerformanceAnalyzer) -> Optional[pd.DataF
 def generate_capacity_plots(analyzer: PerformanceAnalyzer, raw_results: pd.DataFrame) -> None:
     # 1. Timeseries Plots
     metrics_to_plot = {
-        "k6_successful_html_reqs_rate": "successful_throughput_rps_timeseries",
-        "cpu": "cpu_usage_timeseries",
-        "memory": "ram_usage_timeseries",
+        MetricName.K6_SUCCESSFUL_RPS: "successful_throughput_rps_timeseries",
+        MetricName.CPU: "cpu_usage_timeseries",
+        MetricName.MEMORY: "ram_usage_timeseries",
     }
     labels = {
-        "k6_successful_html_reqs_rate": "Przepustowość (RPS)",
-        "cpu": "Zużycie CPU (%)",
-        "memory": "Zużycie pamięci (MB)",
+        MetricName.K6_SUCCESSFUL_RPS: "Przepustowość (RPS)",
+        MetricName.CPU: "Zużycie CPU (%)",
+        MetricName.MEMORY: "Zużycie pamięci (MB)",
     }
     for metric, filename in metrics_to_plot.items():
-        m_df = analyzer.raw_df[analyzer.raw_df["metric"] == metric]
+        m_df = analyzer.raw_df[analyzer.raw_df[Column.METRIC] == metric]
         if m_df.empty:
             continue
 
         plt.figure(figsize=(12, 7))
-        sns.lineplot(data=m_df, x="time_sec", y="metric_value", hue="server_type", errorbar="sd")
+        sns.lineplot(
+            data=m_df, x=Column.TIME_SEC, y=Column.VALUE, hue=Column.SERVER_TYPE, errorbar="sd"
+        )
         plt.title(f"Test pojemnościowy: {labels[metric]} w czasie")
         plt.xlabel("Czas (sekundy)")
         plt.ylabel(labels[metric])
@@ -88,21 +107,18 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, raw_results: pd.DataF
     if raw_results.empty:
         return
 
-    # Map server_type to group for coloring
-    tech_to_group = {
-        tech.lower(): group for group, techs in analyzer.groups_config.items() for tech in techs
-    }
-
     # Work on a copy for plotting
     plot_df = raw_results.copy()
-    plot_df["group"] = plot_df["server_type"].str.lower().map(tech_to_group).fillna("Uncategorized")
-    plot_df["display_name"] = plot_df["server_type"].str.replace(r"^(csr|ssr)-", "", regex=True)
+    # Note: 'group' is already added by the ExperimentLoader
+    plot_df["display_name"] = plot_df[Column.SERVER_TYPE].str.replace(
+        r"^(csr|ssr)-", "", regex=True
+    )
 
     # Handle duplicate names by adding group suffix
-    name_counts = plot_df.groupby("display_name")["group"].nunique()
+    name_counts = plot_df.groupby("display_name")[Column.GROUP].nunique()
     duplicate_names = name_counts[name_counts > 1].index
     plot_df.loc[plot_df["display_name"].isin(duplicate_names), "display_name"] += (
-        " (" + plot_df["group"] + ")"
+        " (" + plot_df[Column.GROUP] + ")"
     )
 
     comparisons = {
@@ -125,7 +141,7 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, raw_results: pd.DataF
         if col == "sustained_rps":
             # Grouped bar chart for RPS (Peak vs Sustained)
             rps_df = plot_df.melt(
-                id_vars=["display_name", "group", "run_number"],
+                id_vars=["display_name", Column.GROUP, Column.RUN_NUMBER],
                 value_vars=["sustained_rps", "peak_rps"],
                 var_name="metric_type",
                 value_name="rps",
@@ -201,7 +217,7 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, raw_results: pd.DataF
                 tech_idx = i % n_techs
                 is_sustained = i >= n_techs
                 tech_name = order[tech_idx]
-                group = plot_df[plot_df["display_name"] == tech_name]["group"].iloc[0].lower()
+                group = plot_df[plot_df["display_name"] == tech_name][Column.GROUP].iloc[0].lower()
 
                 if group == "ssr":
                     color = "#d62728" if not is_sustained else "#ff9f9b"
@@ -230,7 +246,7 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, raw_results: pd.DataF
                 data=plot_df,
                 y="display_name",
                 x=col,
-                hue="group",
+                hue=Column.GROUP,
                 order=order,
                 palette=PLOT_PALETTE,
                 dodge=False,
@@ -280,7 +296,7 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, raw_results: pd.DataF
             name = label.get_text()
             match = plot_df[plot_df["display_name"] == name]
             if not match.empty:
-                group = match["group"].iloc[0]
+                group = match[Column.GROUP].iloc[0]
                 label.set_color(PLOT_PALETTE.get(group, "black"))
                 label.set_fontweight("bold")
 
@@ -290,7 +306,7 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, raw_results: pd.DataF
 
 
 def generate_capacity_report(analyzer: PerformanceAnalyzer, raw_results: pd.DataFrame) -> str:
-    summary = raw_results.groupby("server_type").agg(
+    summary = raw_results.groupby(Column.SERVER_TYPE).agg(
         {
             "sustained_rps": ["mean", "std"],
             "peak_rps": ["mean", "std"],
@@ -312,7 +328,7 @@ def generate_capacity_report(analyzer: PerformanceAnalyzer, raw_results: pd.Data
         peak_rps_str = f"{row['peak_rps_mean']:.1f} (±{row['peak_rps_std']:.2f})"
         rows.append(
             {
-                "Technologia": row["server_type"],
+                "Technologia": row[Column.SERVER_TYPE],
                 "Utrzymany RPS": sustained_rps_str,
                 "Szczytowy RPS": peak_rps_str,
                 "CPU @ Sustained (%)": cpu_val,

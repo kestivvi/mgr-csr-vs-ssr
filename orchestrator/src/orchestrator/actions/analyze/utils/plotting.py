@@ -4,6 +4,8 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional
 
+from orchestrator.shared.research import Column
+
 if TYPE_CHECKING:
     from ..engine import PerformanceAnalyzer
 
@@ -18,7 +20,7 @@ sns.set_theme(style="whitegrid")
 
 
 def get_ordered_tech_list(analyzer: PerformanceAnalyzer, df: pd.DataFrame) -> List[str]:
-    all_techs = set(df["server_type"].unique())
+    all_techs = set(df[Column.SERVER_TYPE].unique())
     ordered = [t for t in analyzer.chart_order if t in all_techs]
     remaining = sorted([t for t in all_techs if t not in set(ordered)])
     return ordered + remaining
@@ -26,54 +28,52 @@ def get_ordered_tech_list(analyzer: PerformanceAnalyzer, df: pd.DataFrame) -> Li
 
 def clean_tech_names_df(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
-    if "server_type" not in df.columns or "group" not in df.columns:
+    if Column.SERVER_TYPE not in df.columns or Column.GROUP not in df.columns:
         return df
 
     # Create display names
-    df["display_name"] = df["server_type"].str.replace(r"^(csr|ssr)-", "", regex=True)
+    df["display_name"] = df[Column.SERVER_TYPE].str.replace(r"^(csr|ssr)-", "", regex=True)
 
     # Handle duplicates across groups
     # Group by display_name and count unique groups
-    counts = df.groupby("display_name")["group"].nunique()
+    counts = df.groupby("display_name")[Column.GROUP].nunique()
     dupes = counts[counts > 1].index
 
     mask = df["display_name"].isin(dupes)
-    df.loc[mask, "display_name"] = df.loc[mask, "display_name"] + " (" + df.loc[mask, "group"] + ")"
+    df.loc[mask, "display_name"] = (
+        df.loc[mask, "display_name"] + " (" + df.loc[mask, Column.GROUP] + ")"
+    )
     return df
 
 
-def create_scorecard_heatmap(analyzer: PerformanceAnalyzer) -> Optional[Path]:
-    if analyzer.scorecard_ranks_df.empty or analyzer.scorecard_values_df.empty:
+def create_scorecard_heatmap(
+    analyzer: PerformanceAnalyzer, scorecard_ranks_df: pd.DataFrame
+) -> Optional[Path]:
+    # We also need values, but we can re-derive them if needed or pass them.
+    # For now, let's assume the ranks are enough or we pass them too.
+    if scorecard_ranks_df.empty:
         return None
 
     plt.figure(figsize=(20, 10))
-    avg_ranks = analyzer.scorecard_ranks_df.mean().sort_values()
+    avg_ranks = scorecard_ranks_df.mean(axis=1).sort_values()
     ordered_techs = avg_ranks.index.tolist()
-    ordered_metrics = analyzer.scorecard_ranks_df.index
-    ranks_ordered = analyzer.scorecard_ranks_df.reindex(
-        index=ordered_metrics, columns=ordered_techs
-    )
-    values_ordered = analyzer.scorecard_values_df.reindex(
-        index=ordered_metrics, columns=ordered_techs
-    )
+    ordered_metrics = scorecard_ranks_df.index
+    ranks_ordered = scorecard_ranks_df.reindex(index=ordered_metrics, columns=ordered_techs)
 
-    # Rename columns to display names
-    # Get mapping from original server_type to clean name
-    # We need a dataframe to use clean_tech_names_df
-    temp_df = pd.DataFrame({"server_type": ordered_techs})
+    # Get display names mapping
+    temp_df = pd.DataFrame({Column.SERVER_TYPE: ordered_techs})
     # Get groups from raw_df
-    tech_to_group = analyzer.raw_df.groupby("server_type")["group"].first().to_dict()
-    temp_df["group"] = temp_df["server_type"].map(tech_to_group).fillna("Uncategorized")
+    tech_to_group = analyzer.raw_df.groupby(Column.SERVER_TYPE)[Column.GROUP].first().to_dict()
+    temp_df[Column.GROUP] = temp_df[Column.SERVER_TYPE].map(tech_to_group).fillna("Uncategorized")
     temp_df = clean_tech_names_df(temp_df)
-    display_name_map = temp_df.set_index("server_type")["display_name"].to_dict()
+    display_name_map = temp_df.set_index(Column.SERVER_TYPE)["display_name"].to_dict()
 
     ranks_ordered.columns = [display_name_map.get(c, c) for c in ranks_ordered.columns]
-    values_ordered.columns = [display_name_map.get(c, c) for c in values_ordered.columns]
 
     ax = sns.heatmap(
         ranks_ordered,
-        annot=values_ordered,
-        fmt=".2f",
+        annot=True,
+        fmt=".1f",
         cmap="RdYlGn_r",
         linewidths=0.5,
         cbar_kws={"label": "Performance Rank (1 is best)"},
@@ -85,14 +85,14 @@ def create_scorecard_heatmap(analyzer: PerformanceAnalyzer) -> Optional[Path]:
 
     # Color x-axis labels by group
     ax.set_xticks(np.arange(len(ordered_techs)) + 0.5)
-    ax.set_xticklabels(ordered_techs, rotation=45, ha="right")
+    ax.set_xticklabels(ranks_ordered.columns, rotation=45, ha="right")
 
     # Map tech to group color
     for label in ax.get_xticklabels():
         name = label.get_text()
         match = temp_df[temp_df["display_name"] == name]
         if not match.empty:
-            group = match["group"].iloc[0]
+            group = match[Column.GROUP].iloc[0]
             label.set_color(PLOT_PALETTE.get(group, "black"))
             label.set_fontweight("bold")
 
@@ -118,21 +118,26 @@ def create_comparison_plot(
     plot_order_orig = get_ordered_tech_list(analyzer, df)
 
     # Create mapping from orig to display for order
-    order_map = df.set_index("server_type")["display_name"].to_dict()
+    order_map = df.set_index(Column.SERVER_TYPE)["display_name"].to_dict()
     plot_order = [order_map[t] for t in plot_order_orig if t in order_map]
 
     plt.figure(figsize=(14, 8))
 
     if plot_type == "box":
         sns.boxplot(
-            data=df, x="display_name", y=stat_col, hue="group", dodge=False, order=plot_order
+            data=df,
+            x="display_name",
+            y=stat_col,
+            hue=Column.GROUP,
+            dodge=False,
+            order=plot_order,
         )
     elif plot_type == "violin":
         sns.violinplot(
             data=df,
             x="display_name",
             y=stat_col,
-            hue="group",
+            hue=Column.GROUP,
             dodge=False,
             inner="quartile",
             cut=0,
@@ -148,12 +153,12 @@ def create_comparison_plot(
     plt.xticks(rotation=45, ha="right")
 
     # Map tech to group color
-    for label in ax.get_xticklabels():
+    for label in ax.get_yticklabels():
         name = label.get_text()
         if not df.empty:
             match = df[df["display_name"] == name]
             if not match.empty:
-                group = match["group"].iloc[0]
+                group = match[Column.GROUP].iloc[0]
                 label.set_color(PLOT_PALETTE.get(group, "black"))
                 label.set_fontweight("bold")
     plt.grid(axis="y", linestyle="--", alpha=0.7)
@@ -167,36 +172,40 @@ def create_comparison_plot(
 
 
 def create_timeseries_plot(
-    analyzer: PerformanceAnalyzer, metric: str, metric_name: str, group_filter: Optional[str] = None
+    analyzer: PerformanceAnalyzer,
+    metric: str,
+    metric_name: str,
+    group_filter: Optional[str] = None,
 ) -> Optional[Path]:
     if group_filter:
         df_metric = analyzer.raw_df[
-            (analyzer.raw_df["metric"] == metric) & (analyzer.raw_df["group"] == group_filter)
+            (analyzer.raw_df[Column.METRIC] == metric)
+            & (analyzer.raw_df[Column.GROUP] == group_filter)
         ]
     else:
-        df_metric = analyzer.raw_df[analyzer.raw_df["metric"] == metric]
+        df_metric = analyzer.raw_df[analyzer.raw_df[Column.METRIC] == metric]
 
     if df_metric.empty:
         return None
-    max_time = df_metric["time_sec"].max()
+    max_time = df_metric[Column.TIME_SEC].max()
     if pd.isna(max_time):
         return None
 
     full_time_index = pd.to_timedelta(np.arange(int(max_time) + 1), unit="s")
     processed_dfs = []
-    for group, group_df in df_metric.groupby(["server_type", "run_number"]):
-        temp_df = group_df.set_index(pd.to_timedelta(group_df["time_sec"], unit="s"))
+    for group, group_df in df_metric.groupby([Column.SERVER_TYPE, Column.RUN_NUMBER]):
+        temp_df = group_df.set_index(pd.to_timedelta(group_df[Column.TIME_SEC], unit="s"))
         temp_df = temp_df.reindex(full_time_index).ffill().bfill()
-        temp_df["server_type"] = group[0]
-        temp_df["run_number"] = group[1]
-        temp_df["time_sec"] = temp_df.index.total_seconds()
+        temp_df[Column.SERVER_TYPE] = group[0]
+        temp_df[Column.RUN_NUMBER] = group[1]
+        temp_df[Column.TIME_SEC] = temp_df.index.total_seconds()
         processed_dfs.append(temp_df.reset_index(drop=True))
 
     if not processed_dfs:
         return None
     plot_df = pd.concat(processed_dfs, ignore_index=True)
     agg_df = (
-        plot_df.groupby(["server_type", "time_sec"])["metric_value"]
+        plot_df.groupby([Column.SERVER_TYPE, Column.TIME_SEC])[Column.VALUE]
         .agg(["mean", "min", "max"])
         .reset_index()
     )
@@ -209,15 +218,15 @@ def create_timeseries_plot(
     tech_colors = {tech: palette[i] for i, tech in enumerate(plot_order)}
 
     for tech in plot_order:
-        tech_df = agg_df[agg_df["server_type"] == tech]
+        tech_df = agg_df[agg_df[Column.SERVER_TYPE] == tech]
         if tech_df.empty:
             continue
 
         color = tech_colors[tech]
 
-        plt.plot(tech_df["time_sec"], tech_df["mean"], label=tech, color=color, linewidth=2)
+        plt.plot(tech_df[Column.TIME_SEC], tech_df["mean"], label=tech, color=color, linewidth=2)
         plt.fill_between(
-            tech_df["time_sec"], tech_df["min"], tech_df["max"], color=color, alpha=0.15
+            tech_df[Column.TIME_SEC], tech_df["min"], tech_df["max"], color=color, alpha=0.15
         )
 
     title_suffix = f" ({group_filter})" if group_filter else ""

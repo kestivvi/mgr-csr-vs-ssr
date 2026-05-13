@@ -10,10 +10,11 @@ if TYPE_CHECKING:
 
 def render_metadata_md(analyzer: PerformanceAnalyzer) -> str:
     md = ["\n## Appendix: Experiment Parameters"]
-    params = analyzer.metadata.get("parameters", {})
-    durations = analyzer.metadata.get("calculated_durations_sec", {})
+    meta = analyzer.experiment.metadata if analyzer.experiment else {}
+    params = meta.get("parameters", {})
+    durations = meta.get("calculated_durations_sec", {})
     rows = [
-        ["Run Timestamp (UTC)", f"`{analyzer.metadata.get('run_timestamp_utc', 'N/A')}`"],
+        ["Run Timestamp (UTC)", f"`{meta.get('run_timestamp_utc', 'N/A')}`"],
         ["Runs per Technology", params.get("num_runs", "N/A")],
         ["Target RPS per Instance", params.get("rate", "N/A")],
         ["k6 Test Duration", f"`{params.get('k6_duration', 'N/A')}`"],
