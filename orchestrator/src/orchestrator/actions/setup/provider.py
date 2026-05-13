@@ -1,13 +1,9 @@
-import json
-import os
 from pathlib import Path
 from typing import Any
 
-import ansible_runner
 import yaml
 from rich.console import Console
 
-from orchestrator.config import ANSIBLE_DIR, TERRAFORM_DIR
 from orchestrator.shared.infra import CloudEnvironment, InfrastructureError
 
 console = Console()
@@ -50,13 +46,17 @@ def run_setup(infra_path: Path, force: bool = False, verbose: bool = False) -> N
 
     try:
         if force:
-            console.print("[bold red]Step 0: Destroying existing infrastructure (force)...[/bold red]")
+            console.print(
+                "[bold red]Step 0: Destroying existing infrastructure (force)...[/bold red]"
+            )
             env.teardown(verbose=verbose)
 
-        console.print("[bold green]Step 1: Provisioning and Configuring Environment...[/bold green]")
+        console.print(
+            "[bold green]Step 1: Provisioning and Configuring Environment...[/bold green]"
+        )
         # CloudEnvironment handles both Terraform and Ansible
         env.setup(config, verbose=verbose)
-        
+
         console.print("[bold green]Infrastructure is ready![/bold green]")
 
     except InfrastructureError as e:

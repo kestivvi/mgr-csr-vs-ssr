@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any
 
 from orchestrator.config import ANSIBLE_DIR, TERRAFORM_DIR
 from orchestrator.shared.infra.ansible import AnsibleAdapter
@@ -25,7 +25,7 @@ class Environment(ABC):
 class CloudEnvironment(Environment):
     """Coordinates Terraform and Ansible for AWS runs."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.tf = TerraformAdapter(TERRAFORM_DIR)
         self.ansible = AnsibleAdapter(ANSIBLE_DIR)
 

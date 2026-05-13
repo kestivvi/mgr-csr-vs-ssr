@@ -29,7 +29,7 @@ class BaseAdapter:
     ) -> str:
         """
         Executes a command and returns the full output.
-        
+
         Args:
             command: List of command arguments.
             env: Optional environment variables.
@@ -38,7 +38,7 @@ class BaseAdapter:
             error_type: The exception class to raise on failure.
         """
         full_output = []
-        
+
         env = env or {}
         env["PYTHONUNBUFFERED"] = "1"
 
@@ -75,9 +75,9 @@ class BaseAdapter:
                 log_file.close()
 
             rc = process.wait()
-            
+
             output_str = "".join(full_output)
-            
+
             if rc != 0:
                 raise error_type(
                     f"Command failed: {' '.join(command)}",
@@ -85,7 +85,7 @@ class BaseAdapter:
                     return_code=rc,
                     logs=output_str,
                 )
-                
+
             return output_str
 
         except InfrastructureError:

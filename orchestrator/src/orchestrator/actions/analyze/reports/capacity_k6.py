@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING, Optional
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
-
 from matplotlib.patches import Patch
+
 from ..config import PLOT_PALETTE
 from ..utils.reporting import write_report
 
@@ -128,15 +128,19 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, raw_results: pd.DataF
                 id_vars=["display_name", "group", "run_number"],
                 value_vars=["sustained_rps", "peak_rps"],
                 var_name="metric_type",
-                value_name="rps"
+                value_name="rps",
             )
-            rps_df["metric_type"] = rps_df["metric_type"].map({
-                "peak_rps": "Szczytowy",
-                "sustained_rps": "Utrzymany"
-            })
-            
+            rps_df["metric_type"] = rps_df["metric_type"].map(
+                {"peak_rps": "Szczytowy", "sustained_rps": "Utrzymany"}
+            )
+
             # Sort by Peak mean
-            order = plot_df.groupby("display_name")["peak_rps"].mean().sort_values(ascending=False).index
+            order = (
+                plot_df.groupby("display_name")["peak_rps"]
+                .mean()
+                .sort_values(ascending=False)
+                .index
+            )
 
             sns.barplot(
                 data=rps_df,
@@ -148,7 +152,7 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, raw_results: pd.DataF
                 palette={"Szczytowy": "#4C72B0", "Utrzymany": "#A0C4FF"},
                 capsize=0.1,
                 alpha=0.8,
-                ax=ax
+                ax=ax,
             )
             sns.stripplot(
                 data=rps_df,
@@ -163,21 +167,21 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, raw_results: pd.DataF
                 dodge=True,
                 jitter=True,
                 legend=False,
-                ax=ax
+                ax=ax,
             )
-            
+
             # Add value labels for both bars in the group
             for i, name in enumerate(order):
-                for j, m_type in enumerate(["Szczytowy", "Utrzymany"]):
+                for j, _m_type in enumerate(["Szczytowy", "Utrzymany"]):
                     m_key = "peak_rps" if j == 0 else "sustained_rps"
                     subset = plot_df[plot_df["display_name"] == name][m_key]
                     m = subset.mean()
                     s = subset.std() if len(subset) > 1 else 0
-                    
+
                     # Offset y position for grouped bars (default width is 0.8, so offset is 0.2)
                     y_pos = i - 0.2 if j == 0 else i + 0.2
                     extent = max(m + s, subset.max())
-                    
+
                     label_text = f"{m:.0f} (±{s:.1f})"
                     ax.annotate(
                         label_text,
@@ -187,7 +191,7 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, raw_results: pd.DataF
                         xytext=(8, 0),
                         textcoords="offset points",
                         fontsize=8,
-                        color="#222222"
+                        color="#222222",
                     )
             # Manual coloring for SSR (Red) and CSR (Blue)
             n_techs = len(order)
@@ -198,22 +202,27 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, raw_results: pd.DataF
                 is_sustained = i >= n_techs
                 tech_name = order[tech_idx]
                 group = plot_df[plot_df["display_name"] == tech_name]["group"].iloc[0].lower()
-                
+
                 if group == "ssr":
                     color = "#d62728" if not is_sustained else "#ff9f9b"
                 else:
                     color = "#1f77b4" if not is_sustained else "#a1c9f4"
                 patch.set_facecolor(color)
                 patch.set_edgecolor("white")
-            
+
             # Custom legend for the complex color scheme
             legend_elements = [
-                Patch(facecolor='#d62728', label='SSR - Szczytowy'),
-                Patch(facecolor='#ff9f9b', label='SSR - Utrzymany'),
-                Patch(facecolor='#1f77b4', label='CSR - Szczytowy'),
-                Patch(facecolor='#a1c9f4', label='CSR - Utrzymany')
+                Patch(facecolor="#d62728", label="SSR - Szczytowy"),
+                Patch(facecolor="#ff9f9b", label="SSR - Utrzymany"),
+                Patch(facecolor="#1f77b4", label="CSR - Szczytowy"),
+                Patch(facecolor="#a1c9f4", label="CSR - Utrzymany"),
             ]
-            plt.legend(handles=legend_elements, title="Technologia i typ RPS", loc="lower right", fontsize=8)
+            plt.legend(
+                handles=legend_elements,
+                title="Technologia i typ RPS",
+                loc="lower right",
+                fontsize=8,
+            )
         else:
             # Standard bar chart for CPU/RAM
             order = plot_df.groupby("display_name")[col].mean().sort_values(ascending=False).index
@@ -228,7 +237,7 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, raw_results: pd.DataF
                 errorbar="sd",
                 capsize=0.1,
                 alpha=0.8,
-                ax=ax
+                ax=ax,
             )
             sns.stripplot(
                 data=plot_df,
@@ -240,7 +249,7 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, raw_results: pd.DataF
                 alpha=0.6,
                 dodge=False,
                 jitter=True,
-                ax=ax
+                ax=ax,
             )
 
             # Add labels for single bars
@@ -281,12 +290,14 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, raw_results: pd.DataF
 
 
 def generate_capacity_report(analyzer: PerformanceAnalyzer, raw_results: pd.DataFrame) -> str:
-    summary = raw_results.groupby("server_type").agg({
-        "sustained_rps": ["mean", "std"],
-        "peak_rps": ["mean", "std"],
-        "cpu_at_sustained": ["mean", "std"],
-        "ram_at_sustained": ["mean", "std"]
-    })
+    summary = raw_results.groupby("server_type").agg(
+        {
+            "sustained_rps": ["mean", "std"],
+            "peak_rps": ["mean", "std"],
+            "cpu_at_sustained": ["mean", "std"],
+            "ram_at_sustained": ["mean", "std"],
+        }
+    )
 
     # Flatten multi-index columns
     summary.columns = [f"{col}_{stat}" for col, stat in summary.columns]
@@ -297,19 +308,23 @@ def generate_capacity_report(analyzer: PerformanceAnalyzer, raw_results: pd.Data
     for _, row in summary.iterrows():
         cpu_val = f"{row['cpu_at_sustained_mean']:.1f} (±{row['cpu_at_sustained_std']:.2f})"
         ram_val = f"{row['ram_at_sustained_mean']:.1f} (±{row['ram_at_sustained_std']:.2f})"
-        rows.append({
-            "Technologia": row["server_type"],
-            "Utrzymany RPS": f"{row['sustained_rps_mean']:.1f} (±{row['sustained_rps_std']:.2f})",
-            "Szczytowy RPS": f"{row['peak_rps_mean']:.1f} (±{row['peak_rps_std']:.2f})",
-            "CPU @ Sustained (%)": cpu_val,
-            "RAM @ Sustained (MB)": ram_val
-        })
+        sustained_rps_str = f"{row['sustained_rps_mean']:.1f} (±{row['sustained_rps_std']:.2f})"
+        peak_rps_str = f"{row['peak_rps_mean']:.1f} (±{row['peak_rps_std']:.2f})"
+        rows.append(
+            {
+                "Technologia": row["server_type"],
+                "Utrzymany RPS": sustained_rps_str,
+                "Szczytowy RPS": peak_rps_str,
+                "CPU @ Sustained (%)": cpu_val,
+                "RAM @ Sustained (MB)": ram_val,
+            }
+        )
 
     report = [
         f"# Capacity Report for `{analyzer.input_dir.name}`",
         "\n### Podsumowanie wyników zagregowanych",
         pd.DataFrame(rows).to_markdown(index=False),
         "\n*Wartości w nawiasach oznaczają odchylenie standardowe "
-        "(standard deviation) z wielu prób.*"
+        "(standard deviation) z wielu prób.*",
     ]
     return "\n".join(report)

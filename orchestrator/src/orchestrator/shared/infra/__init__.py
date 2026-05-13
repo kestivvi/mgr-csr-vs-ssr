@@ -1,7 +1,6 @@
 from orchestrator.shared.infra.ansible import AnsibleAdapter
 from orchestrator.shared.infra.base import BaseAdapter
 from orchestrator.shared.infra.docker import DockerAdapter
-from orchestrator.shared.infra.terraform import TerraformAdapter
 from orchestrator.shared.infra.environment import (
     CloudEnvironment,
     Environment,
@@ -13,6 +12,7 @@ from orchestrator.shared.infra.exceptions import (
     InfrastructureError,
     TerraformError,
 )
+from orchestrator.shared.infra.terraform import TerraformAdapter
 
 __all__ = [
     "BaseAdapter",
@@ -25,4 +25,5 @@ __all__ = [
     "TerraformError",
     "AnsibleError",
     "DockerError",
+    "TerraformAdapter",
 ]

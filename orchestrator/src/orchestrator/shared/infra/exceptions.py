@@ -25,14 +25,17 @@ class InfrastructureError(Exception):
 
 class TerraformError(InfrastructureError):
     """Raised when a Terraform operation fails."""
+
     pass
 
 
 class AnsibleError(InfrastructureError):
     """Raised when an Ansible operation fails."""
+
     pass
 
 
 class DockerError(InfrastructureError):
     """Raised when a Docker/Docker-Compose operation fails."""
+
     pass

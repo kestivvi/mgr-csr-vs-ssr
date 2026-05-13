@@ -25,12 +25,12 @@ class TerraformAdapter(BaseAdapter):
     ) -> None:
         """
         Runs terraform apply with auto-approval and variable mapping.
-        
+
         Args:
             variables: Dictionary of Terraform variables to pass as -var flags.
         """
         cmd = ["terraform", "apply", "-auto-approve"]
-        
+
         for key, value in variables.items():
             if isinstance(value, (dict, list)):
                 # Complex types must be passed as JSON strings for Terraform
@@ -71,4 +71,4 @@ class TerraformAdapter(BaseAdapter):
             # Terraform -json output is { "key": { "value": ... } }
             return {k: v["value"] for k, v in raw_outputs.items()}
         except (json.JSONDecodeError, KeyError) as e:
-            raise TerraformError(f"Failed to parse terraform output: {e}", logs=output_json)
+            raise TerraformError(f"Failed to parse terraform output: {e}", logs=output_json) from e

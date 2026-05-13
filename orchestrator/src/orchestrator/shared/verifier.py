@@ -10,6 +10,7 @@ from orchestrator.shared.infra.exceptions import InfrastructureError
 @dataclass
 class HealthCheck:
     """Defines a single HTTP check to perform against an endpoint."""
+
     path: str
     check_content: bool = False
     verify_gzip: bool = False
@@ -19,6 +20,7 @@ class HealthCheck:
 @dataclass
 class HealthProfile:
     """A collection of health checks defining 'healthy' for a category of apps."""
+
     name: str
     checks: list[HealthCheck]
 
@@ -67,14 +69,14 @@ class AppVerifier(BaseAdapter):
     ) -> bool:
         """
         Polls the application until all health checks in the profile pass.
-        
+
         Args:
             base_url: The root URL of the app (e.g. http://localhost:80).
             profile: The HealthProfile (SSR/CSR) to validate against.
             retries: Maximum number of attempts.
             delay: Seconds to wait between attempts.
             log_path: Optional file to append full curl outputs to.
-            
+
         Returns:
             True if all checks passed within the retry limit, False otherwise.
         """
@@ -117,16 +119,14 @@ class AppVerifier(BaseAdapter):
 
         return True
 
-    def _curl(
-        self, url: str, check: HealthCheck, use_gzip: bool, log_path: Optional[Path]
-    ) -> bool:
+    def _curl(self, url: str, check: HealthCheck, use_gzip: bool, log_path: Optional[Path]) -> bool:
         """Internal helper to execute a single curl call and validate output."""
         flags = ["-IsLk"] if check.headers_only else ["-isLk"]
         if use_gzip:
             flags += ["--compressed", "-H", "Accept-Encoding: gzip"]
 
         command = ["curl"] + flags + [url]
-        
+
         try:
             # We use _run from BaseAdapter to get unified logging and error handling
             # Note: verbose=False because we handle our own high-level logging via self._log

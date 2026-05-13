@@ -1,7 +1,4 @@
-import time
 from datetime import datetime
-from pathlib import Path
-from typing import Any
 
 from rich.console import Console
 
@@ -56,7 +53,7 @@ def run_verify(app_filter: str | None = None, verbose: bool = False) -> None:
             for app_path in apps:
                 app_name = app_path.name
                 env = LocalEnvironment(app_path)
-                
+
                 # Determine health profile
                 profile = SSR_PROFILE if app_name.startswith("ssr-") else CSR_PROFILE
 
@@ -98,24 +95,22 @@ def run_verify(app_filter: str | None = None, verbose: bool = False) -> None:
                                 task,
                                 description=f"[cyan]Testing [bold]{app_name}[/bold]...",
                             )
-                            
+
                             # Use the new deep Verifier
                             verifier = AppVerifier(
-                                workdir=app_path, 
-                                on_output=lambda msg: progress.console.print(f"  [dim]{msg}[/dim]")
+                                workdir=app_path,
+                                on_output=lambda msg: progress.console.print(f"  [dim]{msg}[/dim]"),
                             )
-                            
+
                             # We check both HTTP and HTTPS (standard for MGR verify)
                             success = True
                             for base_url in ["http://localhost:80", "https://localhost:443"]:
                                 if not verifier.wait_until_healthy(
-                                    base_url=base_url,
-                                    profile=profile,
-                                    log_path=test_log
+                                    base_url=base_url, profile=profile, log_path=test_log
                                 ):
                                     success = False
                                     break
-                                    
+
                             app_result["Test"] = "PASS" if success else "FAIL"
 
                             # Append container logs to run log

@@ -8,7 +8,7 @@ from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
 from orchestrator.config import APPS_DIR, RESULTS_DIR
-from orchestrator.shared.infra import InfrastructureError, LocalEnvironment, BaseAdapter
+from orchestrator.shared.infra import BaseAdapter, InfrastructureError, LocalEnvironment
 
 console = Console()
 
@@ -25,7 +25,7 @@ def wait_for_app_ready(env: LocalEnvironment, log_path: Path, progress: Any = No
     """Waits for the app to be reachable via HTTPS."""
     max_retries = 15
     delay = 2
-    
+
     # We use a temporary adapter for the curl check
     curl_adapter = BaseAdapter(env.docker.workdir)
 
@@ -45,7 +45,9 @@ def wait_for_app_ready(env: LocalEnvironment, log_path: Path, progress: Any = No
     return False
 
 
-def run_capacity_local_wrk(app_filter: str | None = None, num_runs: int = 1, verbose: bool = False) -> None:
+def run_capacity_local_wrk(
+    app_filter: str | None = None, num_runs: int = 1, verbose: bool = False
+) -> None:
     """Orchestrates local capacity testing using wrk."""
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
     run_log_dir = RESULTS_DIR / f"capacity_local_wrk_{timestamp}"
@@ -104,7 +106,7 @@ def run_capacity_local_wrk(app_filter: str | None = None, num_runs: int = 1, ver
                     progress.update(task, description=f"[cyan]Building [bold]{app_name}[/bold]...")
                     try:
                         env.docker.build(log_path=build_log, verbose=verbose)
-                        
+
                         # Up
                         progress.update(
                             task, description=f"[cyan]Starting [bold]{app_name}[/bold]..."

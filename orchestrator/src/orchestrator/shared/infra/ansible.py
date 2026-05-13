@@ -23,7 +23,7 @@ class AnsibleAdapter(BaseAdapter):
     ) -> str:
         """
         Executes an ansible-playbook.
-        
+
         Args:
             playbook: Path to the playbook file.
             inventory: Path to the inventory file.
