@@ -59,7 +59,11 @@ def run_capacity_local_wrk(
 
     # 1. Find apps
     apps = sorted(
-        [d for d in APPS_DIR.iterdir() if d.is_dir() and (d / "docker-compose.yml").exists()]
+        [
+            d
+            for d in APPS_DIR.iterdir()
+            if d.is_dir() and not d.name.startswith("_") and (d / "Dockerfile").exists()
+        ]
     )
     if app_filter:
         filters = [f.strip() for f in app_filter.split(",")]

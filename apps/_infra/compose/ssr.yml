@@ -1,0 +1,34 @@
+services:
+  app:
+    build:
+      context: ../../${APP_DIR}
+      target: ${BUILD_TARGET:-runner}
+    image: mgr-${APP_ID}-app
+    restart: unless-stopped
+    networks:
+      - app-net
+
+  nginx:
+    build:
+      context: ../../${APP_DIR}
+      additional_contexts:
+        infra: ../nginx
+      target: nginx
+    image: mgr-${APP_ID}-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8060:8060"
+    depends_on:
+      - app
+    networks:
+      - app-net
+    environment:
+      - APP_NAME=app
+      - APP_PORT=${APP_PORT:-3000}
+      - STATIC_PATH=${STATIC_PATH:-/_next/static/}
+
+networks:
+  app-net:
+    driver: bridge

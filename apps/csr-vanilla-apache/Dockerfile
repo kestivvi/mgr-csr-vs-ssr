@@ -1,9 +1,8 @@
 # Build stage: Minify assets
-FROM node:25.9.0-alpine3.23 AS builder
+FROM mgr-base-node-builder AS builder
 WORKDIR /app
 COPY . .
 
-# Install minification tools
 RUN npm install -g terser clean-css-cli html-minifier-terser
 
 # Minify JavaScript
@@ -15,7 +14,6 @@ RUN cleancss -o styles.min.css styles.css
 # Minify HTML
 RUN html-minifier-terser -o index.min.html index.html --remove-comments --collapse-whitespace --remove-redundant-attributes --remove-script-type-attributes --remove-style-link-type-attributes --use-short-doctype --minify-css --minify-js
 
-# Final stage: Serve with Apache
 FROM httpd:2.4.66-alpine3.23
 
 # Apache Exporter (build-only deps in same layer, then removed)

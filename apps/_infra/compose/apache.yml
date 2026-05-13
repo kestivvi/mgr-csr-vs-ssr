@@ -1,11 +1,14 @@
 services:
-  nginx:
-    build: .
+  apache:
+    build:
+      context: ../../${APP_DIR}
+    image: mgr-${APP_ID}-apache
     restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
       - "8060:8060"
+      - "9117:9117"
     networks:
       - app-net
 

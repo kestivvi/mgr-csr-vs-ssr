@@ -1,0 +1,10 @@
+# Standard Node.js Builder Base for MGR Research
+FROM node:25.9.0-alpine3.23
+
+WORKDIR /app
+
+# Common build-time settings
+ENV CI=true
+
+# Add any common build tools (e.g. for minification or asset processing)
+RUN apk add --no-cache bash git

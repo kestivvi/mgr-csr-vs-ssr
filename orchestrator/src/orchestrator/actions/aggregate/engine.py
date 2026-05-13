@@ -76,7 +76,9 @@ class DataAggregator:
                             console.print(f"  - {d}")
                         raise ValueError("Research Contract violated. Use --lax to override.")
                     else:
-                        console.print(f"[yellow]Warning: Overriding inconsistency in {src_path}[/yellow]")
+                        console.print(
+                            f"[yellow]Warning: Overriding inconsistency in {src_path}[/yellow]"
+                        )
                         self.inconsistency_detected = True
 
             # 2. Process Runs

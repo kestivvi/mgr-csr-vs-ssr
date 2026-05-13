@@ -54,11 +54,13 @@ class PerformanceAnalyzer:
 
     def run(self) -> None:
         console.print(f"[bold cyan]Starting analysis for:[/bold cyan] {self.input_dir}")
-        
+
         if not self.input_dir.exists():
-            console.print(f"[bold red]Error: Input directory does not exist:[/bold red] {self.input_dir}")
+            console.print(
+                f"[bold red]Error: Input directory does not exist:[/bold red] {self.input_dir}"
+            )
             return
-            
+
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.plots_dir.mkdir(parents=True, exist_ok=True)
 

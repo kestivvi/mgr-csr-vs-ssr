@@ -21,7 +21,11 @@ def run_verify(app_filter: str | None = None, verbose: bool = False) -> None:
 
     # 2. Find apps
     apps = sorted(
-        [d for d in APPS_DIR.iterdir() if d.is_dir() and (d / "docker-compose.yml").exists()]
+        [
+            d
+            for d in APPS_DIR.iterdir()
+            if d.is_dir() and not d.name.startswith("_") and (d / "Dockerfile").exists()
+        ]
     )
     if app_filter:
         filters = [f.strip() for f in app_filter.split(",")]

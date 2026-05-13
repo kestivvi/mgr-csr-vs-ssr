@@ -1,0 +1,19 @@
+# Standard Node.js Runtime (Runner) for MGR Research
+FROM node:25.9.0-alpine3.23
+
+WORKDIR /app
+
+# Standard Production Environment
+ENV NODE_ENV=production \
+    PORT=3000 \
+    HOSTNAME=0.0.0.0
+
+# Standardized Research User (Fixed UID/GID for scientific consistency)
+RUN addgroup -g 1001 -S mgrgroup && \
+    adduser -S mgruser -u 1001 -G mgrgroup
+
+# Default to non-root user
+USER mgruser
+
+# Standardize ports
+EXPOSE 3000

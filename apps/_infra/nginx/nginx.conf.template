@@ -1,3 +1,9 @@
+# High-performance Nginx configuration template for MGR Research
+# Uses environment variables:
+# - APP_NAME: Internal DNS name of the app service
+# - APP_PORT: Port the app service listens on
+# - STATIC_PATH: Path for static assets (e.g., /_next/static/ or /_build/)
+
 gzip on;
 gzip_vary on;
 gzip_proxied any;
@@ -32,8 +38,8 @@ log_format custom '$remote_addr - $remote_user [$time_local] '
   'rt=$request_time uct=$upstream_connect_time '
   'uht=$upstream_header_time urt=$upstream_response_time';
 
-upstream lit_ssr_server {
-  server ssr-lit-app:3000;
+upstream backend_server {
+  server ${APP_NAME}:${APP_PORT};
   keepalive 1024;
   keepalive_requests 1000000;
   keepalive_timeout 300s;
@@ -48,21 +54,31 @@ server {
 
   root /usr/share/nginx/html;
 
-  location /static/ {
+  # Static assets offloading
+  location ${STATIC_PATH} {
     expires 1y;
     add_header Cache-Control "public, max-age=31536000, immutable";
     access_log off;
     try_files $uri =404;
   }
 
-  location ~* ^/(favicon\.ico|robots\.txt)$ {
+  location ~* ^/(favicon\.ico|robots\.txt|sitemap\.xml|.*\.(png|jpg|jpeg|svg|woff2?))$ {
     expires 1h;
-    access_log off;
-    try_files $uri =404;
+    try_files $uri @app;
+  }
+
+  location @app {
+    proxy_pass http://backend_server;
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
   }
 
   location / {
-    proxy_pass http://lit_ssr_server;
+    proxy_pass http://backend_server;
     proxy_http_version 1.1;
     proxy_set_header Connection "";
     proxy_set_header Host $host;
@@ -88,21 +104,30 @@ server {
 
   root /usr/share/nginx/html;
 
-  location /static/ {
+  location ${STATIC_PATH} {
     expires 1y;
     add_header Cache-Control "public, max-age=31536000, immutable";
     access_log off;
     try_files $uri =404;
   }
 
-  location ~* ^/(favicon\.ico|robots\.txt)$ {
+  location ~* ^/(favicon\.ico|robots\.txt|sitemap\.xml|.*\.(png|jpg|jpeg|svg|woff2?))$ {
     expires 1h;
-    access_log off;
-    try_files $uri =404;
+    try_files $uri @app;
+  }
+
+  location @app {
+    proxy_pass http://backend_server;
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
   }
 
   location / {
-    proxy_pass http://lit_ssr_server;
+    proxy_pass http://backend_server;
     proxy_http_version 1.1;
     proxy_set_header Connection "";
     proxy_set_header Host $host;

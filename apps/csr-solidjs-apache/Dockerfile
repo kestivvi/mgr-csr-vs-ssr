@@ -1,12 +1,10 @@
-# Stage 1: Build the SolidJS application
-FROM node:25.9.0-alpine3.23 AS builder
+FROM mgr-base-node-builder AS builder
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci
 COPY . .
 RUN npm run build
 
-# Stage 2: Serve with Apache
 FROM httpd:2.4.66-alpine3.23
 
 # Apache Exporter (build-only deps in same layer, then removed)
