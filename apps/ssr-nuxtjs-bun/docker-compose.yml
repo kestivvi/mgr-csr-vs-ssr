@@ -1,0 +1,28 @@
+services:
+  nuxt-app-bun:
+    build:
+      context: .
+      target: runner
+    image: ssr-nuxtjs-bun-app
+    restart: unless-stopped
+    networks:
+      - app-net
+
+  nginx:
+    build:
+      context: .
+      target: nginx
+    image: ssr-nuxtjs-bun-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8060:8060"
+    depends_on:
+      - nuxt-app-bun
+    networks:
+      - app-net
+
+networks:
+  app-net:
+    driver: bridge

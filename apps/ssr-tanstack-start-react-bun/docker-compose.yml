@@ -1,0 +1,28 @@
+services:
+  tanstack-react-app-bun:
+    build:
+      context: .
+      target: runner
+    image: ssr-tanstack-start-react-bun-app
+    restart: unless-stopped
+    networks:
+      - app-net
+
+  nginx:
+    build:
+      context: .
+      target: nginx
+    image: ssr-tanstack-start-react-bun-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8060:8060"
+    depends_on:
+      - tanstack-react-app-bun
+    networks:
+      - app-net
+
+networks:
+  app-net:
+    driver: bridge

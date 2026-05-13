@@ -1,0 +1,23 @@
+---
+import Counter from '../../components/Counter';
+
+const { id } = Astro.params;
+---
+
+<html lang="pl">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="viewport" content="width=device-width" />
+		<meta name="generator" content={Astro.generator} />
+		<title>MGR - Astro</title>
+		<link rel="stylesheet" href="/static/globals.css" />
+	</head>
+	<body>
+		<main>
+			<h1>Hello World</h1>
+			<p>Dynamic ID: {id}</p>
+			<Counter client:load />
+		</main>
+	</body>
+</html>

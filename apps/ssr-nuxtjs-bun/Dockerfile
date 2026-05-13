@@ -1,42 +1,37 @@
-# Stage 1: Build the application with Bun
+# Stage 1: Build the Nuxt application with Bun
 FROM oven/bun:1.3.13-slim AS builder
 WORKDIR /app
 
 # Copy lock files to leverage layer caching
-COPY package.json bun.lock* ./
-RUN bun install --frozen-lockfile
+COPY package.json bun.lock* package-lock.json* ./
+RUN bun install
 
-# Copy the rest of the application source code
+# Copy source code and build
 COPY . .
+RUN bun run build
 
-# Build the Next.js application
-RUN bun --bun run build
-
-# Stage 2: Production image (Runtime)
+# Stage 2: Run the application (Production Runtime)
 FROM oven/bun:1.3.13-slim AS runner
 WORKDIR /app
 
-# Set production environment and disable telemetry
+# Set production environment
 ENV NODE_ENV=production \
-    NEXT_TELEMETRY_DISABLED=1 \
     PORT=3000 \
     HOSTNAME=0.0.0.0 \
     BUN_JSC_forceRAMSize=1610612736 \
     BUN_GARBAGE_COLLECTOR_LEVEL=1 \
     BUN_METRICS_SINK=0
 
-# The official Bun images come with a non-root 'bun' user.
+# Create a non-root user for security (Bun image has 'bun' user)
 USER bun
 
-# Copy standalone build and assets
-COPY --from=builder --chown=bun:bun /app/.next/standalone ./
-COPY --from=builder --chown=bun:bun /app/.next/static ./.next/static
-COPY --from=builder --chown=bun:bun /app/public ./public
+# Copy built application (.output directory)
+COPY --from=builder --chown=bun:bun /app/.output ./
 
 EXPOSE 3000
 
-# Start the server using the Bun runtime
-CMD ["bun", "--bun", "server.js"]
+# Start the Nuxt Nitro server using Bun runtime
+CMD ["bun", "--bun", "server/index.mjs"]
 
 # Stage 3: Serve the application with Nginx (Static Offloading)
 FROM nginx:1.30.0-alpine3.23 AS nginx
@@ -69,8 +64,7 @@ HEALTHCHECK --interval=30s --timeout=3s \
 
 EXPOSE 80 443 8060
 
-# Statyki z etapu builder
-COPY --from=builder /app/.next/static /usr/share/nginx/html/_next/static
-COPY --from=builder /app/public/      /usr/share/nginx/html/
+# Statyki Nuxt.js z etapu builder
+COPY --from=builder /app/.output/public/ /usr/share/nginx/html/
 
 CMD ["nginx", "-g", "daemon off;"]

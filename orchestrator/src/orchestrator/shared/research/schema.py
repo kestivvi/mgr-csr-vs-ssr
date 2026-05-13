@@ -35,8 +35,14 @@ DEFAULT_GROUPS = {
         "ssr_tanstack_start_solid",
     ],
     "SSR-Bun": [
+        "ssr_astro_bun",
         "ssr_nextjs_bun",
+        "ssr_nuxtjs_bun",
+        "ssr_qwik_city_bun",
+        "ssr_solid_start_bun",
         "ssr_sveltekit_bun",
+        "ssr_tanstack_start_react_bun",
+        "ssr_tanstack_start_solid_bun",
     ],
     "SSR-Deno": [
         "ssr_fresh",

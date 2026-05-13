@@ -47,7 +47,7 @@ All applications use verified Alpine-based images to ensure minimum overhead and
 
 ## 📁 Application Registry
 
-The project currently encompasses **24 implementations** (9 CSR/SSG, 15 SSR):
+The project currently encompasses **30 implementations** (9 CSR/SSG, 21 SSR):
 
 ### SSR (Server-Side Rendering)
 | App Name | Framework | Runtime |
@@ -55,18 +55,24 @@ The project currently encompasses **24 implementations** (9 CSR/SSG, 15 SSR):
 | `ssr-analogjs` | AnalogJS / Angular | Node.js |
 | `ssr-angular` | Angular SSR | Node.js |
 | `ssr-astro` | Astro | Node.js |
+| `ssr-astro-bun` | Astro | Bun |
 | `ssr-fresh` | Fresh 2.0 / Preact | Deno |
 | `ssr-lit` | Lit | Node.js |
 | `ssr-nextjs` | Next.js / React | Node.js |
 | `ssr-nextjs-bun` | Next.js / React | Bun |
 | `ssr-nuxtjs` | Nuxt / Vue | Node.js |
+| `ssr-nuxtjs-bun` | Nuxt / Vue | Bun |
 | `ssr-qwik-city` | Qwik City | Node.js |
+| `ssr-qwik-city-bun` | Qwik City | Bun |
 | `ssr-react-router` | React Router | Node.js |
 | `ssr-solid-start` | SolidStart | Node.js |
+| `ssr-solid-start-bun` | SolidStart | Bun |
 | `ssr-svelte-kit` | SvelteKit | Node.js |
 | `ssr-svelte-kit-bun` | SvelteKit | Bun |
 | `ssr-tanstack-start-react` | TanStack Start / React | Node.js |
+| `ssr-tanstack-start-react-bun` | TanStack Start / React | Bun |
 | `ssr-tanstack-start-solid` | TanStack Start / Solid | Node.js |
+| `ssr-tanstack-start-solid-bun` | TanStack Start / Solid | Bun |
 
 ### CSR / SSG (Static Serving)
 | App Name | Framework / Type | Server |

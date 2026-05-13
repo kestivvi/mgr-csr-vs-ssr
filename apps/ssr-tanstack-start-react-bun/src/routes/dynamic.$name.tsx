@@ -1,0 +1,22 @@
+import { useState } from 'react';
+import { createFileRoute } from '@tanstack/react-router';
+
+export const Route = createFileRoute('/dynamic/$name')({
+  component: Dynamic,
+});
+
+function Dynamic() {
+  const { name } = Route.useParams();
+  const [count, setCount] = useState(0);
+
+  return (
+    <main>
+      <h1>Hello World</h1>
+      <p>Dynamic ID: {name}</p>
+      <div>
+        <p>Count: {count}</p>
+        <button onClick={() => setCount(count + 1)}>Increment</button>
+      </div>
+    </main>
+  );
+}

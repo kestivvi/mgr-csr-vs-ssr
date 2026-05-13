@@ -23,9 +23,9 @@ ENV NODE_ENV=production \
 USER bun
 
 # Copy built application and production dependencies
-COPY --from=builder /app/package.json ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/build ./build
+COPY --from=builder --chown=bun:bun /app/package.json ./
+COPY --from=builder --chown=bun:bun /app/node_modules ./node_modules
+COPY --from=builder --chown=bun:bun /app/build ./build
 
 EXPOSE 3000
 
