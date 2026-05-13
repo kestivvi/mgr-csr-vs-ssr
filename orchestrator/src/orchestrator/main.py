@@ -19,7 +19,9 @@ console = Console()
 def setup(
     infra_path: Annotated[Path, typer.Argument(help="Path to infrastructure configuration YAML")],
     force: Annotated[bool, typer.Option(help="Force recreation of infrastructure")] = False,
-    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Show real-time output from tools")] = False,
+    verbose: Annotated[
+        bool, typer.Option("--verbose", "-v", help="Show real-time output from tools")
+    ] = False,
 ) -> None:
     """
     [bold green]Setup[/bold green]: Provision infrastructure via Terraform
@@ -189,7 +191,9 @@ def test_capacity_local_wrk(
     num_runs: Annotated[
         int, typer.Option("--num-runs", help="Number of test runs per app", show_default=True)
     ] = 1,
-    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Show real-time output from tools")] = False,
+    verbose: Annotated[
+        bool, typer.Option("--verbose", "-v", help="Show real-time output from tools")
+    ] = False,
 ) -> None:
     """Run local [cyan]capacity benchmarks[/cyan] using wrk."""
     from orchestrator.actions.test import cli as test_cli
@@ -228,7 +232,9 @@ def analyze(
 
 @app.command()
 def destroy(
-    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Show real-time output from tools")] = False,
+    verbose: Annotated[
+        bool, typer.Option("--verbose", "-v", help="Show real-time output from tools")
+    ] = False,
 ) -> None:
     """
     [bold red]Destroy[/bold red]: Tear down all infrastructure via Terraform.
@@ -237,6 +243,39 @@ def destroy(
     from orchestrator.actions.destroy import cli as destroy_cli
 
     destroy_cli.run(verbose=verbose)
+
+
+@app.command()
+def aggregate(
+    sources: Annotated[
+        list[str],
+        typer.Argument(help="Source directories with filters, e.g. 'path[app1,app2]'"),
+    ],
+    output: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--output",
+            "-o",
+            help="Output directory. Defaults to a timestamped folder in results/",
+        ),
+    ] = None,
+    lax: Annotated[
+        bool,
+        typer.Option(
+            "--lax", help="Allow aggregation of runs with different parameters (dangerous!)"
+        ),
+    ] = False,
+    no_logs: Annotated[
+        bool,
+        typer.Option("--no-logs", help="Do not copy log files"),
+    ] = False,
+) -> None:
+    """
+    [bold blue]Aggregate[/bold blue]: Combine multiple test runs into a single sequential dataset.
+    """
+    from orchestrator.actions.aggregate import cli as aggregate_cli
+
+    aggregate_cli.run(sources=sources, output=output, lax=lax, copy_logs=not no_logs)
 
 
 @app.command()
@@ -252,7 +291,9 @@ def verify(
             ),
         ),
     ] = None,
-    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Show real-time output from tools")] = False,
+    verbose: Annotated[
+        bool, typer.Option("--verbose", "-v", help="Show real-time output from tools")
+    ] = False,
 ) -> None:
     """
     [bold green]Verify[/bold green]: Build and test apps locally to ensure functionality.
