@@ -7,7 +7,7 @@ from typing import Any
 from rich.console import Console
 
 from orchestrator.config import APPS_DIR, VERIFY_LOGS_BASE_DIR
-from orchestrator.shared.runner import run_command
+from orchestrator.shared.infra import InfrastructureError, LocalEnvironment
 
 console = Console()
 
@@ -15,8 +15,8 @@ MAX_RETRIES = 15
 RETRY_DELAY = 2
 
 
-def run_verify(app_filter: str | None = None) -> None:
-    """Orchestrates the verification of applications."""
+def run_verify(app_filter: str | None = None, verbose: bool = False) -> None:
+    """Orchestrates the verification of applications using deep adapters."""
     # 1. Prepare log directory
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
     run_log_dir = VERIFY_LOGS_BASE_DIR / timestamp
@@ -58,6 +58,7 @@ def run_verify(app_filter: str | None = None) -> None:
 
             for app_path in apps:
                 app_name = app_path.name
+                env = LocalEnvironment(app_path)
 
                 build_log = run_log_dir / f"{app_name}-build.txt"
                 run_log = run_log_dir / f"{app_name}-run.txt"
@@ -74,28 +75,24 @@ def run_verify(app_filter: str | None = None) -> None:
                 try:
                     # Build
                     progress.update(task, description=f"[cyan]Building [bold]{app_name}[/bold]...")
-                    rc = run_command(
-                        ["docker-compose", "build"],
-                        cwd=str(app_path),
-                        log_path=build_log,
-                        quiet=True,
-                    )
-                    app_result["Build"] = "PASS" if rc == 0 else "FAIL"
+                    try:
+                        env.docker.build(log_path=build_log, verbose=verbose)
+                        app_result["Build"] = "PASS"
+                    except InfrastructureError:
+                        app_result["Build"] = "FAIL"
 
-                    if rc == 0:
+                    if app_result["Build"] == "PASS":
                         # Up
                         progress.update(
                             task, description=f"[cyan]Starting [bold]{app_name}[/bold]..."
                         )
-                        rc = run_command(
-                            ["docker-compose", "up", "-d", "--force-recreate"],
-                            cwd=str(app_path),
-                            log_path=run_log,
-                            quiet=True,
-                        )
-                        app_result["Run"] = "PASS" if rc == 0 else "FAIL"
+                        try:
+                            env.docker.up(log_path=run_log, verbose=verbose)
+                            app_result["Run"] = "PASS"
+                        except InfrastructureError:
+                            app_result["Run"] = "FAIL"
 
-                        if rc == 0:
+                        if app_result["Run"] == "PASS":
                             # Test
                             progress.update(
                                 task,
@@ -107,21 +104,17 @@ def run_verify(app_filter: str | None = None) -> None:
                             app_result["Test"] = "PASS" if test_result else "FAIL"
 
                             # Append container logs to run log
-                            run_command(
-                                ["docker-compose", "logs"],
-                                cwd=str(app_path),
-                                log_path=run_log,
-                                quiet=True,
-                            )
+                            try:
+                                env.docker.logs(log_path=run_log, verbose=verbose)
+                            except InfrastructureError:
+                                pass
                 finally:
                     # Always try to Down if we attempted Build/Up
                     if app_result["Build"] != "SKIP":
-                        run_command(
-                            ["docker-compose", "down"],
-                            cwd=str(app_path),
-                            log_path=run_log,
-                            quiet=True,
-                        )
+                        try:
+                            env.teardown(verbose=verbose)
+                        except InfrastructureError:
+                            pass
 
                 # Overall Status
                 if (

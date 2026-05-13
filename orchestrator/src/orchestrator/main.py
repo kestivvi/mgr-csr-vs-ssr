@@ -19,6 +19,7 @@ console = Console()
 def setup(
     infra_path: Annotated[Path, typer.Argument(help="Path to infrastructure configuration YAML")],
     force: Annotated[bool, typer.Option(help="Force recreation of infrastructure")] = False,
+    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Show real-time output from tools")] = False,
 ) -> None:
     """
     [bold green]Setup[/bold green]: Provision infrastructure via Terraform
@@ -27,7 +28,7 @@ def setup(
     console.print(f"[yellow]Setup command initiated with config: {infra_path}...[/yellow]")
     from orchestrator.actions.setup import cli as setup_cli
 
-    setup_cli.run(infra_path=infra_path, force=force)
+    setup_cli.run(infra_path=infra_path, force=force, verbose=verbose)
 
 
 test_app = typer.Typer(
@@ -188,11 +189,12 @@ def test_capacity_local_wrk(
     num_runs: Annotated[
         int, typer.Option("--num-runs", help="Number of test runs per app", show_default=True)
     ] = 1,
+    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Show real-time output from tools")] = False,
 ) -> None:
     """Run local [cyan]capacity benchmarks[/cyan] using wrk."""
     from orchestrator.actions.test import cli as test_cli
 
-    test_cli.run_local_wrk(app_filter=apps, num_runs=num_runs)
+    test_cli.run_local_wrk(app_filter=apps, num_runs=num_runs, verbose=verbose)
 
 
 @test_app.command(name="stop")
@@ -225,14 +227,16 @@ def analyze(
 
 
 @app.command()
-def destroy() -> None:
+def destroy(
+    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Show real-time output from tools")] = False,
+) -> None:
     """
     [bold red]Destroy[/bold red]: Tear down all infrastructure via Terraform.
     """
     console.print("[red]Teardown initiated...[/red]")
     from orchestrator.actions.destroy import cli as destroy_cli
 
-    destroy_cli.run()
+    destroy_cli.run(verbose=verbose)
 
 
 @app.command()
@@ -248,13 +252,14 @@ def verify(
             ),
         ),
     ] = None,
+    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Show real-time output from tools")] = False,
 ) -> None:
     """
     [bold green]Verify[/bold green]: Build and test apps locally to ensure functionality.
     """
     from orchestrator.actions.verify import cli as verify_cli
 
-    verify_cli.run(app_filter=apps)
+    verify_cli.run(app_filter=apps, verbose=verbose)
 
 
 if __name__ == "__main__":

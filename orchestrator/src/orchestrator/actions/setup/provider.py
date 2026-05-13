@@ -8,7 +8,7 @@ import yaml
 from rich.console import Console
 
 from orchestrator.config import ANSIBLE_DIR, TERRAFORM_DIR
-from orchestrator.shared.runner import run_command
+from orchestrator.shared.infra import CloudEnvironment, InfrastructureError
 
 console = Console()
 
@@ -41,53 +41,29 @@ def load_infra_config(path: Path) -> dict[str, Any]:
     return merged
 
 
-def run_setup(infra_path: Path, force: bool = False) -> None:
-    """Orchestrates the infrastructure setup."""
+def run_setup(infra_path: Path, force: bool = False, verbose: bool = False) -> None:
+    """Orchestrates the infrastructure setup using deep adapters."""
 
     # 0. Load Configuration
     config = load_infra_config(infra_path)
+    env = CloudEnvironment()
 
-    # 1. Terraform Init & Apply
-    console.print("[bold green]Step 1: Terraform Provisioning[/bold green]")
-    run_command(["terraform", "init"], cwd=str(TERRAFORM_DIR))
+    try:
+        if force:
+            console.print("[bold red]Step 0: Destroying existing infrastructure (force)...[/bold red]")
+            env.teardown(verbose=verbose)
 
-    apply_cmd = ["terraform", "apply", "-auto-approve"]
-
-    # Construct -var arguments
-    for key, value in config.items():
-        if isinstance(value, (dict, list)):
-            # Complex types must be passed as JSON strings for Terraform
-            tf_value = json.dumps(value)
-        else:
-            tf_value = str(value)
-        apply_cmd.extend(["-var", f"{key}={tf_value}"])
-
-    if force:
-        # Note: Handled by Terraform -replace if needed, but for now we just run apply
-        pass
-
-    env = os.environ.copy()
-    env["TF_IN_AUTOMATION"] = "true"
-
-    rc = run_command(apply_cmd, cwd=str(TERRAFORM_DIR), env=env)
-    if rc != 0:
-        console.print("[bold red]Terraform failed. Aborting.[/bold red]")
-        return
-
-    # 2. Ansible Configuration
-    console.print("[bold green]Step 2: Ansible Configuration[/bold green]")
-
-    from orchestrator.shared.ansible import get_ansible_env
-
-    # Using ansible-runner with dynamic environment
-    r = ansible_runner.run(
-        private_data_dir=str(ANSIBLE_DIR),
-        playbook="site.yml",
-        quiet=False,
-        envvars=get_ansible_env(),
-    )
-
-    if r.rc != 0:
-        console.print(f"[bold red]Ansible failed with return code {r.rc}[/bold red]")
-    else:
+        console.print("[bold green]Step 1: Provisioning and Configuring Environment...[/bold green]")
+        # CloudEnvironment handles both Terraform and Ansible
+        env.setup(config, verbose=verbose)
+        
         console.print("[bold green]Infrastructure is ready![/bold green]")
+
+    except InfrastructureError as e:
+        console.print(f"\n[bold red]Setup failed: {e}[/bold red]")
+        if e.logs:
+            # For non-verbose runs, we can still show the last bit of logs on failure
+            console.print("[dim yellow]Tail of failure logs:[/dim yellow]")
+            last_lines = "\n".join(e.logs.splitlines()[-20:])
+            console.print(last_lines)
+        return

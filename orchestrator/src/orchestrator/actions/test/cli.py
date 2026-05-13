@@ -71,10 +71,10 @@ def run(
     runner.run_all()
 
 
-def run_local_wrk(app_filter: Optional[str] = None, num_runs: int = 1) -> None:
+def run_local_wrk(app_filter: str | None = None, num_runs: int = 1, verbose: bool = False) -> None:
     """
     Run local capacity testing with wrk.
     """
     from orchestrator.actions.test.local_wrk import run_capacity_local_wrk
 
-    run_capacity_local_wrk(app_filter=app_filter, num_runs=num_runs)
+    run_capacity_local_wrk(app_filter=app_filter, num_runs=num_runs, verbose=verbose)
