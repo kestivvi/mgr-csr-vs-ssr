@@ -49,7 +49,8 @@ def setup(
     """
     if force and not auto_approve:
         confirm = typer.confirm(
-            "[bold red]WARNING: --force will DESTROY existing infrastructure before rebuilding. Continue?[/bold red]"
+            "[bold red]WARNING: --force will DESTROY existing infrastructure "
+            "before rebuilding. Continue?[/bold red]"
         )
         if not confirm:
             raise typer.Abort()

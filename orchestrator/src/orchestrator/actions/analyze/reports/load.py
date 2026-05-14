@@ -31,10 +31,10 @@ def run_load_analysis(analyzer: PerformanceAnalyzer) -> None:
         analyzer.raw_df.groupby(
             [Column.GROUP, Column.SERVER_TYPE, Column.RUN_NUMBER, Column.METRIC]
         )[Column.VALUE]
-        .agg(["mean", "std", lambda x: x.quantile(0.95)])
+        .agg(["mean", "std", lambda x: x.quantile(0.99)])
         .reset_index()
     )
-    summary_df.rename(columns={"<lambda_0>": "p95"}, inplace=True)
+    summary_df.rename(columns={"<lambda_0>": "p99"}, inplace=True)
 
     compute_rankings(analyzer, summary_df, ranking_results)
     scorecard_ranks_df, scorecard_values_df, executive_summary = compute_scorecard_and_winner(
@@ -192,7 +192,7 @@ def render_executive_summary_md(analyzer: PerformanceAnalyzer, executive_summary
 
 def render_ranking_tables_md(ranking_results: Dict[str, pd.DataFrame]) -> str:
     md = ["\n### Intra-Group Rankings"]
-    stat_name_map = {"mean": "Mean", "std": "Mean of Std Devs", "p95": "Mean of p95s"}
+    stat_name_map = {"mean": "Mean", "std": "Mean of Std Devs", "p99": "Mean of p99s"}
     emoji_map = {1: "🥇", 2: "🥈", 3: "🥉"}
 
     for stat_col, metrics in METRIC_CONFIG.items():

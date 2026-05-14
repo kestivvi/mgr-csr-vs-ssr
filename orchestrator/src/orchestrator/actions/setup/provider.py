@@ -54,12 +54,14 @@ def run_setup(infra_path: Path | None = None, force: bool = False, verbose: bool
             )
             env.teardown(verbose=verbose)
 
-        with console.status(
-            "[bold green]Step 1: Provisioning and Configuring Environment...[/bold green]",
-            spinner="dots",
-        ):
-            # CloudEnvironment handles both Terraform and Ansible
+        msg = "[bold green]Step 1: Provisioning and Configuring Environment...[/bold green]"
+        if verbose:
+            console.print(msg)
             env.setup(config, verbose=verbose)
+        else:
+            with console.status(msg, spinner="dots"):
+                # CloudEnvironment handles both Terraform and Ansible
+                env.setup(config, verbose=verbose)
 
         console.print("[bold green]Infrastructure is ready![/bold green]")
 

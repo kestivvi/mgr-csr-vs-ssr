@@ -31,12 +31,13 @@ METRIC_CONFIG: dict[str, MetricDefinition] = {
             'node_memory_MemAvailable_bytes{{server="{server_label}"}})'
         ),
     },
-    "latency": {
-        "name": "p95 Request Latency",
-        "query": (
-            "histogram_quantile(0.95, sum by (le, server) "
-            '(rate(k6_http_req_duration_seconds{{server="{server_label}"}}[15s]))) * 1000'
-        ),
+    "p99": {
+        "name": "99. percentyl czasu odpowiedzi",
+        "query": ('avg by (server) (k6_http_req_duration_p99{{server="{server_label}"}}) * 1000'),
+    },
+    "avg_latency": {
+        "name": "Average Request Latency",
+        "query": ('avg by (server) (k6_http_req_duration_avg{{server="{server_label}"}}) * 1000'),
     },
     "network_tx": {
         "name": "Network Transmit Rate",

@@ -99,6 +99,7 @@ def run_campaign(
             TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
             TimeElapsedColumn(),
             console=console,
+            disable=verbose,
         ) as progress:
             campaign_task = progress.add_task("[magenta]Campaign Progress", total=len(apps_to_test))
             progress.update(campaign_task, completed=len(state["completed_apps"]))

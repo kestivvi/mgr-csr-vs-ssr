@@ -51,6 +51,7 @@ def run_verify(app_filter: str | None = None, verbose: bool = False) -> None:
             TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
             TimeElapsedColumn(),
             console=console,
+            disable=verbose,
         ) as progress:
             task = progress.add_task("[cyan]Verifying apps...", total=len(apps))
 

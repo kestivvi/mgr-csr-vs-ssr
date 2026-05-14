@@ -623,14 +623,14 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile($percentile, sum by (le, server) (rate(k6_http_req_duration_seconds{server=~\"$server\"}[$my_rate_interval])))",
+          "expr": "avg by (server) (k6_http_req_duration_$percentile{server=~\"$server\"})",
           "instant": false,
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Client latency $percentile",
+      "title": "Client latency ($percentile)",
       "type": "timeseries"
     },
     {
@@ -2154,43 +2154,28 @@
       },
       {
         "current": {
-          "selected": false,
-          "text": "p90",
-          "value": "0.9"
+          "selected": true,
+          "text": "p99",
+          "value": "p99"
         },
         "hide": 0,
         "includeAll": false,
-        "label": "Percentile",
+        "label": "Metric",
         "multi": false,
         "name": "percentile",
         "options": [
           {
             "selected": false,
-            "text": "p50",
-            "value": "0.5"
+            "text": "avg",
+            "value": "avg"
           },
           {
             "selected": true,
-            "text": "p90",
-            "value": "0.9"
-          },
-          {
-            "selected": false,
-            "text": "p95",
-            "value": "0.95"
-          },
-          {
-            "selected": false,
             "text": "p99",
-            "value": "0.99"
-          },
-          {
-            "selected": false,
-            "text": "p99.9",
-            "value": "0.999"
+            "value": "p99"
           }
         ],
-        "query": "p50 : 0.5, p90 : 0.9, p95 : 0.95, p99 : 0.99, p99.9 : 0.999",
+        "query": "avg, p99",
         "queryValue": "",
         "skipUrlSync": false,
         "type": "custom"

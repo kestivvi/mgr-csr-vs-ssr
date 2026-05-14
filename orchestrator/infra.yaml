@@ -69,10 +69,10 @@ technologies:
   #   purpose: "Hosts AnalogJS Server-Side Rendered application"
   #   app_dir: "apps/ssr-analogjs"
 
-  # "SSR-Angular":
-  #   description: "Application Server (SSR-Angular)"
-  #   purpose: "Hosts Angular Server-Side Rendered application"
-  #   app_dir: "apps/ssr-angular"
+  "SSR-Angular":
+    description: "Application Server (SSR-Angular)"
+    purpose: "Hosts Angular Server-Side Rendered application"
+    app_dir: "apps/ssr-angular"
 
   # "SSR-Astro":
   #   description: "Application Server (SSR-Astro)"
@@ -89,10 +89,10 @@ technologies:
   #   purpose: "Hosts Lit Server-Side Rendered application"
   #   app_dir: "apps/ssr-lit"
 
-  "SSR-NextJS":
-    description: "Application Server (SSR-NextJS)"
-    purpose: "Hosts NextJS Server-Side Rendered application"
-    app_dir: "apps/ssr-nextjs"
+  # "SSR-NextJS":
+  #   description: "Application Server (SSR-NextJS)"
+  #   purpose: "Hosts NextJS Server-Side Rendered application"
+  #   app_dir: "apps/ssr-nextjs"
 
   # "SSR-NuxtJS":
   #   description: "Application Server (SSR-NuxtJS)"

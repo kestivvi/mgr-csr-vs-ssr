@@ -89,6 +89,7 @@ def run_capacity_local_wrk(
             TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
             TimeElapsedColumn(),
             console=console,
+            disable=verbose,
         ) as progress:
             task = progress.add_task("[cyan]Benchmarking apps...", total=len(apps))
 

@@ -27,10 +27,10 @@ def run_champions_analysis(analyzer: PerformanceAnalyzer) -> None:
         analyzer.raw_df.groupby(
             [Column.GROUP, Column.SERVER_TYPE, Column.RUN_NUMBER, Column.METRIC]
         )[Column.VALUE]
-        .agg(["mean", "std", lambda x: x.quantile(0.95)])
+        .agg(["mean", "std", lambda x: x.quantile(0.99)])
         .reset_index()
     )
-    summary_df.rename(columns={"<lambda_0>": "p95"}, inplace=True)
+    summary_df.rename(columns={"<lambda_0>": "p99"}, inplace=True)
 
     compute_champion_stats(analyzer, summary_df, champion_results)
     content = generate_champions_report(analyzer, champion_results)

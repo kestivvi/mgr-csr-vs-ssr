@@ -493,14 +493,11 @@ class TestRunner:
         table.add_row("[bold white]General[/bold white]", "")
         table.add_row("  Test Type", self.test_type.upper())
         table.add_row("  Num Runs", str(self.num_runs))
+        table.add_row("  Inter-Run Delay", self.config.inter_run_delay)
         table.add_row("  Scenarios", str(len(scenarios)))
 
-        skip_assets = False
-        if self.test_type == "load" and self.config.load_options:
-            skip_assets = self.config.load_options.skip_assets
-        elif self.test_type == "capacity_k6" and self.config.capacity_k6_options:
-            skip_assets = self.config.capacity_k6_options.skip_assets
-
+        options = self.config.get_options()
+        skip_assets = getattr(options, "skip_assets", False)
         table.add_row("  Skip Assets", str(skip_assets))
         table.add_section()
 
@@ -518,47 +515,45 @@ class TestRunner:
         except Exception:
             pass
 
-        vus = 0
-        # --- Section: Workload ---
-        table.add_row("[bold white]Workload[/bold white]", "")
-        if self.test_type == "load" and self.config.load_options:
-            l_opts = self.config.load_options
-            vus = l_opts.vus
-            table.add_row("  Target RPS", str(l_opts.rps))
-            table.add_row("  Max VUs", str(l_opts.vus))
-            if l_opts.rps > 0:
-                theoretical_max_latency = (l_opts.vus / l_opts.rps) * 1000
-                table.add_row("  Max Latency (theo)", f"{theoretical_max_latency:.2f}ms")
+        # --- Dynamic Sections from Model ---
+        summary_data = options.to_summary()
+        for section_name, rows in summary_data.items():
+            table.add_row(f"[bold white]{section_name}[/bold white]", "")
+            for label, value in rows:
+                table.add_row(f"  {label}", value)
+
+            # Special case: Theoretical Latency for workload section
+            if section_name == "Workload":
+                rps = 0
+                vus = 0
+                if hasattr(options, "rps"):
+                    rps = options.rps
+                elif hasattr(options, "peak_rate"):
+                    rps = options.peak_rate
+
+                if hasattr(options, "vus"):
+                    vus = options.vus
+                elif hasattr(options, "max_vus"):
+                    vus = options.max_vus
+
+                if rps > 0 and vus > 0:
+                    theo_lat = (vus / rps) * 1000
+                    table.add_row("  Max Latency (theo)", f"{theo_lat:.2f}ms")
+
             table.add_section()
 
-            # --- Section: Timeline ---
-            table.add_row("[bold white]Timeline[/bold white]", "")
-            table.add_row("  Warmup", f"{l_opts.warmup} (0 ➔ {l_opts.rps} RPS)")
-            table.add_row("  Sustain", f"{l_opts.duration} ({l_opts.rps} RPS)")
-            table.add_row("  Cooldown", f"{l_opts.after} ({l_opts.rps} ➔ 0 RPS)")
-
-        elif self.test_type == "capacity_k6" and self.config.capacity_k6_options:
-            c_opts = self.config.capacity_k6_options
-            vus = c_opts.max_vus
-            table.add_row("  Peak Rate", str(c_opts.peak_rate))
-            table.add_row("  Max VUs", str(c_opts.max_vus))
-            if c_opts.peak_rate > 0:
-                theoretical_max_latency = (c_opts.max_vus / c_opts.peak_rate) * 1000
-                table.add_row("  Max Latency (theo)", f"{theoretical_max_latency:.2f}ms")
-            table.add_section()
-
-            # --- Section: Timeline ---
-            table.add_row("[bold white]Timeline[/bold white]", "")
-            table.add_row(
-                "  Ramp Up", f"{c_opts.ramp_up} ({c_opts.start_rate} ➔ {c_opts.peak_rate} RPS)"
-            )
-            table.add_row("  Sustain", f"{c_opts.sustain} ({c_opts.peak_rate} RPS)")
-            table.add_row("  Ramp Down", f"{c_opts.ramp_down} ({c_opts.peak_rate} ➔ 0 RPS)")
-
-        table.add_section()
         # --- Section: Resources ---
-        table.add_row("[bold white]Resources (Est.)[/bold white]", "")
+        vus = 0
+        if hasattr(options, "vus"):
+            vus = options.vus
+        elif hasattr(options, "max_vus"):
+            vus = options.max_vus
+        elif hasattr(options, "connections"):
+            # connections is a proxy for VUs in wrk
+            vus = options.connections
+
         if vus > 0:
+            table.add_row("[bold white]Resources (Est.)[/bold white]", "")
             vu_ram = RAM_PER_K6_VU_MB
             if not skip_assets:
                 vu_ram += RAM_PER_K6_VU_ASSETS_MB
