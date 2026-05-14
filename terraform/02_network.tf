@@ -3,6 +3,7 @@ resource "aws_vpc" "main" {
   cidr_block = "10.0.0.0/16"
   tags = {
     Name = "${var.project_name}-vpc"
+    Role = "network"
   }
 }
 
@@ -15,6 +16,7 @@ resource "aws_subnet" "public" {
 
   tags = {
     Name = "${var.project_name}-public-subnet"
+    Role = "network"
   }
 }
 
@@ -22,6 +24,7 @@ resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
   tags = {
     Name = "${var.project_name}-igw"
+    Role = "network"
   }
 }
 
@@ -35,6 +38,7 @@ resource "aws_route_table" "public" {
 
   tags = {
     Name = "${var.project_name}-public-rt"
+    Role = "network"
   }
 }
 

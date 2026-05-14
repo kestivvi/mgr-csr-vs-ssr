@@ -12,6 +12,11 @@ resource "aws_security_group" "allow_ssh" {
     cidr_blocks = ["0.0.0.0/0"]
     description = "Allow all outbound traffic"
   }
+
+  tags = {
+    Name = "${var.project_name}-allow-ssh"
+    Role = "security"
+  }
 }
 
 resource "aws_security_group_rule" "allow_ssh_from_my_ip" {
@@ -30,6 +35,11 @@ resource "aws_security_group" "app_server" {
   name        = "${var.project_name}-app-server-sg"
   description = "Security group for App Servers (CSR/SSR)"
   vpc_id      = aws_vpc.main.id
+
+  tags = {
+    Name = "${var.project_name}-app-server-sg"
+    Role = "security"
+  }
 }
 
 # trivy:ignore:AVD-AWS-0104[OK_for_thesis] Egress is open to allow OS updates and software installation.
@@ -122,6 +132,7 @@ resource "aws_security_group" "load_generator" {
   vpc_id      = aws_vpc.main.id
   tags = {
     Name = "${var.project_name}-load-generator-sg"
+    Role = "security"
   }
 }
 
@@ -152,6 +163,11 @@ resource "aws_security_group" "monitoring_server" {
   name        = "${var.project_name}-monitoring-server-sg"
   description = "Security group for Monitoring Server"
   vpc_id      = aws_vpc.main.id
+
+  tags = {
+    Name = "${var.project_name}-monitoring-server-sg"
+    Role = "security"
+  }
 }
 
 # trivy:ignore:AVD-AWS-0104[OK_for_thesis] Egress is open to allow OS updates and software installation.

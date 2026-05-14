@@ -43,7 +43,7 @@ resource "aws_instance" "load_generator" {
 # The monitoring server remains a single, static resource
 # trivy:ignore:AVD-AWS-0131[OK_for_thesis] EBS encryption is not required as no sensitive data is stored.
 resource "aws_instance" "monitoring_server" {
-  ami = data.aws_ami.amazon_linux_2023.id
+  ami                    = data.aws_ami.amazon_linux_2023.id
   instance_type          = var.monitoring_server_instance_type
   key_name               = var.key_name
   subnet_id              = aws_subnet.public.id
