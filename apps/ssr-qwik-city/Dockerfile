@@ -11,13 +11,13 @@ RUN npm run build.preview
 
 FROM mgr-base-node-runner AS runner
 
-COPY --from=builder --chown=qwikuser:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=qwikuser:nodejs /app/dist ./dist
-COPY --from=builder --chown=qwikuser:nodejs /app/server ./server
-COPY --from=builder --chown=qwikuser:nodejs /app/src ./src
-COPY --from=builder --chown=qwikuser:nodejs /app/package.json ./
-COPY --from=builder --chown=qwikuser:nodejs /app/vite.config.ts ./
-COPY --from=builder --chown=qwikuser:nodejs /app/tsconfig.json ./
+COPY --from=builder --chown=mgruser:mgrgroup /app/node_modules ./node_modules
+COPY --from=builder --chown=mgruser:mgrgroup /app/dist ./dist
+COPY --from=builder --chown=mgruser:mgrgroup /app/server ./server
+COPY --from=builder --chown=mgruser:mgrgroup /app/src ./src
+COPY --from=builder --chown=mgruser:mgrgroup /app/package.json ./
+COPY --from=builder --chown=mgruser:mgrgroup /app/vite.config.ts ./
+COPY --from=builder --chown=mgruser:mgrgroup /app/tsconfig.json ./
 
 CMD ["node", "./node_modules/vite/bin/vite.js", "preview", "--host", "0.0.0.0", "--port", "3000", "--strictPort"]
 

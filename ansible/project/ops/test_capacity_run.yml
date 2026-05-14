@@ -92,6 +92,7 @@
               -e K6_TEST_PATH="{{ k6_path_type }}"
               -e K6_PROMETHEUS_RW_SERVER_URL="{{ prometheus_url }}/api/v1/write"
               -e K6_PROMETHEUS_RW_TREND_AS_NATIVE_HISTOGRAM="true"
+              -e K6_SKIP_ASSETS="{{ k6_skip_assets | default('false') | string | lower }}"
               -e K6_LOG_OUTPUT="stdout"
               -e TIMEOUT="{{ k6_request_timeout }}"
               -e K6_BACKOFF_TIMEOUT_S="{{ k6_backoff_timeout_s | default(omit) }}"

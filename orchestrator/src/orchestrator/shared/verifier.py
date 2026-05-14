@@ -63,7 +63,7 @@ class AppVerifier(BaseAdapter):
         self,
         base_url: str,
         profile: HealthProfile,
-        retries: int = 15,
+        retries: int = 4,
         delay: int = 2,
         log_path: Optional[Path] = None,
     ) -> bool:

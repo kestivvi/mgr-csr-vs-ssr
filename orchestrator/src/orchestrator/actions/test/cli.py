@@ -21,6 +21,7 @@ def run(
     start_rate: Optional[int] = None,
     peak_rate_2: Optional[int] = None,
     ramp_up_2: Optional[str] = None,
+    skip_assets: Optional[bool] = None,
 ) -> None:
     """
     Core test execution logic.
@@ -56,6 +57,8 @@ def run(
         overrides["peak_rate_2"] = peak_rate_2
     if ramp_up_2 is not None:
         overrides["ramp_up_2"] = ramp_up_2
+    if skip_assets is not None:
+        overrides["skip_assets"] = skip_assets
 
     if mode == "file":
         if path is None:

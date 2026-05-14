@@ -67,6 +67,9 @@ def test_load(
         int, typer.Option("--vus", help="Number of virtual users", show_default=True)
     ] = 10,
     rps: Annotated[Optional[int], typer.Option("--rps", help="Requests per second")] = None,
+    skip_assets: Annotated[
+        bool, typer.Option("--skip-assets", help="Skip fetching static assets")
+    ] = False,
 ) -> None:
     """Run standard [cyan]load[/cyan] tests."""
     from orchestrator.actions.test import cli as test_cli
@@ -80,6 +83,7 @@ def test_load(
         after=after,
         vus=vus,
         rps=rps,
+        skip_assets=skip_assets,
     )
 
 
@@ -118,6 +122,9 @@ def test_capacity(
     ramp_up_2: Annotated[
         Optional[str], typer.Option("--ramp-up-2", help="Ramp up 2 duration")
     ] = None,
+    skip_assets: Annotated[
+        bool, typer.Option("--skip-assets", help="Skip fetching static assets")
+    ] = False,
 ) -> None:
     """Run [cyan]capacity[/cyan] tests (Thesis Standard RPS Ramping)."""
     from orchestrator.actions.test import cli as test_cli
@@ -133,6 +140,7 @@ def test_capacity(
         start_rate=start_rate,
         peak_rate_2=peak_rate_2,
         ramp_up_2=ramp_up_2,
+        skip_assets=skip_assets,
     )
 
 
@@ -160,6 +168,9 @@ def test_file(
     ramp_up_2: Annotated[
         Optional[str], typer.Option("--ramp-up-2", help="Override ramp up 2 duration")
     ] = None,
+    skip_assets: Annotated[
+        Optional[bool], typer.Option("--skip-assets", help="Override skip assets")
+    ] = None,
 ) -> None:
     """Run experiments from a custom [cyan]YAML file[/cyan]."""
     from orchestrator.actions.test import cli as test_cli
@@ -175,6 +186,7 @@ def test_file(
         vus=vus,
         peak_rate_2=peak_rate_2,
         ramp_up_2=ramp_up_2,
+        skip_assets=skip_assets,
     )
 
 
@@ -309,6 +321,39 @@ def verify(
     from orchestrator.actions.verify import cli as verify_cli
 
     verify_cli.run(app_filter=apps, verbose=verbose)
+
+
+@app.command()
+def run(
+    app: Annotated[
+        Optional[str],
+        typer.Argument(
+            help=(
+                "App name or filter. If provided, runs that app directly. "
+                "Otherwise shows interactive selection menu."
+            ),
+        ),
+    ] = None,
+    port: Annotated[
+        Optional[int],
+        typer.Option(
+            "--port",
+            "-p",
+            help="Port to bind (default: 3000). Finds available automatically if in use.",
+        ),
+    ] = None,
+    verbose: Annotated[
+        bool, typer.Option("--verbose", "-v", help="Show real-time output from tools")
+    ] = False,
+) -> None:
+    """
+    [bold blue]Run[/bold blue]: Start a selected app locally for manual testing in browser.
+
+    Interactive selection if no app specified. Streams logs and cleans up on Ctrl+C.
+    """
+    from orchestrator.actions.run import cli as run_cli
+
+    run_cli.run(app_filter=app, port=port, verbose=verbose)
 
 
 if __name__ == "__main__":

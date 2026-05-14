@@ -11,6 +11,7 @@ class LoadOptions(BaseModel):
     vus: int = 200
     path_type: str = "dynamic"  # 'static' or 'dynamic'
     timeout: str = "0.4s"
+    skip_assets: bool = False
 
 
 class CapacityK6Options(BaseModel):
@@ -26,6 +27,7 @@ class CapacityK6Options(BaseModel):
     max_vus: int = 200
     path_type: str = "dynamic"
     timeout: str = "0.4s"
+    skip_assets: bool = False
 
 
 class CapacityWrkOptions(BaseModel):

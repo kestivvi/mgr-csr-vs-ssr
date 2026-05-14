@@ -163,6 +163,7 @@ class TestRunner:
                         self.logs_dir
                         / f"{run_prefix}_{scenario_name.lower().replace('-', '_')}.log"
                     ),
+                    "k6_skip_assets": opts.get("skip_assets"),
                 }
                 extra_vars.update({k: v for k, v in mapped.items() if v is not None})
         else:
@@ -185,6 +186,7 @@ class TestRunner:
                             self.logs_dir
                             / f"{run_prefix}_{scenario_name.lower().replace('-', '_')}.log"
                         ),
+                        "k6_skip_assets": load_opts.skip_assets,
                     }
                 )
                 measurement_window = {"warmup": w_sec, "duration": d_sec}

@@ -17,6 +17,7 @@ if (K6_USE_HTTPS) {
 const server_type = __ENV.SERVER_TYPE || 'unknown';
 const K6_SCENARIO = __ENV.K6_SCENARIO || 'capacity_test';
 const K6_TEST_PATH = __ENV.K6_TEST_PATH || 'dynamic'; // 'static' or 'dynamic'
+const K6_SKIP_ASSETS = __ENV.K6_SKIP_ASSETS === 'true';
 const TIMEOUT = (parseFloat(__ENV.TIMEOUT) || 0.4) * 1000;
 // Backoff sleep durations in seconds, configurable via env
 const BACKOFF_TIMEOUT_S = parseFloat(__ENV.K6_BACKOFF_TIMEOUT_S) || 0.5;
@@ -165,9 +166,14 @@ export function setup() {
   console.log(`[init] Selected scenario configuration: ${JSON.stringify(options.scenarios[K6_SCENARIO], null, 2)}`);
   // -------------------------------------------------------
 
-  console.log('--- Running Setup Phase ---');
-  const pageToParse = `${target_url}/`;
+  console.log(`--- Running Setup Phase ---`);
 
+  if (K6_SKIP_ASSETS) {
+    console.log('[setup] K6_SKIP_ASSETS is enabled. Skipping asset discovery.');
+    return { assetUrls: [], assetRequests: [] };
+  }
+
+  const pageToParse = `${target_url}/`;
   console.log(`[setup] Discovering assets by fetching the main page: ${pageToParse}`);
 
   const res = http.get(pageToParse, { responseType: 'text' });
@@ -199,7 +205,10 @@ export function setup() {
       url: url,
       params: {
         timeout: TIMEOUT,
-        tags: { resource_type: 'asset' },
+        tags: { 
+          resource_type: 'asset',
+          name: 'static_asset' // Reduce cardinality by grouping all assets
+        },
         responseType: 'none' // Explicitly discard asset bodies
       },
     };
