@@ -17,20 +17,27 @@ console = Console()
 # Placeholder commands for now
 @app.command()
 def setup(
-    infra_path: Annotated[Path, typer.Argument(help="Path to infrastructure configuration YAML")],
-    force: Annotated[bool, typer.Option(help="Force recreation of infrastructure")] = False,
+    infra_path: Annotated[
+        Optional[Path],
+        typer.Option("--infra", help="Path to infrastructure config (defaults to infra.yaml)"),
+    ] = None,
+    force: Annotated[
+        bool,
+        typer.Option(
+            "--force",
+            help="Tear down existing infrastructure before setup",
+        ),
+    ] = False,
     verbose: Annotated[
         bool, typer.Option("--verbose", "-v", help="Show real-time output from tools")
     ] = False,
 ) -> None:
     """
-    [bold green]Setup[/bold green]: Provision infrastructure via Terraform
-    and configure via Ansible.
+    [bold green]Setup[/bold green]: Provision and configure the research environment.
     """
-    console.print(f"[yellow]Setup command initiated with config: {infra_path}...[/yellow]")
-    from orchestrator.actions.setup import cli as setup_cli
+    from orchestrator.actions.setup import provider as setup_provider
 
-    setup_cli.run(infra_path=infra_path, force=force, verbose=verbose)
+    setup_provider.run_setup(infra_path=infra_path, force=force, verbose=verbose)
 
 
 test_app = typer.Typer(
@@ -263,6 +270,37 @@ def destroy(
     from orchestrator.actions.destroy import cli as destroy_cli
 
     destroy_cli.run(verbose=verbose)
+
+
+@app.command()
+def campaign(
+    path: Annotated[Path, typer.Argument(help="Path to campaign experiment configuration YAML")],
+    apps: Annotated[
+        Optional[str],
+        typer.Option(
+            "--apps",
+            help="Comma-separated list of apps to include (overrides YAML)",
+        ),
+    ] = None,
+    resume: Annotated[
+        Optional[Path],
+        typer.Option("--resume", help="Path to campaign directory to resume from"),
+    ] = None,
+    infra: Annotated[
+        Optional[Path],
+        typer.Option("--infra", help="Path to infrastructure config (defaults to infra.yaml)"),
+    ] = None,
+    verbose: Annotated[
+        bool, typer.Option("--verbose", "-v", help="Show real-time output from tools")
+    ] = False,
+) -> None:
+    """
+    [bold magenta]Campaign[/bold magenta]: Run a sequential research campaign
+    (Provision -> Warmup -> Test -> Rotate).
+    """
+    from orchestrator.actions.campaign import cli as campaign_cli
+
+    campaign_cli.run(path=path, apps=apps, resume=resume, infra=infra, verbose=verbose)
 
 
 @app.command()

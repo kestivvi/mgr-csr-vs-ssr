@@ -1,50 +1,55 @@
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import yaml
 from rich.console import Console
 
+from orchestrator.config import INFRA_EXAMPLE_YAML, INFRA_YAML
 from orchestrator.shared.infra import CloudEnvironment, InfrastructureError
 
 console = Console()
 
-DEFAULT_INFRA = {
-    "aws_region": "ap-south-1",
-    "key_name": "MGR-M",
-    "my_ip": "46.205.195.40/32",
-    "app_server_instance_type": "t4g.micro",
-    "load_generator_instance_type": "t4g.micro",
-    "monitoring_server_instance_type": "t4g.micro",
-    "technologies": {
-        "CSR-Vanilla": {
-            "description": "Application Server (CSR-Vanilla)",
-            "purpose": "Hosts Client-Side Rendered application",
-            "app_dir": "apps/csr-vanilla-nginx",
-        }
-    },
-}
+
+def load_infra_config(path: Optional[Path] = None) -> dict[str, Any]:
+    """
+    Loads infrastructure configuration.
+
+    Order of precedence:
+    1. Provided path (CLI Argument)
+    2. Default infra.yaml in orchestrator root
+
+    If none found, raises FileNotFoundError with instruction to use infra.example.yaml.
+    """
+    target_path = path or INFRA_YAML
+
+    if not target_path.exists():
+        if target_path == INFRA_YAML:
+            raise FileNotFoundError(
+                f"Infrastructure config not found at {INFRA_YAML}.\n"
+                f"Please copy {INFRA_EXAMPLE_YAML} to {INFRA_YAML} and configure it."
+            )
+        else:
+            raise FileNotFoundError(f"Specified infrastructure config not found at {target_path}")
+
+    with open(target_path, "r") as f:
+        config: dict[str, Any] = yaml.safe_load(f)
+
+    if not config:
+        return {}
+
+    return config
 
 
-def load_infra_config(path: Path) -> dict[str, Any]:
-    """Loads and merges infrastructure configuration."""
-    with open(path, "r") as f:
-        config = yaml.safe_load(f)
-
-    # Merge with defaults
-    merged = DEFAULT_INFRA.copy()
-    if config:
-        merged.update(config)
-    return merged
-
-
-def run_setup(infra_path: Path, force: bool = False, verbose: bool = False) -> None:
+def run_setup(
+    infra_path: Optional[Path] = None, force: bool = False, verbose: bool = False
+) -> None:
     """Orchestrates the infrastructure setup using deep adapters."""
 
-    # 0. Load Configuration
-    config = load_infra_config(infra_path)
-    env = CloudEnvironment()
-
     try:
+        # 0. Load Configuration
+        config = load_infra_config(infra_path)
+        env = CloudEnvironment()
+
         if force:
             console.print(
                 "[bold red]Step 0: Destroying existing infrastructure (force)...[/bold red]"
@@ -59,11 +64,16 @@ def run_setup(infra_path: Path, force: bool = False, verbose: bool = False) -> N
 
         console.print("[bold green]Infrastructure is ready![/bold green]")
 
+    except FileNotFoundError as e:
+        console.print(f"\n[bold red]Configuration Error:[/bold red] {e}")
+        return
     except InfrastructureError as e:
         console.print(f"\n[bold red]Setup failed: {e}[/bold red]")
         if e.logs:
-            # For non-verbose runs, we can still show the last bit of logs on failure
             console.print("[dim yellow]Tail of failure logs:[/dim yellow]")
             last_lines = "\n".join(e.logs.splitlines()[-20:])
             console.print(last_lines)
+        return
+    except Exception as e:
+        console.print(f"\n[bold red]Unexpected error during setup:[/bold red] {e}")
         return

@@ -11,6 +11,8 @@ TERRAFORM_DIR = ROOT_DIR / "terraform"
 ANSIBLE_DIR = ROOT_DIR / "ansible"
 ANSIBLE_INVENTORY = ANSIBLE_DIR / "inventory" / "inventory.yml"
 ANSIBLE_PROJECT = ANSIBLE_DIR / "project"
+INFRA_YAML = ROOT_DIR / "orchestrator" / "infra.yaml"
+INFRA_EXAMPLE_YAML = ROOT_DIR / "orchestrator" / "infra.example.yaml"
 
 # Application paths
 APPS_DIR = ROOT_DIR / "apps"

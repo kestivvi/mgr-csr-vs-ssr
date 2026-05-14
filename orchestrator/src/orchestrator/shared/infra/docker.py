@@ -42,6 +42,7 @@ class DockerAdapter(BaseAdapter):
             "APP_DIR": self.app_dir,
             "APP_ID": self.app_id,
             "APP_PORT": "3000",
+            "HOST_PORT": "80",  # Default host port
             "STATIC_PATH": static_path,
             "BUILD_TARGET": "runner"
             if self.app_type == "ssr"

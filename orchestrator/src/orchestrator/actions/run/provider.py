@@ -140,7 +140,8 @@ def run_app(app_filter: str | None = None, port: int | None = None, verbose: boo
 
         # Customize port in env
         env_vars = env.docker._get_env()
-        env_vars["APP_PORT"] = str(port)
+        env_vars["HOST_PORT"] = str(port)
+        # We keep APP_PORT at default (3000) because it's used for internal backend connection
 
         # Build
         console.print("[cyan]Building image...[/cyan]")
@@ -192,7 +193,7 @@ def run_app(app_filter: str | None = None, port: int | None = None, verbose: boo
         try:
             env = LocalEnvironment(selected_app)
             env_vars = env.docker._get_env()
-            env_vars["APP_PORT"] = str(port)
+            env_vars["HOST_PORT"] = str(port)
 
             cmd = ["docker-compose", "-f", str(env.docker.compose_file), "down"]
             subprocess.run(

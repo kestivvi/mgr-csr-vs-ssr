@@ -53,6 +53,7 @@ class TestRunner:
         config_path: Optional[Path],
         overrides: Optional[Dict[str, Any]] = None,
         config_dict: Optional[Dict[str, Any]] = None,
+        output_dir: Optional[Path] = None,
     ):
         from orchestrator.actions.test.models import ExperimentConfig
 
@@ -86,10 +87,15 @@ class TestRunner:
         self.config = ExperimentConfig(**raw_config)
         self.test_type = self.config.test_type
         self.num_runs = self.config.num_runs
-        self.results_base_dir = (
-            RESULTS_DIR
-            / f"{self.test_type}_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
-        )
+
+        if output_dir:
+            self.results_base_dir = output_dir
+        else:
+            self.results_base_dir = (
+                RESULTS_DIR
+                / f"{self.test_type}_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
+            )
+
         self.results_base_dir.mkdir(parents=True, exist_ok=True)
         self.logs_dir = self.results_base_dir / "logs"
         self.logs_dir.mkdir(parents=True, exist_ok=True)
