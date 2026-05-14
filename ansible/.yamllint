@@ -1,0 +1,13 @@
+---
+extends: default
+
+rules:
+  # Disable line length checks (standard is 80, which is too short for Ansible shell commands)
+  line-length: disable
+
+  # Disable comment spacing requirements
+  comments: disable
+
+  # Relax truthy to allow yes/no (common in Ansible)
+  truthy:
+    allowed-values: ['true', 'false', 'yes', 'no']

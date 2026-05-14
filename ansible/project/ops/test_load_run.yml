@@ -32,7 +32,6 @@
     remote_state_file: "/tmp/k6_state_{{ server_type | lower | replace('-', '_') }}.json"
 
   tasks:
-
     - name: Ensure any previous k6 test container is stopped and removed
       ansible.builtin.command: "docker rm -f {{ container_name }}"
       register: docker_rm_result
@@ -113,4 +112,3 @@
       ansible.builtin.file:
         path: /tmp/k6.log
         state: absent
-

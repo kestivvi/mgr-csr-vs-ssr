@@ -37,7 +37,6 @@
     remote_state_file: "/tmp/k6_state_{{ server_type | lower | replace('-', '_') }}.json"
 
   tasks:
-
     - name: Ensure any previous k6 test container is stopped and removed
       ansible.builtin.command: "docker rm -f {{ container_name }}"
       register: docker_rm_result
@@ -108,7 +107,7 @@
           ansible.builtin.command: "date +%s"
           register: end_timestamp_result
           changed_when: false
-          ignore_errors: true
+          failed_when: false
 
         - name: Output precise timestamps for orchestrator
           ansible.builtin.debug:
@@ -121,7 +120,7 @@
             dest: "{{ k6_log_path }}"
             flat: yes
           when: k6_log_path is defined
-          ignore_errors: true
+          failed_when: false
 
     - name: (NEW) Clean up the remote state file on successful completion
       ansible.builtin.file:
@@ -132,4 +131,3 @@
       ansible.builtin.file:
         path: /tmp/k6.log
         state: absent
-

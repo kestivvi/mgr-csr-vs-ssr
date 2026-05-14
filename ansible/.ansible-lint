@@ -1,0 +1,5 @@
+---
+exclude_paths:
+  - env/
+  - artifacts/
+  - ansible/project/roles/monitoring/files/ # Skip large JSON dashboards
