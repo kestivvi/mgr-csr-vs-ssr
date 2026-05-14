@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from orchestrator.shared.ansible import get_ansible_env
 from orchestrator.shared.infra.base import BaseAdapter
@@ -16,9 +16,9 @@ class AnsibleAdapter(BaseAdapter):
     def run_playbook(
         self,
         playbook: str,
-        inventory: Optional[str] = None,
-        extra_vars: Optional[dict[str, Any]] = None,
-        log_path: Optional[Path] = None,
+        inventory: str | None = None,
+        extra_vars: dict[str, Any] | None = None,
+        log_path: Path | None = None,
         verbose: bool = False,
     ) -> str:
         """

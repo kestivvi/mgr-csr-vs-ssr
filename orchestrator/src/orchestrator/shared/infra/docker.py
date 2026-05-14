@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Optional
 
 from orchestrator.shared.infra.base import BaseAdapter
 from orchestrator.shared.infra.exceptions import DockerError
@@ -9,6 +8,12 @@ class DockerAdapter(BaseAdapter):
     """
     Deep adapter for Docker-Compose using Universal Master Files.
     """
+
+    app_dir: str
+    app_id: str
+    infra_dir: Path
+    app_type: str
+    compose_file: Path
 
     def __init__(self, workdir: Path):
         super().__init__(workdir)
@@ -49,7 +54,7 @@ class DockerAdapter(BaseAdapter):
             else ("nginx" if self.app_type == "csr" else ""),
         }
 
-    def build(self, log_path: Optional[Path] = None, verbose: bool = False) -> None:
+    def build(self, log_path: Path | None = None, verbose: bool = False) -> None:
         """Runs docker-compose build using the master file."""
         self._run(
             ["docker-compose", "-f", str(self.compose_file), "build"],
@@ -59,7 +64,7 @@ class DockerAdapter(BaseAdapter):
             error_type=DockerError,
         )
 
-    def up(self, log_path: Optional[Path] = None, verbose: bool = False) -> None:
+    def up(self, log_path: Path | None = None, verbose: bool = False) -> None:
         """Starts containers using the master file."""
         self._run(
             ["docker-compose", "-f", str(self.compose_file), "up", "-d", "--force-recreate"],
@@ -69,7 +74,7 @@ class DockerAdapter(BaseAdapter):
             error_type=DockerError,
         )
 
-    def down(self, log_path: Optional[Path] = None, verbose: bool = False) -> None:
+    def down(self, log_path: Path | None = None, verbose: bool = False) -> None:
         """Stops and removes containers using the master file."""
         self._run(
             ["docker-compose", "-f", str(self.compose_file), "down"],
@@ -79,7 +84,7 @@ class DockerAdapter(BaseAdapter):
             error_type=DockerError,
         )
 
-    def logs(self, log_path: Optional[Path] = None, verbose: bool = False) -> str:
+    def logs(self, log_path: Path | None = None, verbose: bool = False) -> str:
         """Fetches container logs using the master file."""
         return self._run(
             ["docker-compose", "-f", str(self.compose_file), "logs"],

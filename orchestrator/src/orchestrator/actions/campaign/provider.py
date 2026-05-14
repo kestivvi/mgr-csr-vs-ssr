@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import yaml
 from rich.console import Console
@@ -19,9 +19,9 @@ CAMPAIGN_STATE_FILE = "campaign_state.json"
 
 def run_campaign(
     path: Path,
-    app_filter: Optional[str] = None,
-    resume: Optional[Path] = None,
-    infra_path: Optional[Path] = None,
+    app_filter: str | None = None,
+    resume: Path | None = None,
+    infra_path: Path | None = None,
     verbose: bool = False,
 ) -> None:
     """
@@ -42,7 +42,7 @@ def run_campaign(
         console.print(f"\n[bold red]Configuration Error:[/bold red] {e}")
         return
 
-    state: Dict[str, Any] = {}
+    state: dict[str, Any] = {}
     if resume:
         campaign_dir = resume
         state_path = campaign_dir / CAMPAIGN_STATE_FILE

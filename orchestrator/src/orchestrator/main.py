@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 from rich.console import Console
@@ -18,7 +18,7 @@ console = Console()
 @app.command()
 def setup(
     infra_path: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--infra", help="Path to infrastructure config (defaults to infra.yaml)"),
     ] = None,
     force: Annotated[
@@ -73,7 +73,7 @@ def test_load(
     vus: Annotated[
         int, typer.Option("--vus", help="Number of virtual users", show_default=True)
     ] = 10,
-    rps: Annotated[Optional[int], typer.Option("--rps", help="Requests per second")] = None,
+    rps: Annotated[int | None, typer.Option("--rps", help="Requests per second")] = None,
     skip_assets: Annotated[
         bool, typer.Option("--skip-assets", help="Skip fetching static assets")
     ] = False,
@@ -124,11 +124,9 @@ def test_capacity(
         int, typer.Option("--start-rate", help="Starting RPS", show_default=True)
     ] = 1,
     peak_rate_2: Annotated[
-        Optional[int], typer.Option("--peak-rate-2", help="Target RPS at peak 2")
+        int | None, typer.Option("--peak-rate-2", help="Target RPS at peak 2")
     ] = None,
-    ramp_up_2: Annotated[
-        Optional[str], typer.Option("--ramp-up-2", help="Ramp up 2 duration")
-    ] = None,
+    ramp_up_2: Annotated[str | None, typer.Option("--ramp-up-2", help="Ramp up 2 duration")] = None,
     skip_assets: Annotated[
         bool, typer.Option("--skip-assets", help="Skip fetching static assets")
     ] = False,
@@ -155,28 +153,28 @@ def test_capacity(
 def test_file(
     path: Annotated[str, typer.Argument(help="Path to custom experiment config")],
     num_runs: Annotated[
-        Optional[int], typer.Option("--num-runs", help="Override number of runs")
+        int | None, typer.Option("--num-runs", help="Override number of runs")
     ] = None,
     inter_run_delay: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--inter-run-delay",
             "--delay",
             help="Override break duration between runs (e.g. 1m, 30s)",
         ),
     ] = None,
-    duration: Annotated[Optional[str], typer.Option("--duration", help="Override duration")] = None,
-    warmup: Annotated[Optional[str], typer.Option("--warmup", help="Override warmup")] = None,
-    after: Annotated[Optional[str], typer.Option("--after", help="Override after")] = None,
-    vus: Annotated[Optional[int], typer.Option("--vus", help="Override VUs")] = None,
+    duration: Annotated[str | None, typer.Option("--duration", help="Override duration")] = None,
+    warmup: Annotated[str | None, typer.Option("--warmup", help="Override warmup")] = None,
+    after: Annotated[str | None, typer.Option("--after", help="Override after")] = None,
+    vus: Annotated[int | None, typer.Option("--vus", help="Override VUs")] = None,
     peak_rate_2: Annotated[
-        Optional[int], typer.Option("--peak-rate-2", help="Override peak rate 2")
+        int | None, typer.Option("--peak-rate-2", help="Override peak rate 2")
     ] = None,
     ramp_up_2: Annotated[
-        Optional[str], typer.Option("--ramp-up-2", help="Override ramp up 2 duration")
+        str | None, typer.Option("--ramp-up-2", help="Override ramp up 2 duration")
     ] = None,
     skip_assets: Annotated[
-        Optional[bool], typer.Option("--skip-assets", help="Override skip assets")
+        bool | None, typer.Option("--skip-assets", help="Override skip assets")
     ] = None,
 ) -> None:
     """Run experiments from a custom [cyan]YAML file[/cyan]."""
@@ -200,7 +198,7 @@ def test_file(
 @test_app.command(name="capacity_local_wrk")
 def test_capacity_local_wrk(
     apps: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--apps",
             "--app",
@@ -236,7 +234,7 @@ def analyze(
     ],
     results_dir: Annotated[str, typer.Argument(help="Directory containing experiment results")],
     champions: Annotated[
-        Optional[list[str]],
+        list[str] | None,
         typer.Option(help="Two technologies to compare for 'champions' report"),
     ] = None,
     force: Annotated[
@@ -276,18 +274,18 @@ def destroy(
 def campaign(
     path: Annotated[Path, typer.Argument(help="Path to campaign experiment configuration YAML")],
     apps: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--apps",
             help="Comma-separated list of apps to include (overrides YAML)",
         ),
     ] = None,
     resume: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--resume", help="Path to campaign directory to resume from"),
     ] = None,
     infra: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--infra", help="Path to infrastructure config (defaults to infra.yaml)"),
     ] = None,
     verbose: Annotated[
@@ -310,7 +308,7 @@ def aggregate(
         typer.Argument(help="Source directories with filters, e.g. 'path[app1,app2]'"),
     ],
     output: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option(
             "--output",
             "-o",
@@ -339,7 +337,7 @@ def aggregate(
 @app.command()
 def verify(
     apps: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--apps",
             "--app",
@@ -364,7 +362,7 @@ def verify(
 @app.command()
 def run(
     app: Annotated[
-        Optional[str],
+        str | None,
         typer.Argument(
             help=(
                 "App name or filter. If provided, runs that app directly. "
@@ -373,7 +371,7 @@ def run(
         ),
     ] = None,
     port: Annotated[
-        Optional[int],
+        int | None,
         typer.Option(
             "--port",
             "-p",

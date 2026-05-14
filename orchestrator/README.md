@@ -156,5 +156,5 @@ This project uses **Ruff** for linting/formatting and **Mypy** for strict type c
 ./venv/bin/ruff check .
 
 # 3. Type checking
-./venv/bin/mypy .
+./venv/bin/mypy --strict .
 ```

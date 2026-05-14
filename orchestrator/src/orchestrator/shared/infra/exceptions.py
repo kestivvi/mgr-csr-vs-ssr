@@ -1,15 +1,16 @@
-from typing import Optional
-
-
 class InfrastructureError(Exception):
     """Base exception for all infrastructure-related failures."""
+
+    command: list[str] | None
+    return_code: int | None
+    logs: str | None
 
     def __init__(
         self,
         message: str,
-        command: Optional[list[str]] = None,
-        return_code: Optional[int] = None,
-        logs: Optional[str] = None,
+        command: list[str] | None = None,
+        return_code: int | None = None,
+        logs: str | None = None,
     ):
         super().__init__(message)
         self.command = command

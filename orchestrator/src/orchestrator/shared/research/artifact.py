@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 import yaml
 
@@ -17,9 +17,9 @@ class ResearchRun:
 
     run_id: int
     server_type: str
-    metrics_path: Optional[Path] = None
-    results_path: Optional[Path] = None
-    logs_path: Optional[Path] = None
+    metrics_path: Path | None = None
+    results_path: Path | None = None
+    logs_path: Path | None = None
 
     @property
     def is_complete(self) -> bool:
@@ -33,12 +33,16 @@ class ResearchArtifact:
     Acts as the "File Surgeon" for aggregation and the "Guard" for analysis.
     """
 
+    path: Path
+    metadata: dict[str, Any]
+    warnings: list[str]
+
     def __init__(self, path: Path):
         self.path = Path(path)
-        self.metadata: Dict[str, Any] = self._load_metadata()
-        self.warnings: List[str] = []
+        self.metadata = self._load_metadata()
+        self.warnings = []
 
-    def _load_metadata(self) -> Dict[str, Any]:
+    def _load_metadata(self) -> dict[str, Any]:
         meta_path = self.path / "metadata.yaml"
         if not meta_path.exists():
             return {}
@@ -46,13 +50,13 @@ class ResearchArtifact:
             return yaml.safe_load(f) or {}
 
     def get_runs(
-        self, include_apps: Optional[Set[str]] = None, exclude_apps: Optional[Set[str]] = None
-    ) -> List[ResearchRun]:
+        self, include_apps: set[str] | None = None, exclude_apps: set[str] | None = None
+    ) -> list[ResearchRun]:
         """
         Discovers and pairs all runs within the artifact.
         Hides the complexity of filename regexes from the rest of the system.
         """
-        runs_map: Dict[tuple[int, str], ResearchRun] = {}
+        runs_map: dict[tuple[int, str], ResearchRun] = {}
 
         # 1. Scan Metrics
         metrics_dir = self.path / "metrics"
@@ -99,7 +103,7 @@ class ResearchArtifact:
 
         return sorted(runs_map.values(), key=lambda r: (r.run_id, r.server_type))
 
-    def _parse_filename(self, filename: str, suffix: str) -> tuple[Optional[int], Optional[str]]:
+    def _parse_filename(self, filename: str, suffix: str) -> tuple[int | None, str | None]:
         """Internal helper to extract (run_id, server_type) from a filename."""
         regex = re.compile(rf"^(\d+)_(.*){re.escape(suffix)}$")
         match = regex.match(filename)
@@ -108,7 +112,7 @@ class ResearchArtifact:
         return None, None
 
     def _should_include(
-        self, tech: str, include: Optional[Set[str]], exclude: Optional[Set[str]]
+        self, tech: str, include: set[str] | None, exclude: set[str] | None
     ) -> bool:
         if include and tech not in include:
             return False
@@ -121,7 +125,7 @@ class ResearchArtifact:
         """The 'Vouching' flag for the Research Contract."""
         return self.metadata.get("is_consistent", True) and not self.warnings
 
-    def check_compatibility(self, other: ResearchArtifact | Dict[str, Any]) -> List[str]:
+    def check_compatibility(self, other: ResearchArtifact | dict[str, Any]) -> list[str]:
         """
         Compares this artifact against another to find Research Contract violations.
         """

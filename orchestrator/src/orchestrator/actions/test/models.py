@@ -1,6 +1,22 @@
-from typing import Optional
+from typing import Any, TypedDict
 
 from pydantic import BaseModel, Field
+
+
+class ScenarioMetadata(TypedDict):
+    name: str
+    app_server_ip: str
+    load_generator_group: str
+    monitoring_public_ip: str
+    monitoring_private_ip: str
+
+
+class ScenarioResult(TypedDict, total=False):
+    success: bool
+    name: str
+    timestamps: dict[str, float] | None
+    wrk_results: dict[str, Any] | None
+    scenario: ScenarioMetadata
 
 
 class LoadOptions(BaseModel):
@@ -18,8 +34,8 @@ class CapacityK6Options(BaseModel):
     # Rate-based (Thesis Standard)
     peak_rate: int = 1000
     ramp_up: str = "5m"
-    peak_rate_2: Optional[int] = None
-    ramp_up_2: Optional[str] = None
+    peak_rate_2: int | None = None
+    ramp_up_2: str | None = None
     sustain: str = "1m"
     ramp_down: str = "1m"
     start_rate: int = 1
@@ -41,6 +57,6 @@ class ExperimentConfig(BaseModel):
     test_type: str = Field(..., description="load, capacity_k6, or capacity_wrk")
     num_runs: int = 1
     inter_run_delay: str = "1m"
-    load_options: Optional[LoadOptions] = None
-    capacity_k6_options: Optional[CapacityK6Options] = None
-    capacity_wrk_options: Optional[CapacityWrkOptions] = None
+    load_options: LoadOptions | None = None
+    capacity_k6_options: CapacityK6Options | None = None
+    capacity_wrk_options: CapacityWrkOptions | None = None

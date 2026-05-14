@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any
 
 from orchestrator.config import ANSIBLE_DIR, TERRAFORM_DIR
@@ -25,6 +26,9 @@ class Environment(ABC):
 class CloudEnvironment(Environment):
     """Coordinates Terraform and Ansible for AWS runs."""
 
+    tf: TerraformAdapter
+    ansible: AnsibleAdapter
+
     def __init__(self) -> None:
         self.tf = TerraformAdapter(TERRAFORM_DIR)
         self.ansible = AnsibleAdapter(ANSIBLE_DIR)
@@ -50,7 +54,9 @@ class CloudEnvironment(Environment):
 class LocalEnvironment(Environment):
     """Coordinates Docker for local verification runs."""
 
-    def __init__(self, app_path: Any):
+    docker: DockerAdapter
+
+    def __init__(self, app_path: Path):
         # Local env is app-specific
         self.docker = DockerAdapter(app_path)
 

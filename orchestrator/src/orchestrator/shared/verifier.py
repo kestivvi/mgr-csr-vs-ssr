@@ -1,7 +1,7 @@
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Optional
 
 from orchestrator.shared.infra.base import BaseAdapter
 from orchestrator.shared.infra.exceptions import InfrastructureError
@@ -51,7 +51,9 @@ class AppVerifier(BaseAdapter):
     Leverages BaseAdapter for unified process execution and logging.
     """
 
-    def __init__(self, workdir: Path, on_output: Optional[Callable[[str], None]] = None):
+    on_output: Callable[[str], None] | None
+
+    def __init__(self, workdir: Path, on_output: Callable[[str], None] | None = None):
         super().__init__(workdir)
         self.on_output = on_output
 
@@ -65,7 +67,7 @@ class AppVerifier(BaseAdapter):
         profile: HealthProfile,
         retries: int = 4,
         delay: int = 2,
-        log_path: Optional[Path] = None,
+        log_path: Path | None = None,
     ) -> bool:
         """
         Polls the application until all health checks in the profile pass.
@@ -106,7 +108,7 @@ class AppVerifier(BaseAdapter):
         self._log(f"Verification failed after {retries} attempts.")
         return False
 
-    def _run_check(self, url: str, check: HealthCheck, log_path: Optional[Path]) -> bool:
+    def _run_check(self, url: str, check: HealthCheck, log_path: Path | None) -> bool:
         """Executes one or more curl commands for a single HealthCheck."""
         # We always test standard mode
         if not self._curl(url, check, use_gzip=False, log_path=log_path):
@@ -119,7 +121,7 @@ class AppVerifier(BaseAdapter):
 
         return True
 
-    def _curl(self, url: str, check: HealthCheck, use_gzip: bool, log_path: Optional[Path]) -> bool:
+    def _curl(self, url: str, check: HealthCheck, use_gzip: bool, log_path: Path | None) -> bool:
         """Internal helper to execute a single curl call and validate output."""
         flags = ["-IsLk"] if check.headers_only else ["-isLk"]
         if use_gzip:

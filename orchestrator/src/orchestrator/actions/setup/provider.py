@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 from rich.console import Console
@@ -10,7 +10,7 @@ from orchestrator.shared.infra import CloudEnvironment, InfrastructureError
 console = Console()
 
 
-def load_infra_config(path: Optional[Path] = None) -> dict[str, Any]:
+def load_infra_config(path: Path | None = None) -> dict[str, Any]:
     """
     Loads infrastructure configuration.
 
@@ -40,9 +40,7 @@ def load_infra_config(path: Optional[Path] = None) -> dict[str, Any]:
     return config
 
 
-def run_setup(
-    infra_path: Optional[Path] = None, force: bool = False, verbose: bool = False
-) -> None:
+def run_setup(infra_path: Path | None = None, force: bool = False, verbose: bool = False) -> None:
     """Orchestrates the infrastructure setup using deep adapters."""
 
     try:

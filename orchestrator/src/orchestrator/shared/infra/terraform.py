@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from orchestrator.shared.infra.base import BaseAdapter
 from orchestrator.shared.infra.exceptions import TerraformError
@@ -20,7 +20,7 @@ class TerraformAdapter(BaseAdapter):
     def apply(
         self,
         variables: dict[str, Any],
-        log_path: Optional[Path] = None,
+        log_path: Path | None = None,
         verbose: bool = False,
     ) -> None:
         """
@@ -50,7 +50,7 @@ class TerraformAdapter(BaseAdapter):
             error_type=TerraformError,
         )
 
-    def destroy(self, log_path: Optional[Path] = None, verbose: bool = False) -> None:
+    def destroy(self, log_path: Path | None = None, verbose: bool = False) -> None:
         """Runs terraform destroy with auto-approval."""
         cmd = ["terraform", "destroy", "-auto-approve"]
         self._run(

@@ -69,7 +69,7 @@ def _select_app(apps: list[Path], filter_str: str | None = None) -> Path:
     csr_apps = [a for a in apps if a.name.startswith("csr-")]
 
     index = 1
-    app_map = {}
+    app_map: dict[int, Path] = {}
 
     if ssr_apps:
         console.print("\n[bold]Server-Side Rendering (SSR):[/bold]")

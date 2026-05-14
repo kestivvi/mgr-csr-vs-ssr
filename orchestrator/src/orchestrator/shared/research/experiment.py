@@ -1,6 +1,6 @@
 import json
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import pandas as pd
 
@@ -14,11 +14,15 @@ class Experiment:
     Provides deep, research-ready DataFrames.
     """
 
+    metadata: dict[str, Any]
+    metrics: pd.DataFrame
+    wrk_results: pd.DataFrame | None
+
     def __init__(
         self,
-        metadata: Dict[str, Any],
+        metadata: dict[str, Any],
         metrics: pd.DataFrame,
-        wrk_results: Optional[pd.DataFrame] = None,
+        wrk_results: pd.DataFrame | None = None,
     ):
         self.metadata = metadata
         self.metrics = metrics
@@ -34,7 +38,10 @@ class ExperimentLoader:
     Deep loader that transforms raw results into an Experiment object.
     """
 
-    def __init__(self, groups_config: Optional[Dict[str, List[str]]] = None):
+    groups_config: dict[str, list[str]]
+    _tech_to_group: dict[str, str]
+
+    def __init__(self, groups_config: dict[str, list[str]] | None = None):
         self.groups_config = groups_config or {}
         self._tech_to_group = {
             tech.lower(): group for group, techs in self.groups_config.items() for tech in techs
@@ -108,7 +115,7 @@ class ExperimentLoader:
         df.loc[df[Column.METRIC] == MetricName.NETWORK_TX, Column.VALUE] /= 1024 * 1024
         df.loc[df[Column.METRIC] == MetricName.NETWORK_RX, Column.VALUE] /= 1024 * 1024
 
-    def _load_wrk_results(self, artifact: ResearchArtifact) -> Optional[pd.DataFrame]:
+    def _load_wrk_results(self, artifact: ResearchArtifact) -> pd.DataFrame | None:
         runs = artifact.get_runs()
         if not runs:
             return None

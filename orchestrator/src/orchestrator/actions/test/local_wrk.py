@@ -2,7 +2,7 @@ import re
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
@@ -21,7 +21,9 @@ def parse_wrk_output(output: str) -> float:
     return 0.0
 
 
-def wait_for_app_ready(env: LocalEnvironment, log_path: Path, progress: Any = None) -> bool:
+def wait_for_app_ready(
+    env: LocalEnvironment, log_path: Path, progress: Progress | None = None
+) -> bool:
     """Waits for the app to be reachable via HTTPS."""
     max_retries = 15
     delay = 2
@@ -95,7 +97,7 @@ def run_capacity_local_wrk(
                 env = LocalEnvironment(app_path)
                 wrk_adapter = BaseAdapter(app_path)
 
-                app_result: Dict[str, Any] = {
+                app_result: dict[str, Any] = {
                     "App": app_name,
                     "Status": "FAIL",
                     "RPS_Avg": 0.0,

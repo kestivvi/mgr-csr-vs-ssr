@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any
 
 from orchestrator.actions.test.runner import TestRunner
 from orchestrator.config import resolve_path
@@ -6,27 +6,27 @@ from orchestrator.config import resolve_path
 
 def run(
     mode: str,
-    path: Optional[str] = None,
-    num_runs: Optional[int] = None,
-    inter_run_delay: Optional[str] = None,
-    duration: Optional[str] = None,
-    warmup: Optional[str] = None,
-    after: Optional[str] = None,
-    vus: Optional[int] = None,
-    rps: Optional[int] = None,
-    peak_rate: Optional[int] = None,
-    ramp_up: Optional[str] = None,
-    sustain: Optional[str] = None,
-    ramp_down: Optional[str] = None,
-    start_rate: Optional[int] = None,
-    peak_rate_2: Optional[int] = None,
-    ramp_up_2: Optional[str] = None,
-    skip_assets: Optional[bool] = None,
+    path: str | None = None,
+    num_runs: int | None = None,
+    inter_run_delay: str | None = None,
+    duration: str | None = None,
+    warmup: str | None = None,
+    after: str | None = None,
+    vus: int | None = None,
+    rps: int | None = None,
+    peak_rate: int | None = None,
+    ramp_up: str | None = None,
+    sustain: str | None = None,
+    ramp_down: str | None = None,
+    start_rate: int | None = None,
+    peak_rate_2: int | None = None,
+    ramp_up_2: str | None = None,
+    skip_assets: bool | None = None,
 ) -> None:
     """
     Core test execution logic.
     """
-    overrides: Dict[str, Any] = {}
+    overrides: dict[str, Any] = {}
     if num_runs is not None:
         overrides["num_runs"] = num_runs
     if inter_run_delay is not None:

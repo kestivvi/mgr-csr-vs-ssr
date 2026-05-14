@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from functools import reduce
 from pathlib import Path
-from typing import Optional
+from typing import TypedDict
 
 import pandas as pd
 from prometheus_api_client import PrometheusConnect
@@ -9,7 +9,13 @@ from rich.console import Console
 
 console = Console()
 
-METRIC_CONFIG = {
+
+class MetricDefinition(TypedDict):
+    name: str
+    query: str
+
+
+METRIC_CONFIG: dict[str, MetricDefinition] = {
     "cpu": {
         "name": "CPU Utilization",
         "query": (
@@ -62,7 +68,7 @@ def download_metric(
     server_type: str,
     start_time: datetime,
     end_time: datetime,
-) -> Optional[pd.DataFrame]:
+) -> pd.DataFrame | None:
     """Downloads a single metric from Prometheus."""
     config = METRIC_CONFIG[metric_name]
     server_label = server_type.upper()

@@ -5,13 +5,18 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import Manager
 from pathlib import Path
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, cast
 
 import ansible_runner
 import yaml
 from rich.console import Console
 
 from orchestrator.actions.test.collector import collect_metrics
+from orchestrator.actions.test.models import (
+    ExperimentConfig,
+    ScenarioMetadata,
+    ScenarioResult,
+)
 from orchestrator.config import (
     ANSIBLE_DIR,
     ANSIBLE_INVENTORY,
@@ -50,14 +55,12 @@ def parse_duration_to_seconds(duration_str: str) -> int:
 class TestRunner:
     def __init__(
         self,
-        config_path: Optional[Path],
-        overrides: Optional[Dict[str, Any]] = None,
-        config_dict: Optional[Dict[str, Any]] = None,
-        output_dir: Optional[Path] = None,
-    ):
-        from orchestrator.actions.test.models import ExperimentConfig
-
-        raw_config: Dict[str, Any] = {}
+        config_path: Path | None,
+        overrides: dict[str, Any] | None = None,
+        config_dict: dict[str, Any] | None = None,
+        output_dir: Path | None = None,
+    ) -> None:
+        raw_config: dict[str, Any] = {}
         if config_path and config_path.exists():
             with open(config_path, "r") as f:
                 raw_config = yaml.safe_load(f)
@@ -107,7 +110,7 @@ class TestRunner:
         ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
         return ansi_escape.sub("", text)
 
-    def _extract_marker(self, output: str, marker: str) -> Optional[Dict[str, Any]]:
+    def _extract_marker(self, output: str, marker: str) -> dict[str, Any] | None:
         for line in output.splitlines():
             clean_line = self._strip_ansi(line)
             if marker in clean_line:
@@ -118,13 +121,13 @@ class TestRunner:
                     match = re.search(f"{re.escape(marker)}.*?({{.*}})", clean_line)
                     if match:
                         json_str = match.group(1).replace('\\"', '"')
-                        return cast(Dict[str, Any], json.loads(json_str))
+                        return cast(dict[str, Any], json.loads(json_str))
                 except Exception as e:
                     console.print(f"[dim red]Extraction error for {marker}: {e}[/dim red]")
                     continue
         return None
 
-    def run_scenario(self, run_number: int, scenario: Dict[str, Any]) -> Dict[str, Any]:
+    def run_scenario(self, run_number: int, scenario: ScenarioMetadata) -> ScenarioResult:
         if self.shutdown_event.is_set():
             return {"success": False}
 
@@ -134,7 +137,7 @@ class TestRunner:
 
         console.print(f"[{run_prefix}:{scenario_name}] Starting {tool} test.")
 
-        extra_vars = {
+        extra_vars: dict[str, Any] = {
             "target_host_group": scenario["load_generator_group"],
             "target_url": f"https://{scenario['app_server_ip']}",
             "server_type": scenario_name,
@@ -143,7 +146,7 @@ class TestRunner:
 
         # Logic for tool-specific vars
         playbook = LOAD_PLAYBOOK_PATH  # Default
-        measurement_window: Optional[Dict[str, int]] = None
+        measurement_window: dict[str, int] | None = None
 
         if tool == "wrk":
             playbook = WRK_PLAYBOOK_PATH
@@ -294,8 +297,9 @@ class TestRunner:
                     continue
 
                 # Sync timestamps
-                start_ts = max(r["timestamps"]["start"] for r in successful)
-                end_ts = min(r["timestamps"]["end"] for r in successful)
+                # We use cast here because we already filtered for non-None timestamps above
+                start_ts = max(cast(dict[str, float], r["timestamps"])["start"] for r in successful)
+                end_ts = min(cast(dict[str, float], r["timestamps"])["end"] for r in successful)
 
                 if start_ts >= end_ts:
                     console.print("[red]No overlapping time window found.[/red]")
@@ -303,10 +307,11 @@ class TestRunner:
 
                 for res in successful:
                     # 1. Collect Prometheus metrics
+                    ts_dict = cast(dict[str, float], res["timestamps"])
                     collect_metrics(
                         prometheus_url=f"http://{res['scenario']['monitoring_public_ip']}:9090",
-                        start_epoch=res["timestamps"]["start"],
-                        end_epoch=res["timestamps"]["end"],
+                        start_epoch=int(ts_dict["start"]),
+                        end_epoch=int(ts_dict["end"]),
                         server_type=res["name"],
                         run_number=run,
                         output_dir=self.results_base_dir,
@@ -363,7 +368,7 @@ class TestRunner:
             self.global_teardown(scenarios)
             return
 
-    def global_teardown(self, scenarios: Optional[List[Dict[str, Any]]] = None) -> None:
+    def global_teardown(self, scenarios: list[ScenarioMetadata] | None = None) -> None:
         console.print("[bold yellow]Initiating global emergency stop...[/bold yellow]")
         # Run the stop_all playbook to be sure
         ansible_runner.run(
@@ -374,7 +379,7 @@ class TestRunner:
         )
         console.print("[bold green]All tests stopped and containers removed.[/bold green]")
 
-    def _parse_inventory(self) -> List[Dict[str, Any]]:
+    def _parse_inventory(self) -> list[ScenarioMetadata]:
         # Minimal port of the inventory parsing logic
         with open(ANSIBLE_INVENTORY, "r") as f:
             inv = yaml.safe_load(f)
@@ -396,4 +401,4 @@ class TestRunner:
                         "monitoring_private_ip": mon["private_ip"],
                     }
                 )
-        return scenarios
+        return cast(list[ScenarioMetadata], scenarios)

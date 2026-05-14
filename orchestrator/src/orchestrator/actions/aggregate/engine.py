@@ -2,7 +2,7 @@ import datetime
 import re
 import shutil
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import yaml
 from rich.console import Console
@@ -20,11 +20,11 @@ console = Console()
 class DataAggregator:
     def __init__(
         self,
-        source_specs: List[str],
-        output_dir: Optional[Path] = None,
+        source_specs: list[str],
+        output_dir: Path | None = None,
         lax: bool = False,
         copy_logs: bool = True,
-    ):
+    ) -> None:
         self.source_specs_raw = source_specs
         self.lax = lax
         self.copy_logs = copy_logs
@@ -36,9 +36,9 @@ class DataAggregator:
             self.output_dir = RESULTS_DIR / f"aggregated_{ts}"
 
         self.global_run_counter = 0
-        self.master_metadata: Dict[str, Any] = {}
-        self.lineage: List[Dict[str, Any]] = []
-        self.app_counts: Dict[str, int] = {}
+        self.master_metadata: dict[str, Any] = {}
+        self.lineage: list[dict[str, Any]] = []
+        self.app_counts: dict[str, int] = {}
         self.inconsistency_detected = False
 
     def run(self) -> None:

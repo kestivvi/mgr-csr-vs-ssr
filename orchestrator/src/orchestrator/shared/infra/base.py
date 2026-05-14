@@ -1,6 +1,5 @@
 import subprocess
 from pathlib import Path
-from typing import Optional
 
 from rich.console import Console
 from rich.text import Text
@@ -16,14 +15,16 @@ class BaseAdapter:
     Handles process execution, real-time output streaming, and error wrapping.
     """
 
+    workdir: Path
+
     def __init__(self, workdir: Path):
         self.workdir = workdir
 
     def _run(
         self,
         command: list[str],
-        env: Optional[dict[str, str]] = None,
-        log_path: Optional[Path] = None,
+        env: dict[str, str] | None = None,
+        log_path: Path | None = None,
         verbose: bool = False,
         error_type: type[InfrastructureError] = InfrastructureError,
     ) -> str:
