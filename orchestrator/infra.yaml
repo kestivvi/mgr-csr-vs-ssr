@@ -4,8 +4,8 @@ key_name: MGR-M
 my_ip: 46.205.203.156/32
 
 # Instance Types
-app_server_instance_type: t4g.micro
-load_generator_instance_type: t4g.micro
+app_server_instance_type: c8g.medium
+load_generator_instance_type: c8g.xlarge
 monitoring_server_instance_type: t4g.micro
 
 # Technologies to deploy
@@ -13,10 +13,10 @@ technologies:
   ##########################
   # Static Site
   ##########################
-  # "CSR-Vanilla":
-  #   description: "Application Server (CSR-Vanilla)"
-  #   purpose: "Hosts Client-Side Rendered application"
-  #   app_dir: "apps/csr-vanilla-nginx"
+  "CSR-Vanilla":
+    description: "Application Server (CSR-Vanilla)"
+    purpose: "Hosts Client-Side Rendered application"
+    app_dir: "apps/csr-vanilla-nginx"
 
   # "CSR-Vanilla-Apache":
   #   description: "Application Server (CSR-Vanilla-Apache)"
@@ -56,10 +56,10 @@ technologies:
   #   purpose: "Hosts Vue Client-Side Rendered application"
   #   app_dir: "apps/csr-vue"
 
-  "CSR-Lit":
-    description: "Application Server (CSR-Lit-Nginx)"
-    purpose: "Hosts Lit Client-Side Rendered application"
-    app_dir: "apps/csr-lit"
+  # "CSR-Lit":
+  #   description: "Application Server (CSR-Lit-Nginx)"
+  #   purpose: "Hosts Lit Client-Side Rendered application"
+  #   app_dir: "apps/csr-lit"
 
   ##########################
   # SSR

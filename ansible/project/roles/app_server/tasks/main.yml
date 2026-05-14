@@ -1,12 +1,53 @@
 ---
-- name: Extract project name from app_dir path
+- name: Extract project metadata
   ansible.builtin.set_fact:
     project_name: "{{ app_dir.split('/')[-1] }}"
+    app_id: "{{ app_dir.split('/')[-1] | replace('-', '_') }}"
+
+- name: Determine app type and template
+  ansible.builtin.set_fact:
+    app_type: "{{ 'ssr' if project_name.startswith('ssr-') else ('apache' if 'apache' in project_name else 'csr') }}"
+
+- name: Set build target and static path for master templates
+  ansible.builtin.set_fact:
+    build_target: "{{ 'runner' if app_type == 'ssr' else ('nginx' if app_type == 'csr' else '') }}"
+    static_path: >-
+      {{
+        '/_nuxt/' if 'nuxt' in project_name else
+        ('/_build/' if ('solid' in project_name or 'svelte' in project_name) else
+        ('/_astro/' if 'astro' in project_name else
+        '/_next/static/'))
+      }}
+
+- name: Create apps directory
+  ansible.builtin.file:
+    path: "/home/ec2-user/apps"
+    state: directory
+    mode: "0755"
+
+- name: Copy infrastructure templates
+  ansible.posix.synchronize:
+    src: "{{ playbook_dir }}/../../apps/_infra/"
+    dest: "/home/ec2-user/apps/_infra"
+
+- name: Build base images
+  community.docker.docker_image:
+    build:
+      path: "/home/ec2-user/apps/_infra"
+      dockerfile: "docker/Dockerfile.{{ item }}"
+    name: "mgr-base-{{ item }}"
+    source: build
+  loop:
+    - nginx
+    - node-builder
+    - node-runner
+    - bun-builder
+    - bun-runner
 
 - name: Copy application files
   ansible.posix.synchronize:
     src: "{{ playbook_dir }}/../../{{ app_dir }}/"
-    dest: "/home/ec2-user/{{ project_name }}"
+    dest: "/home/ec2-user/apps/{{ project_name }}"
     rsync_opts:
       - "--exclude=node_modules"
       - "--exclude=.next"
@@ -31,6 +72,16 @@
   # it ensures that every benchmark run starts with a fresh container and the
   # absolute latest version of the application code.
   community.docker.docker_compose_v2:
-    project_src: "/home/ec2-user/{{ project_name }}"
+    project_src: "/home/ec2-user/apps/_infra/compose"
+    files:
+      - "{{ app_type }}.yml"
+    project_name: "{{ project_name }}"
     build: always
     recreate: always
+  environment:
+    APP_DIR: "{{ project_name }}"
+    APP_ID: "{{ app_id }}"
+    BUILD_TARGET: "{{ build_target }}"
+    STATIC_PATH: "{{ static_path }}"
+    HOST_PORT: "80"
+    APP_PORT: "3000"

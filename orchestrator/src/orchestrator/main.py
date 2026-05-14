@@ -49,33 +49,100 @@ app.add_typer(test_app, name="test")
 
 @test_app.command(name="load")
 def test_load(
+    apps: Annotated[
+        str | None,
+        typer.Option(
+            "--apps",
+            "--app",
+            "-a",
+            help="Filter apps by name (partial matches, comma-separated).",
+            rich_help_panel="Scope",
+        ),
+    ] = None,
     num_runs: Annotated[
-        int, typer.Option("--num-runs", help="Number of runs", show_default=True)
+        int,
+        typer.Option(
+            "--num-runs",
+            "-n",
+            help="Number of times to repeat the entire experiment cycle.",
+            show_default=True,
+            rich_help_panel="General",
+        ),
     ] = 1,
     inter_run_delay: Annotated[
         str,
         typer.Option(
             "--inter-run-delay",
             "--delay",
-            help="Break duration between runs (e.g. 1m, 30s)",
+            help="Wait duration between successive runs (e.g., 1m, 30s).",
             show_default=True,
+            rich_help_panel="General",
         ),
     ] = "1m",
     duration: Annotated[
-        str, typer.Option("--duration", help="Test (middle) duration", show_default=True)
+        str,
+        typer.Option(
+            "--duration",
+            "-d",
+            help="Duration of the steady-state load phase.",
+            show_default=True,
+            rich_help_panel="Timeline",
+        ),
     ] = "1m",
     warmup: Annotated[
-        str, typer.Option("--warmup", help="Warmup duration", show_default=True)
+        str,
+        typer.Option(
+            "--warmup",
+            "-w",
+            help="Duration of the initial ramp-up phase.",
+            show_default=True,
+            rich_help_panel="Timeline",
+        ),
     ] = "30s",
     after: Annotated[
-        str, typer.Option("--after", help="After-test duration", show_default=True)
+        str,
+        typer.Option(
+            "--after",
+            help="Duration of the cooldown/quiescence phase after the test.",
+            show_default=True,
+            rich_help_panel="Timeline",
+        ),
     ] = "30s",
     vus: Annotated[
-        int, typer.Option("--vus", help="Number of virtual users", show_default=True)
+        int,
+        typer.Option(
+            "--vus",
+            "-v",
+            help="Maximum number of concurrent Virtual Users (VUs) to allocate.",
+            show_default=True,
+            rich_help_panel="Workload",
+        ),
     ] = 10,
-    rps: Annotated[int | None, typer.Option("--rps", help="Requests per second")] = None,
+    rps: Annotated[
+        int | None,
+        typer.Option(
+            "--rps",
+            "-r",
+            help="Target requests per second (RPS) for the steady phase.",
+            rich_help_panel="Workload",
+        ),
+    ] = None,
     skip_assets: Annotated[
-        bool, typer.Option("--skip-assets", help="Skip fetching static assets")
+        bool,
+        typer.Option(
+            "--skip-assets",
+            help="Disable static asset fetching (JS/CSS) to reduce load generator overhead.",
+            rich_help_panel="Workload",
+        ),
+    ] = False,
+    auto_approve: Annotated[
+        bool,
+        typer.Option(
+            "--yes",
+            "-y",
+            help="Skip the experiment plan confirmation prompt.",
+            rich_help_panel="General",
+        ),
     ] = False,
 ) -> None:
     """Run standard [cyan]load[/cyan] tests."""
@@ -83,6 +150,7 @@ def test_load(
 
     test_cli.run(
         mode="load",
+        apps=apps,
         num_runs=num_runs,
         inter_run_delay=inter_run_delay,
         duration=duration,
@@ -91,44 +159,122 @@ def test_load(
         vus=vus,
         rps=rps,
         skip_assets=skip_assets,
+        auto_approve=auto_approve,
     )
 
 
 @test_app.command(name="capacity")
 def test_capacity(
+    apps: Annotated[
+        str | None,
+        typer.Option(
+            "--apps",
+            "--app",
+            "-a",
+            help="Filter apps by name (partial matches, comma-separated).",
+            rich_help_panel="Scope",
+        ),
+    ] = None,
     num_runs: Annotated[
-        int, typer.Option("--num-runs", help="Number of runs", show_default=True)
+        int,
+        typer.Option(
+            "--num-runs",
+            "-n",
+            help="Number of times to repeat the entire experiment cycle.",
+            show_default=True,
+            rich_help_panel="General",
+        ),
     ] = 1,
     inter_run_delay: Annotated[
         str,
         typer.Option(
             "--inter-run-delay",
             "--delay",
-            help="Break duration between runs (e.g. 1m, 30s)",
+            help="Wait duration between successive runs (e.g., 1m, 30s).",
             show_default=True,
+            rich_help_panel="General",
         ),
     ] = "1m",
     peak_rate: Annotated[
-        int, typer.Option("--peak-rate", help="Target RPS at peak", show_default=True)
+        int,
+        typer.Option(
+            "--peak-rate",
+            "-r",
+            help="Target RPS at the top of the ramp.",
+            show_default=True,
+            rich_help_panel="Workload",
+        ),
     ] = 1000,
     ramp_up: Annotated[
-        str, typer.Option("--ramp-up", help="Ramp up duration", show_default=True)
+        str,
+        typer.Option(
+            "--ramp-up",
+            help="Duration to ramp up from start_rate to peak_rate.",
+            show_default=True,
+            rich_help_panel="Timeline",
+        ),
     ] = "5m",
     sustain: Annotated[
-        str, typer.Option("--sustain", help="Sustain duration at peak", show_default=True)
+        str,
+        typer.Option(
+            "--sustain",
+            help="Duration to maintain the peak load.",
+            show_default=True,
+            rich_help_panel="Timeline",
+        ),
     ] = "1m",
     ramp_down: Annotated[
-        str, typer.Option("--ramp-down", help="Ramp down duration", show_default=True)
+        str,
+        typer.Option(
+            "--ramp-down",
+            help="Duration to ramp down from peak_rate to zero.",
+            show_default=True,
+            rich_help_panel="Timeline",
+        ),
     ] = "1m",
     start_rate: Annotated[
-        int, typer.Option("--start-rate", help="Starting RPS", show_default=True)
+        int,
+        typer.Option(
+            "--start-rate",
+            help="RPS to start the ramp from.",
+            show_default=True,
+            rich_help_panel="Workload",
+        ),
     ] = 1,
     peak_rate_2: Annotated[
-        int | None, typer.Option("--peak-rate-2", help="Target RPS at peak 2")
+        int | None,
+        typer.Option(
+            "--secondary-peak-rate",
+            "--peak-rate-2",
+            help="Target RPS for an optional second peak (e.g., spike testing).",
+            rich_help_panel="Workload",
+        ),
     ] = None,
-    ramp_up_2: Annotated[str | None, typer.Option("--ramp-up-2", help="Ramp up 2 duration")] = None,
+    ramp_up_2: Annotated[
+        str | None,
+        typer.Option(
+            "--secondary-ramp-up",
+            "--ramp-up-2",
+            help="Duration to ramp from peak_rate to secondary_peak_rate.",
+            rich_help_panel="Timeline",
+        ),
+    ] = None,
     skip_assets: Annotated[
-        bool, typer.Option("--skip-assets", help="Skip fetching static assets")
+        bool,
+        typer.Option(
+            "--skip-assets",
+            help="Disable static asset fetching (JS/CSS) to reduce load generator overhead.",
+            rich_help_panel="Workload",
+        ),
+    ] = False,
+    auto_approve: Annotated[
+        bool,
+        typer.Option(
+            "--yes",
+            "-y",
+            help="Skip the experiment plan confirmation prompt.",
+            rich_help_panel="General",
+        ),
     ] = False,
 ) -> None:
     """Run [cyan]capacity[/cyan] tests (Thesis Standard RPS Ramping)."""
@@ -136,6 +282,7 @@ def test_capacity(
 
     test_cli.run(
         mode="capacity",
+        apps=apps,
         num_runs=num_runs,
         inter_run_delay=inter_run_delay,
         peak_rate=peak_rate,
@@ -146,36 +293,67 @@ def test_capacity(
         peak_rate_2=peak_rate_2,
         ramp_up_2=ramp_up_2,
         skip_assets=skip_assets,
+        auto_approve=auto_approve,
     )
 
 
 @test_app.command(name="file")
 def test_file(
-    path: Annotated[str, typer.Argument(help="Path to custom experiment config")],
+    path: Annotated[str, typer.Argument(help="Path to custom experiment configuration YAML file.")],
     num_runs: Annotated[
-        int | None, typer.Option("--num-runs", help="Override number of runs")
+        int | None,
+        typer.Option("--num-runs", "-n", help="Override the number of runs specified in the YAML."),
     ] = None,
     inter_run_delay: Annotated[
         str | None,
         typer.Option(
             "--inter-run-delay",
             "--delay",
-            help="Override break duration between runs (e.g. 1m, 30s)",
+            help="Override wait duration between runs (e.g., 1m, 30s).",
         ),
     ] = None,
-    duration: Annotated[str | None, typer.Option("--duration", help="Override duration")] = None,
-    warmup: Annotated[str | None, typer.Option("--warmup", help="Override warmup")] = None,
-    after: Annotated[str | None, typer.Option("--after", help="Override after")] = None,
-    vus: Annotated[int | None, typer.Option("--vus", help="Override VUs")] = None,
+    duration: Annotated[
+        str | None, typer.Option("--duration", "-d", help="Override steady-state duration.")
+    ] = None,
+    warmup: Annotated[
+        str | None, typer.Option("--warmup", "-w", help="Override warmup duration.")
+    ] = None,
+    after: Annotated[
+        str | None, typer.Option("--after", help="Override cooldown/quiescence duration.")
+    ] = None,
+    vus: Annotated[
+        int | None, typer.Option("--vus", "-v", help="Override maximum Virtual Users.")
+    ] = None,
     peak_rate_2: Annotated[
-        int | None, typer.Option("--peak-rate-2", help="Override peak rate 2")
+        int | None,
+        typer.Option(
+            "--secondary-peak-rate",
+            "--peak-rate-2",
+            help="Override secondary peak RPS.",
+        ),
     ] = None,
     ramp_up_2: Annotated[
-        str | None, typer.Option("--ramp-up-2", help="Override ramp up 2 duration")
+        str | None,
+        typer.Option(
+            "--secondary-ramp-up",
+            "--ramp-up-2",
+            help="Override secondary ramp-up duration.",
+        ),
     ] = None,
     skip_assets: Annotated[
-        bool | None, typer.Option("--skip-assets", help="Override skip assets")
+        bool | None,
+        typer.Option(
+            "--skip-assets", help="Override asset skipping (True to disable asset fetching)."
+        ),
     ] = None,
+    auto_approve: Annotated[
+        bool,
+        typer.Option(
+            "--yes",
+            "-y",
+            help="Skip the experiment plan confirmation prompt.",
+        ),
+    ] = False,
 ) -> None:
     """Run experiments from a custom [cyan]YAML file[/cyan]."""
     from orchestrator.actions.test import cli as test_cli
@@ -192,21 +370,24 @@ def test_file(
         peak_rate_2=peak_rate_2,
         ramp_up_2=ramp_up_2,
         skip_assets=skip_assets,
+        auto_approve=auto_approve,
     )
 
 
-@test_app.command(name="capacity_local_wrk")
-def test_capacity_local_wrk(
+@test_app.command(name="wrk")
+def test_wrk(
     apps: Annotated[
         str | None,
         typer.Option(
             "--apps",
             "--app",
+            "-a",
             help="Filter apps by name (partial matches, comma-separated).",
         ),
     ] = None,
     num_runs: Annotated[
-        int, typer.Option("--num-runs", help="Number of test runs per app", show_default=True)
+        int,
+        typer.Option("--num-runs", "-n", help="Number of test runs per app", show_default=True),
     ] = 1,
     verbose: Annotated[
         bool, typer.Option("--verbose", "-v", help="Show real-time output from tools")

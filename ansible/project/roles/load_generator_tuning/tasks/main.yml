@@ -22,7 +22,7 @@
       net.core.wmem_max = 134217728
       net.ipv4.tcp_rmem = 4096 87380 134217728
       net.ipv4.tcp_wmem = 4096 65536 134217728
-      net.ipv4.tcp_syncookies = 0
+      net.ipv4.tcp_syncookies = 1
       net.ipv4.tcp_timestamps = 1
       net.ipv4.tcp_sack = 1
 

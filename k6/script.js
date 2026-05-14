@@ -1,297 +1,259 @@
 import http from 'k6/http';
-import { check, group, sleep } from 'k6';
+import { sleep } from 'k6';
+import { SharedArray } from 'k6/data';
+import exec from 'k6/execution';
 import { parseHTML } from 'k6/html';
-import { URL } from 'https://jslib.k6.io/url/1.0.0/index.js';
 
-// --- K6 Test Configuration (Init Context) ---
-// This code runs once per VU before the test starts. Keep it minimal.
-// Set to true for HTTPS/HTTP2, false for HTTP/1. Flip to compare performance.
-const K6_USE_HTTPS = true;
+/**
+ * --- Block 1: Options & Configuration (Init Context) ---
+ * Pre-parse environment variables for maximum performance in the hot path.
+ */
+const CONFIG = {
+  USE_HTTPS: __ENV.K6_USE_HTTPS === 'true',
+  TARGET_URL: __ENV.TARGET_URL || 'http://localhost:8080',
+  SERVER_TYPE: __ENV.SERVER_TYPE || 'unknown',
+  SCENARIO: __ENV.K6_SCENARIO || 'capacity_test',
+  TEST_PATH: __ENV.K6_TEST_PATH || 'dynamic',
+  SKIP_ASSETS: __ENV.K6_SKIP_ASSETS === 'true',
+  SLIM_METRICS: __ENV.K6_SLIM_METRICS === 'true',
+  TIMEOUT: (parseFloat(__ENV.TIMEOUT) || 0.4) * 1000,
 
-let target_url = __ENV.TARGET_URL || 'http://localhost:8080';
-if (K6_USE_HTTPS) {
-  target_url = target_url.replace(/^http:\/\//, 'https://').replace(/:80(?=\/|$)/, ':443');
+  // Backoff params
+  BACKOFF_TIMEOUT: parseFloat(__ENV.K6_BACKOFF_TIMEOUT_S) || 0.5,
+  BACKOFF_5XX: parseFloat(__ENV.K6_BACKOFF_5XX_S) || 0.2,
+  JITTER: 0.2, // 20% jitter range
+
+  // Load params
+  RATE: parseInt(__ENV.K6_RATE || 100),
+  DURATION: __ENV.SCRIPT_DURATION || '5m',
+  MAX_VUS: parseInt(__ENV.MAX_VUS || 200),
+
+  // Capacity Test Params
+  CAPACITY_START_RATE: parseInt(__ENV.CAPACITY_START_RATE || 10),
+  CAPACITY_PEAK_RATE: parseInt(__ENV.CAPACITY_PEAK_RATE || 10000),
+  CAPACITY_PEAK_RATE_2: parseInt(__ENV.CAPACITY_PEAK_RATE_2 || 0),
+  CAPACITY_WARMUP_DURATION: __ENV.CAPACITY_WARMUP_DURATION || '0s',
+  CAPACITY_RAMP_UP_DURATION: __ENV.CAPACITY_RAMP_UP_DURATION || '10m',
+  CAPACITY_RAMP_UP_DURATION_2: __ENV.CAPACITY_RAMP_UP_DURATION_2 || '0s',
+  CAPACITY_SUSTAIN_DURATION: __ENV.CAPACITY_SUSTAIN_DURATION || '5m',
+  CAPACITY_RAMP_DOWN_DURATION: __ENV.CAPACITY_RAMP_DOWN_DURATION || '1m',
+};
+
+// --- Init-Context Constants (avoid property lookups in default fn) ---
+const IS_DYNAMIC = CONFIG.TEST_PATH === 'dynamic';
+const SKIP_ASSETS = CONFIG.SKIP_ASSETS;
+const BACKOFF_TIMEOUT = CONFIG.BACKOFF_TIMEOUT;
+const BACKOFF_5XX = CONFIG.BACKOFF_5XX;
+const JITTER = CONFIG.JITTER;
+
+// Normalize Target URL
+let baseUrl = CONFIG.TARGET_URL;
+if (CONFIG.USE_HTTPS) {
+  baseUrl = baseUrl.replace(/^http:\/\//, 'https://').replace(/:80(?=\/|$)/, ':443');
 } else {
-  target_url = target_url.replace(/^https:\/\//, 'http://').replace(/:443(?=\/|$)/, ':80');
+  baseUrl = baseUrl.replace(/^https:\/\//, 'http://').replace(/:443(?=\/|$)/, ':80');
 }
-const server_type = __ENV.SERVER_TYPE || 'unknown';
-const K6_SCENARIO = __ENV.K6_SCENARIO || 'capacity_test';
-const K6_TEST_PATH = __ENV.K6_TEST_PATH || 'dynamic'; // 'static' or 'dynamic'
-const K6_SKIP_ASSETS = __ENV.K6_SKIP_ASSETS === 'true';
-const TIMEOUT = (parseFloat(__ENV.TIMEOUT) || 0.4) * 1000;
-// Backoff sleep durations in seconds, configurable via env
-const BACKOFF_TIMEOUT_S = parseFloat(__ENV.K6_BACKOFF_TIMEOUT_S) || 0.5;
-const BACKOFF_5XX_S = parseFloat(__ENV.K6_BACKOFF_5XX_S) || 0.2;
+
 const testId = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
-// Load Test Params
-const K6_RATE = parseInt(__ENV.K6_RATE || 100);
-const K6_DURATION = __ENV.SCRIPT_DURATION || '5m';
+/**
+ * --- Prime Generation for Stride-Based URL Selection ---
+ * Each VU walks the URL pool with its own prime stride, producing a
+ * VU-specific permutation that defeats request-URL caching while staying
+ * one cheap addition + bitmask per iteration in the hot path.
+ */
+function getPrimes(n) {
+  const primes = [];
+  let i = 2;
+  while (primes.length < n) {
+    let isPrime = true;
+    for (let j = 2; j <= Math.sqrt(i); j++) {
+      if (i % j === 0) { isPrime = false; break; }
+    }
+    if (isPrime) primes.push(i);
+    i++;
+  }
+  return primes;
+}
+const VU_PRIMES = new SharedArray('vu_primes', () => getPrimes(CONFIG.MAX_VUS));
 
-// Capacity Test Params
-const CAPACITY_START_RATE = parseInt(__ENV.CAPACITY_START_RATE || 10);
-const CAPACITY_PEAK_RATE = parseInt(__ENV.CAPACITY_PEAK_RATE || 10000);
-const CAPACITY_RAMP_UP_DURATION = __ENV.CAPACITY_RAMP_UP_DURATION || '10m';
-const CAPACITY_PEAK_RATE_2 = parseInt(__ENV.CAPACITY_PEAK_RATE_2 || 0);
-const CAPACITY_RAMP_UP_DURATION_2 = __ENV.CAPACITY_RAMP_UP_DURATION_2 || '0s';
-const CAPACITY_SUSTAIN_DURATION = __ENV.CAPACITY_SUSTAIN_DURATION || '5m';
-const CAPACITY_RAMP_DOWN_DURATION = __ENV.CAPACITY_RAMP_DOWN_DURATION || '1m';
-const MAX_VUS = parseInt(__ENV.MAX_VUS || 200);
-// ---------------------------------------------
-
-const CAPACITY_WARMUP_DURATION = __ENV.CAPACITY_WARMUP_DURATION || '0s';
-
+// --- Capacity Stages Construction ---
 const capacityStages = [
-  { target: CAPACITY_START_RATE, duration: CAPACITY_WARMUP_DURATION },
-  { target: CAPACITY_PEAK_RATE, duration: CAPACITY_RAMP_UP_DURATION },
+  { target: CONFIG.CAPACITY_START_RATE, duration: CONFIG.CAPACITY_WARMUP_DURATION },
+  { target: CONFIG.CAPACITY_PEAK_RATE, duration: CONFIG.CAPACITY_RAMP_UP_DURATION },
 ];
 
-if (CAPACITY_PEAK_RATE_2 > 0) {
-  capacityStages.push({ target: CAPACITY_PEAK_RATE_2, duration: CAPACITY_RAMP_UP_DURATION_2 });
+if (CONFIG.CAPACITY_PEAK_RATE_2 > 0) {
+  capacityStages.push({ target: CONFIG.CAPACITY_PEAK_RATE_2, duration: CONFIG.CAPACITY_RAMP_UP_DURATION_2 });
 }
 
-const finalPeakRate = CAPACITY_PEAK_RATE_2 > 0 ? CAPACITY_PEAK_RATE_2 : CAPACITY_PEAK_RATE;
-capacityStages.push({ target: finalPeakRate, duration: CAPACITY_SUSTAIN_DURATION });
-capacityStages.push({ target: 0, duration: CAPACITY_RAMP_DOWN_DURATION });
+const finalPeakRate = CONFIG.CAPACITY_PEAK_RATE_2 > 0 ? CONFIG.CAPACITY_PEAK_RATE_2 : CONFIG.CAPACITY_PEAK_RATE;
+capacityStages.push({ target: finalPeakRate, duration: CONFIG.CAPACITY_SUSTAIN_DURATION });
+capacityStages.push({ target: 0, duration: CONFIG.CAPACITY_RAMP_DOWN_DURATION });
 
-const capacityTestScenario = {
-  executor: 'ramping-arrival-rate',
-  startRate: CAPACITY_START_RATE,
-  timeUnit: '1s',
-  preAllocatedVUs: MAX_VUS,
-  maxVUs: MAX_VUS,
-  stages: capacityStages,
+// --- Scenario Definitions ---
+const scenarios = {
+  capacity_test: {
+    executor: 'ramping-arrival-rate',
+    startRate: CONFIG.CAPACITY_START_RATE,
+    timeUnit: '1s',
+    preAllocatedVUs: CONFIG.MAX_VUS,
+    maxVUs: CONFIG.MAX_VUS,
+    stages: capacityStages,
+    gracefulStop: '5s',
+  },
+  load_test: {
+    executor: 'constant-arrival-rate',
+    rate: CONFIG.RATE,
+    timeUnit: '1s',
+    duration: CONFIG.DURATION,
+    preAllocatedVUs: CONFIG.MAX_VUS,
+    maxVUs: CONFIG.MAX_VUS,
+    gracefulStop: '5s',
+  },
 };
 
-const loadTestScenario = {
-  executor: 'constant-arrival-rate',
-  rate: K6_RATE,
-  timeUnit: '1s',
-  duration: K6_DURATION,
-  preAllocatedVUs: MAX_VUS, // Can reuse MAX_VUS for consistency
-  maxVUs: MAX_VUS,
-};
-
-const selectedScenario = K6_SCENARIO === 'load_test'
-  ? loadTestScenario
-  : capacityTestScenario;
+// systemTags drive metric label cardinality. Slim mode keeps only what
+// `mgr analyze` queries (status, error_code). Default mode adds `error`
+// for the live Grafana error-rate panels.
+const SYSTEM_TAGS = CONFIG.SLIM_METRICS
+  ? ['status', 'error_code']
+  : ['status', 'error_code', 'error'];
 
 export const options = {
-  ext: {
-    loadimpact: {
-      projectID: 3680373,
-      name: 'MGR_REPO',
-    },
-  },
-  tags: {
-    testid: testId,
-    server: server_type,
-  },
+  tags: { testid: testId, server: CONFIG.SERVER_TYPE },
   discardResponseBodies: true,
-  insecureSkipTLSVerify: K6_USE_HTTPS,
-  scenarios: {
-    [K6_SCENARIO]: selectedScenario,
-  },
+  insecureSkipTLSVerify: CONFIG.USE_HTTPS,
+  scenarios: { [CONFIG.SCENARIO]: scenarios[CONFIG.SCENARIO] || scenarios.capacity_test },
+  systemTags: SYSTEM_TAGS,
+};
+
+
+// --- Pre-allocated Request Objects (Init Context) ---
+const STATIC_URL = baseUrl + '/';
+const DYNAMIC_URL_BASE = baseUrl + '/dynamic/';
+
+// --- URL Pool for Dynamic Paths (shared across all VUs) ---
+// Power-of-two size so the hot path can use bitmask (& POOL_MASK) instead
+// of modulo, which is ~10-20× cheaper on ARM.
+const POOL_SIZE = 16384;
+const POOL_MASK = POOL_SIZE - 1;
+const DYNAMIC_URL_POOL = new SharedArray('url_pool', function () {
+  const pool = new Array(POOL_SIZE);
+  for (let i = 0; i < POOL_SIZE; i++) {
+    pool[i] = `${DYNAMIC_URL_BASE}${100000 + i}`;
+  }
+  return pool;
+});
+
+const STATIC_PARAMS = {
+  timeout: CONFIG.TIMEOUT,
+  tags: { resource_type: 'html', name: '/' },
+};
+
+const DYNAMIC_PARAMS = {
+  timeout: CONFIG.TIMEOUT,
+  tags: { resource_type: 'html', name: '/dynamic/:id' },
+};
+
+const ASSET_PARAMS = {
+  timeout: CONFIG.TIMEOUT,
+  tags: { resource_type: 'asset', name: 'static_asset' },
 };
 
 /**
- * A lightweight, log-free version of your original parsing function.
- * @param {string} htmlBody - The HTML content of the page.
- * @param {string} baseUrl - The base URL of the page to resolve relative paths.
- * @returns {string[]} An array of absolute URLs for the assets.
+ * --- Block 3: Setup (Asset Discovery) ---
+ * Returns batch tuples already in the [method, url, body, params] shape
+ * expected by http.batch(), so VUs can assign them directly without a
+ * per-VU .map() allocation.
  */
-function getAssetUrls(htmlBody, baseUrl) {
-  const doc = parseHTML(htmlBody);
-  const assetUrls = new Set();
-
-  const selectors = [
-    'link[href]',
-    'script[src]',
-    'img[src]',
-    'source[src]',
-    'video[src]',
-  ];
-
-  const foundElements = doc.find(selectors.join(','));
-
-  foundElements.each((i, el) => {
-    let assetPath = null;
-
-    if (el && typeof el.attr === 'function') {
-      assetPath = el.attr('href') || el.attr('src');
-    }
-    if (!assetPath && el && el.attributes) {
-      assetPath = el.attributes.href || el.attributes.src;
-    }
-    if (!assetPath && el && typeof el.getAttribute === 'function') {
-      assetPath = el.getAttribute('href') || el.getAttribute('src');
-    }
-
-    if (!assetPath || assetPath.startsWith('data:') || assetPath.startsWith('#')) {
-      return;
-    }
-
-    const assetUrl = new URL(assetPath, baseUrl).toString();
-
-    if (assetUrl.startsWith('http')) {
-        assetUrls.add(assetUrl);
-    }
-  });
-
-  return Array.from(assetUrls);
-}
-
 export function setup() {
-  // --- All one-time logging moved here, inside setup() ---
-  console.log('[config] Reading environment variables...');
-  console.log(`[config] K6_USE_HTTPS: ${K6_USE_HTTPS}`);
-  console.log(`[config] TARGET_URL: ${target_url}`);
-  console.log(`[config] SERVER_TYPE: ${server_type}`);
-  console.log(`[config] K6_SCENARIO: ${K6_SCENARIO}`);
-  console.log(`[config] K6_TEST_PATH: ${K6_TEST_PATH}`);
-  console.log(`[config] TIMEOUT (ms): ${TIMEOUT}`);
-  console.log(`[config] Generated Test ID: ${testId}`);
-  console.log(`[config] CAPACITY_PEAK_RATE: ${CAPACITY_PEAK_RATE}`);
-  console.log(`[config] CAPACITY_RAMP_UP_DURATION: ${CAPACITY_RAMP_UP_DURATION}`);
-  console.log(`[config] CAPACITY_PEAK_RATE_2: ${CAPACITY_PEAK_RATE_2}`);
-  console.log(`[config] CAPACITY_RAMP_UP_DURATION_2: ${CAPACITY_RAMP_UP_DURATION_2}`);
-  console.log(`[config] BACKOFF_TIMEOUT_S: ${BACKOFF_TIMEOUT_S}`);
-  console.log(`[config] BACKOFF_5XX_S: ${BACKOFF_5XX_S}`);
-  console.log('[config] Environment variable processing complete.');
+  if (SKIP_ASSETS) return { assetBatchReqs: [] };
 
-  console.log('[init] Final k6 options have been assembled.');
-  console.log(`[init] Running scenario: ${K6_SCENARIO}`);
-  console.log(`[init] Test ID Tag: ${options.tags.testid}`);
-  console.log(`[init] Server Tag: ${options.tags.server}`);
-  console.log(`[init] Selected scenario configuration: ${JSON.stringify(options.scenarios[K6_SCENARIO], null, 2)}`);
-  // -------------------------------------------------------
-
-  console.log(`--- Running Setup Phase ---`);
-
-  if (K6_SKIP_ASSETS) {
-    console.log('[setup] K6_SKIP_ASSETS is enabled. Skipping asset discovery.');
-    return { assetUrls: [], assetRequests: [] };
+  const res = http.get(STATIC_URL, { responseType: 'text' });
+  if (res.status !== 200) {
+    console.error(`[setup] Failed to discover assets (Status: ${res.status})`);
+    return { assetBatchReqs: [] };
   }
 
-  const pageToParse = `${target_url}/`;
-  console.log(`[setup] Discovering assets by fetching the main page: ${pageToParse}`);
+  const doc = parseHTML(res.body);
+  const assets = new Set();
 
-  const res = http.get(pageToParse, { responseType: 'text' });
+  doc.find('link[href], script[src], img[src]').each((i, el) => {
+    let path = null;
+    if (el.attributes) {
+      path = el.attributes.href || el.attributes.src;
+    }
+    if (!path && typeof el.getAttribute === 'function') {
+      path = el.getAttribute('href') || el.getAttribute('src');
+    }
 
-  if (res.status !== 200 || !res.body) {
-    throw new Error(`[setup] Could not fetch the page to parse assets. Status: ${res.status}. Aborting test.`);
-  }
-
-  const allUrls = getAssetUrls(res.body, res.url);
-  // Filter out the base HTML URL to avoid duplicate requests
-  const urls = allUrls.filter(url => url !== res.url);
-  
-  console.log(`[setup] Base HTML URL: ${res.url}`);
-  console.log(`[setup] Discovered ${allUrls.length} total URLs, ${urls.length} unique assets to be used for the test.`);
-  
-  // List all assets that will be downloaded
-  if (urls.length > 0) {
-    console.log('[setup] Assets to be downloaded:');
-    urls.forEach((url, index) => {
-      console.log(`[setup]   ${index + 1}. ${url}`);
-    });
-  } else {
-    console.log('[setup] No assets found to download.');
-  }
-
-  const assetRequests = urls.map(url => {
-    return {
-      method: 'GET',
-      url: url,
-      params: {
-        timeout: TIMEOUT,
-        tags: { 
-          resource_type: 'asset',
-          name: 'static_asset' // Reduce cardinality by grouping all assets
-        },
-        responseType: 'none' // Explicitly discard asset bodies
-      },
-    };
+    if (path && !path.startsWith('data:') && !path.startsWith('#')) {
+      let fullUrl;
+      if (path.startsWith('http')) {
+        fullUrl = path;
+      } else if (path.startsWith('//')) {
+        fullUrl = (baseUrl.startsWith('https') ? 'https:' : 'http:') + path;
+      } else if (path.startsWith('/')) {
+        const originMatch = baseUrl.match(/^(https?:\/\/[^\/]+)/);
+        fullUrl = (originMatch ? originMatch[1] : baseUrl) + path;
+      } else {
+        fullUrl = baseUrl + (baseUrl.endsWith('/') ? '' : '/') + path;
+      }
+      assets.add(fullUrl);
+    }
   });
-  console.log('[setup] Pre-computed batch requests for all assets.');
 
-  return { assetUrls: urls, assetRequests: assetRequests };
+  const assetBatchReqs = [];
+  assets.forEach((url) => assetBatchReqs.push(['GET', url, null, ASSET_PARAMS]));
+  return { assetBatchReqs };
 }
+
+/**
+ * --- Block 4: Default Function ---
+ * Per-VU state initialized lazily on first iteration.
+ */
+let myStride = 0;
+let myIdx = 0;
+let batchReqs = null;
 
 export default function (data) {
-  const isDynamic = K6_TEST_PATH === 'dynamic';
+  // Per-VU init (runs once per VU on its first iteration)
+  if (myStride === 0) {
+    myStride = VU_PRIMES[(exec.vu.idInTest - 1) % CONFIG.MAX_VUS];
+    myIdx = (exec.vu.idInTest * 7919) & POOL_MASK;
 
-  const testPath = isDynamic
-    ? `/dynamic/${Math.floor(Math.random() * 1000000) + 1}`
-    : '/';
-  const pageUrl = `${target_url}${testPath}`;
-
-  const groupName = isDynamic ? '/dynamic/:id' : '/';
-
-  // Use the static `groupName` here to prevent high cardinality in the 'group' tag
-  group(`Load Page: ${groupName}`, function () {
-    const mainPageRequest = {
-      method: 'GET',
-      url: pageUrl,
-      params: {
-        timeout: TIMEOUT,
-        tags: {
-          resource_type: 'html',
-          name: groupName,
-        },
-        responseType: 'none'
-      },
-    };
-
-    // Combine the main page request with the pre-computed asset requests.
-    const allRequests = [mainPageRequest];
-    if (data.assetRequests && data.assetRequests.length > 0) {
-        allRequests.push(...data.assetRequests);
+    if (!SKIP_ASSETS && data.assetBatchReqs.length > 0) {
+      batchReqs = data.assetBatchReqs;
     }
-
-    // Execute all requests in a single batch call.
-    const responses = http.batch(allRequests);
-
-    // The first response is always the main HTML page.
-    const mainPageRes = responses[0];
-    check(mainPageRes, {
-      [`${server_type}: status is 200`]: (r) => r.status === 200,
-    });
-
-    // Basic error handling and gentle backoff to avoid compounding failures
-    if (mainPageRes.status === 0) {
-      // timeout or network error
-      sleep(BACKOFF_TIMEOUT_S);
-    } else if (mainPageRes.status >= 500) {
-      // server error
-      sleep(BACKOFF_5XX_S);
-    }
-
-    // Use a single, efficient check for all asset responses.
-    if (data.assetRequests && data.assetRequests.length > 0) {
-      const assetStatusesOk = responses.slice(1).every((r) => r.status === 200);
-      check(responses, {
-        'all assets status is 200': () => assetStatusesOk,
-      }, { resource_type: 'asset_check' });
-
-      // If assets show widespread failures/timeouts, add a small backoff
-      if (!assetStatusesOk) {
-        const hasTimeoutsOrErrors = responses.slice(1).some((r) => r.status === 0 || r.status >= 500);
-        if (hasTimeoutsOrErrors) {
-          sleep(BACKOFF_5XX_S);
-        }
-      }
-    }
-  });
-}
-
-export function teardown(data) {
-  console.log('--- Running Teardown Phase ---');
-  console.log(`[teardown] Test scenario '${K6_SCENARIO}' has completed.`);
-  if (data && data.assetUrls) {
-    console.log(`[teardown] The test was performed using ${data.assetUrls.length} assets discovered during setup.`);
-  } else {
-    console.log('[teardown] No asset data was passed from setup.');
   }
-  console.log('----------------------------');
+
+  // Advance index by VU-specific prime stride; bitmask wraps cheaply.
+  myIdx = (myIdx + myStride) & POOL_MASK;
+
+  const res = IS_DYNAMIC
+    ? http.get(DYNAMIC_URL_POOL[myIdx], DYNAMIC_PARAMS)
+    : http.get(STATIC_URL, STATIC_PARAMS);
+
+  // Conditional Asset Fetching (Nice Client Pattern)
+  if (res.status === 200) {
+    if (batchReqs !== null) {
+      http.batch(batchReqs);
+    }
+  } else if (res.status === 0 || res.status >= 500) {
+    const baseBackoff = res.status === 0 ? BACKOFF_TIMEOUT : BACKOFF_5XX;
+    if (baseBackoff > 0) {
+      sleep(baseBackoff * (1 + (Math.random() * JITTER * 2 - JITTER)));
+    }
+  }
 }
+
+/**
+ * --- Block 5: Teardown ---
+ * Dropped-iteration count is reported in k6's default end-of-test summary
+ * (look for `dropped_iterations` line). No need to mirror it here.
+ */
+export function teardown(data) {
+  console.log(`[teardown] Test completed. Scenario: ${CONFIG.SCENARIO}`);
+}
+

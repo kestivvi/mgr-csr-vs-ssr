@@ -22,6 +22,8 @@ def run(
     peak_rate_2: int | None = None,
     ramp_up_2: str | None = None,
     skip_assets: bool | None = None,
+    auto_approve: bool = False,
+    apps: str | None = None,
 ) -> None:
     """
     Core test execution logic.
@@ -59,17 +61,19 @@ def run(
         overrides["ramp_up_2"] = ramp_up_2
     if skip_assets is not None:
         overrides["skip_assets"] = skip_assets
+    if auto_approve:
+        overrides["auto_approve"] = auto_approve
 
     if mode == "file":
         if path is None:
             raise ValueError("Config file path must be provided for 'file' mode.")
         config_path = resolve_path(path)
-        runner = TestRunner(config_path, overrides=overrides)
+        runner = TestRunner(config_path, overrides=overrides, apps=apps)
     else:
         # For 'load' and 'capacity', we just use the values passed from the CLI
         # as the initial config.
         config_dict = {"test_type": "capacity_k6" if mode == "capacity" else "load"}
-        runner = TestRunner(None, overrides=overrides, config_dict=config_dict)
+        runner = TestRunner(None, overrides=overrides, config_dict=config_dict, apps=apps)
 
     runner.run_all()
 

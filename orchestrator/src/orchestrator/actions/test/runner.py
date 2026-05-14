@@ -10,6 +10,9 @@ from typing import Any, cast
 import ansible_runner
 import yaml
 from rich.console import Console
+from rich.panel import Panel
+from rich.prompt import Confirm
+from rich.table import Table
 
 from orchestrator.actions.test.collector import collect_metrics
 from orchestrator.actions.test.models import (
@@ -26,10 +29,37 @@ from orchestrator.shared.ansible import get_ansible_env
 
 console = Console()
 
+# Resource Estimation Constants
+IDLE_LOAD_GEN_RAM_MB = 310
+RAM_PER_K6_VU_MB = 4.85
+RAM_PER_K6_VU_ASSETS_MB = 0.42  # Additional MB per VU when assets are enabled
+INSTANCE_RAM_MAP = {
+    # t4g family (Burstable)
+    "t4g.nano": 512,
+    "t4g.micro": 1024,
+    "t4g.small": 2048,
+    "t4g.medium": 4096,
+    "t4g.large": 8192,
+    "t4g.xlarge": 16384,
+    "t4g.2xlarge": 32768,
+    # c8g family (Compute Optimized - Graviton4)
+    "c8g.medium": 2048,
+    "c8g.large": 4096,
+    "c8g.xlarge": 8192,
+    "c8g.2xlarge": 16384,
+    "c8g.4xlarge": 32768,
+    "c8g.8xlarge": 65536,
+    "c8g.12xlarge": 98304,
+    "c8g.16xlarge": 131072,
+    "c8g.24xlarge": 196608,
+    "c8g.metal": 196608,
+}
+
 # Playbook paths (relative to ANSIBLE_DIR/project)
 LOAD_PLAYBOOK_PATH = "ops/test_load_run.yml"
 CAPACITY_PLAYBOOK_PATH = "ops/test_capacity_run.yml"
 WRK_PLAYBOOK_PATH = "ops/test_wrk_run.yml"
+SYNC_SCRIPT_PLAYBOOK_PATH = "ops/test_sync_script.yml"
 TEARDOWN_PLAYBOOK_PATH = "ops/test_teardown.yml"
 
 TIMESTAMP_MARKER = "ORCHESTRATOR_TIMESTAMPS::"
@@ -59,6 +89,7 @@ class TestRunner:
         overrides: dict[str, Any] | None = None,
         config_dict: dict[str, Any] | None = None,
         output_dir: Path | None = None,
+        apps: str | None = None,
     ) -> None:
         raw_config: dict[str, Any] = {}
         if config_path and config_path.exists():
@@ -73,8 +104,8 @@ class TestRunner:
         if overrides:
             for key, value in overrides.items():
                 if value is not None:
-                    console.print(f"[bold yellow]Override:[/bold yellow] Setting {key} to {value}")
-                    if key in ["num_runs", "inter_run_delay"]:
+                    console.print(f"[dim yellow]Override: {key} set to {value}[/dim yellow]")
+                    if key in ["num_runs", "inter_run_delay", "auto_approve"]:
                         raw_config[key] = value
                     else:
                         # Auto-detect which options block to update
@@ -102,6 +133,8 @@ class TestRunner:
         self.results_base_dir.mkdir(parents=True, exist_ok=True)
         self.logs_dir = self.results_base_dir / "logs"
         self.logs_dir.mkdir(parents=True, exist_ok=True)
+
+        self.apps_filter = apps
 
         self.manager = Manager()
         self.shutdown_event = self.manager.Event()
@@ -200,14 +233,25 @@ class TestRunner:
                 )
                 measurement_window = {"warmup": w_sec, "duration": d_sec}
 
-        # Run via ansible-runner
-        r = ansible_runner.run(
+        # Run via ansible-runner (async to allow for cancellation)
+        thread, r = ansible_runner.run_async(
             private_data_dir=str(ANSIBLE_DIR),
             playbook=playbook,
             extravars=extra_vars,
             envvars=get_ansible_env(),
             quiet=True,
         )
+
+        try:
+            while thread.is_alive():
+                if self.shutdown_event.is_set():
+                    r.cancel()
+                    break
+                thread.join(timeout=0.5)
+        except Exception:
+            r.cancel()
+            raise
+
         output = r.stdout.read()
         timestamps = self._extract_marker(output, TIMESTAMP_MARKER)
         wrk_results = self._extract_marker(output, WRK_RESULT_MARKER) if tool == "wrk" else None
@@ -265,8 +309,23 @@ class TestRunner:
         # 1. Parse Inventory
         # (Assuming parse_inventory logic is moved here or shared)
         scenarios = self._parse_inventory()
-
         try:
+            self._print_summary(scenarios)
+
+            if not self.config.auto_approve:
+                if not Confirm.ask("Do you want to proceed with the experiment?"):
+                    console.print("[bold yellow]Aborting experiment...[/bold yellow]")
+                    return
+
+            # 2. Sync k6 script to all load generators
+            if self.test_type in ["load", "capacity_k6"]:
+                if not self._sync_k6_script():
+                    console.print("[bold red]Critical Error: Failed to sync k6 script.[/bold red]")
+                    return
+
+            start_ts: float = 0.0
+            end_ts: float = 0.0
+
             for run in range(1, self.num_runs + 1):
                 if self.shutdown_event.is_set():
                     break
@@ -276,21 +335,21 @@ class TestRunner:
                 )
                 run_results = []
 
-                # Use ThreadPoolExecutor instead of ProcessPoolExecutor to avoid pickling issues
-                # with Manager/Event objects. Ansible is I/O bound anyway.
-                with ThreadPoolExecutor(max_workers=len(scenarios)) as executor:
-                    futures = [executor.submit(self.run_scenario, run, s) for s in scenarios]
-                    try:
-                        for fut in as_completed(futures):
-                            run_results.append(fut.result())
-                    except KeyboardInterrupt:
-                        console.print(
-                            "\n[bold red]Interrupt received! Stopping all runs...[/bold red]"
-                        )
-                        self.shutdown_event.set()
-                        # We don't break here, we let the teardown in run_scenario handle it
-                        # or we trigger a global stop below.
-                        raise
+                # Use ThreadPoolExecutor without 'with' context manager to allow
+                # immediate shutdown on KeyboardInterrupt without waiting for threads.
+                executor = ThreadPoolExecutor(max_workers=len(scenarios))
+                futures = [executor.submit(self.run_scenario, run, s) for s in scenarios]
+                try:
+                    for fut in as_completed(futures):
+                        run_results.append(fut.result())
+                except KeyboardInterrupt:
+                    console.print("\n[bold red]Interrupt received! Stopping all runs...[/bold red]")
+                    self.shutdown_event.set()
+                    # Cancel pending futures and don't wait for running ones
+                    executor.shutdown(wait=False, cancel_futures=True)
+                    raise
+                finally:
+                    executor.shutdown(wait=False)
 
                 successful = [r for r in run_results if r.get("success") and r.get("timestamps")]
                 if not successful:
@@ -337,47 +396,180 @@ class TestRunner:
                     time.sleep(delay_sec)
 
             # 3. Save metadata for analyzer
-            metadata = {
-                "run_timestamp_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "test_type": self.test_type,
-                "parameters": self.config.model_dump(exclude_none=True),
-                "calculated_durations_sec": {
-                    "measurement": end_ts - start_ts,
-                },
-            }
-            # Flatten parameters for easier access in analyzer appendix
-            if self.test_type == "load" and self.config.load_options:
-                l_opts = self.config.load_options
-                params_dict = cast(dict[str, Any], metadata["parameters"])
-                params_dict.update(l_opts.model_dump())
-                total_k6_sec = (
-                    parse_duration_to_seconds(l_opts.warmup)
-                    + parse_duration_to_seconds(l_opts.duration)
-                    + parse_duration_to_seconds(l_opts.after)
-                )
-                params_dict["k6_duration"] = f"{total_k6_sec}s"
-                params_dict["warmup_duration"] = l_opts.warmup
+            if end_ts > start_ts:
+                metadata = {
+                    "run_timestamp_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                    "test_type": self.test_type,
+                    "parameters": self.config.model_dump(exclude_none=True),
+                    "calculated_durations_sec": {
+                        "measurement": end_ts - start_ts,
+                    },
+                }
+                # Flatten parameters for easier access in analyzer appendix
+                if self.test_type == "load" and self.config.load_options:
+                    l_opts = self.config.load_options
+                    params_dict = cast(dict[str, Any], metadata["parameters"])
+                    params_dict.update(l_opts.model_dump())
+                    total_k6_sec = (
+                        parse_duration_to_seconds(l_opts.warmup)
+                        + parse_duration_to_seconds(l_opts.duration)
+                        + parse_duration_to_seconds(l_opts.after)
+                    )
+                    params_dict["k6_duration"] = f"{total_k6_sec}s"
+                    params_dict["warmup_duration"] = l_opts.warmup
 
-            with open(self.results_base_dir / "metadata.yaml", "w") as f:
-                yaml.dump(metadata, f)
+                with open(self.results_base_dir / "metadata.yaml", "w") as f:
+                    yaml.dump(metadata, f)
 
             console.print(
-                f"[bold green]Experiment complete. Results in {self.results_base_dir}[/bold green]"
+                Panel(
+                    f"[bold green]Experiment complete![/bold green]\n"
+                    f"Results saved to: [cyan]{self.results_base_dir}[/cyan]\n"
+                    f"Run [bold]mgr analyze[/bold] to generate reports.",
+                    title="Success",
+                    border_style="green",
+                )
             )
         except KeyboardInterrupt:
             self.global_teardown(scenarios)
+            console.print(
+                "\n",
+                Panel(
+                    "[bold red]Experiment aborted by user.[/bold red]\n"
+                    "Some data may have been collected but the run is incomplete.",
+                    title="Aborted",
+                    border_style="red",
+                ),
+            )
             return
 
+    def _sync_k6_script(self) -> bool:
+        with console.status("[bold cyan]Syncing k6 script to load generators...", spinner="dots"):
+            r = ansible_runner.run(
+                private_data_dir=str(ANSIBLE_DIR),
+                playbook=SYNC_SCRIPT_PLAYBOOK_PATH,
+                envvars=get_ansible_env(),
+                quiet=True,
+            )
+        if r.status != "successful":
+            console.print("[red]Ansible Sync Output:[/red]")
+            console.print(r.stdout.read())
+        return bool(r.status == "successful")
+
     def global_teardown(self, scenarios: list[ScenarioMetadata] | None = None) -> None:
-        console.print("[bold yellow]Initiating global emergency stop...[/bold yellow]")
-        # Run the stop_all playbook to be sure
-        ansible_runner.run(
-            private_data_dir=str(ANSIBLE_DIR),
-            playbook="ops/test_stop_all.yml",
-            envvars=get_ansible_env(),
-            quiet=True,
+        try:
+            console.print("[bold yellow]Initiating global emergency stop...[/bold yellow]")
+            # Run the stop_all playbook to be sure
+            ansible_runner.run(
+                private_data_dir=str(ANSIBLE_DIR),
+                playbook="ops/test_stop_all.yml",
+                envvars=get_ansible_env(),
+                quiet=True,
+            )
+            console.print("[bold green]All tests stopped and containers removed.[/bold green]")
+        except KeyboardInterrupt:
+            # If interrupted again, we just skip the message and let the process die
+            # but we try to avoid crashing mid-ansible run if possible.
+            console.print("[dim red](Further interrupt ignored during cleanup...)[/dim red]")
+            # We don't re-raise here to allow the process to exit naturally after this call
+
+    def _print_summary(self, scenarios: list[ScenarioMetadata]) -> None:
+        table = Table(show_header=True, header_style="bold magenta", box=None)
+        table.add_column("Parameter", style="dim", width=25)
+        table.add_column("Value", style="bold cyan")
+
+        # --- Section: General ---
+        table.add_row("[bold white]General[/bold white]", "")
+        table.add_row("  Test Type", self.test_type.upper())
+        table.add_row("  Num Runs", str(self.num_runs))
+        table.add_row("  Scenarios", str(len(scenarios)))
+
+        skip_assets = False
+        if self.test_type == "load" and self.config.load_options:
+            skip_assets = self.config.load_options.skip_assets
+        elif self.test_type == "capacity_k6" and self.config.capacity_k6_options:
+            skip_assets = self.config.capacity_k6_options.skip_assets
+
+        table.add_row("  Skip Assets", str(skip_assets))
+        table.add_section()
+
+        # Get Load Generator RAM from infra.yaml
+        lg_type = "unknown"
+        lg_ram = 0
+        try:
+            from orchestrator.config import INFRA_YAML
+
+            if INFRA_YAML.exists():
+                with open(INFRA_YAML, "r") as f:
+                    infra = yaml.safe_load(f)
+                    lg_type = infra.get("load_generator_instance_type", "unknown")
+                    lg_ram = INSTANCE_RAM_MAP.get(lg_type, 0)
+        except Exception:
+            pass
+
+        vus = 0
+        # --- Section: Workload ---
+        table.add_row("[bold white]Workload[/bold white]", "")
+        if self.test_type == "load" and self.config.load_options:
+            l_opts = self.config.load_options
+            vus = l_opts.vus
+            table.add_row("  Target RPS", str(l_opts.rps))
+            table.add_row("  Max VUs", str(l_opts.vus))
+            if l_opts.rps > 0:
+                theoretical_max_latency = (l_opts.vus / l_opts.rps) * 1000
+                table.add_row("  Max Latency (theo)", f"{theoretical_max_latency:.2f}ms")
+            table.add_section()
+
+            # --- Section: Timeline ---
+            table.add_row("[bold white]Timeline[/bold white]", "")
+            table.add_row("  Warmup", f"{l_opts.warmup} (0 ➔ {l_opts.rps} RPS)")
+            table.add_row("  Sustain", f"{l_opts.duration} ({l_opts.rps} RPS)")
+            table.add_row("  Cooldown", f"{l_opts.after} ({l_opts.rps} ➔ 0 RPS)")
+
+        elif self.test_type == "capacity_k6" and self.config.capacity_k6_options:
+            c_opts = self.config.capacity_k6_options
+            vus = c_opts.max_vus
+            table.add_row("  Peak Rate", str(c_opts.peak_rate))
+            table.add_row("  Max VUs", str(c_opts.max_vus))
+            if c_opts.peak_rate > 0:
+                theoretical_max_latency = (c_opts.max_vus / c_opts.peak_rate) * 1000
+                table.add_row("  Max Latency (theo)", f"{theoretical_max_latency:.2f}ms")
+            table.add_section()
+
+            # --- Section: Timeline ---
+            table.add_row("[bold white]Timeline[/bold white]", "")
+            table.add_row(
+                "  Ramp Up", f"{c_opts.ramp_up} ({c_opts.start_rate} ➔ {c_opts.peak_rate} RPS)"
+            )
+            table.add_row("  Sustain", f"{c_opts.sustain} ({c_opts.peak_rate} RPS)")
+            table.add_row("  Ramp Down", f"{c_opts.ramp_down} ({c_opts.peak_rate} ➔ 0 RPS)")
+
+        table.add_section()
+        # --- Section: Resources ---
+        table.add_row("[bold white]Resources (Est.)[/bold white]", "")
+        if vus > 0:
+            vu_ram = RAM_PER_K6_VU_MB
+            if not skip_assets:
+                vu_ram += RAM_PER_K6_VU_ASSETS_MB
+
+            est_ram = IDLE_LOAD_GEN_RAM_MB + (vus * vu_ram)
+            ram_str = f"{est_ram:.0f}MB"
+            if lg_ram > 0:
+                usage_pct = (est_ram / lg_ram) * 100
+                ram_style = (
+                    "bold red"
+                    if usage_pct > 85
+                    else "bold yellow"
+                    if usage_pct > 70
+                    else "bold green"
+                )
+                table.add_row("  RAM Usage", f"[{ram_style}]{ram_str}[/] / {lg_ram}MB ({lg_type})")
+            else:
+                table.add_row("  RAM Usage", ram_str)
+
+        console.print(
+            Panel(table, title="[bold white]Experiment Plan[/bold white]", border_style="blue")
         )
-        console.print("[bold green]All tests stopped and containers removed.[/bold green]")
 
     def _parse_inventory(self) -> list[ScenarioMetadata]:
         # Minimal port of the inventory parsing logic
@@ -391,6 +583,13 @@ class TestRunner:
         for group, content in all_hosts.items():
             if group.startswith("app_server_"):
                 name = group.replace("app_server_", "")
+
+                # Filter by app name if specified
+                if self.apps_filter:
+                    allowed = [a.strip().lower() for a in self.apps_filter.split(",")]
+                    if not any(a in name.lower() for a in allowed):
+                        continue
+
                 app_ip = list(content.get("hosts", {}).values())[0].get("private_ip")
                 scenarios.append(
                     {

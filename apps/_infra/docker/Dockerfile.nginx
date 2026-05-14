@@ -31,9 +31,9 @@ HEALTHCHECK --interval=30s --timeout=3s \
   CMD wget --quiet --tries=1 --spider http://localhost/ || exit 1
 
 # Setup entrypoint and templates for environment variable substitution
-COPY ../nginx/entrypoint.sh /usr/local/bin/entrypoint.sh
-COPY ../nginx/nginx.conf.template /etc/nginx/conf.d/default.conf.template
-COPY ../nginx/nginx.csr.conf.template /etc/nginx/conf.d/default.csr.conf.template
+COPY nginx/entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY nginx/nginx.conf.template /etc/nginx/conf.d/default.conf.template
+COPY nginx/nginx.csr.conf.template /etc/nginx/conf.d/default.csr.conf.template
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # The entrypoint.sh needs to know which template to use. 
