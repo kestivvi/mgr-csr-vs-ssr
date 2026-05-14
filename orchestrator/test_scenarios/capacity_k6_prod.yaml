@@ -1,0 +1,16 @@
+test_type: capacity_k6
+num_runs: 1
+inter_run_delay: 1m
+
+capacity_k6_options:
+  peak_rate: 5000
+  ramp_up: 10m
+  peak_rate_2: 42000
+  ramp_up_2: 10m
+  sustain: 1m
+  ramp_down: 1m
+  start_rate: 50
+  warmup: 60s
+  max_vus: 400
+  skip_assets: true
+  timeout: 2.0s

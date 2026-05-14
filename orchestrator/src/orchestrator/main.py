@@ -18,23 +18,42 @@ console = Console()
 @app.command()
 def setup(
     infra_path: Annotated[
-        Path | None,
-        typer.Option("--infra", help="Path to infrastructure config (defaults to infra.yaml)"),
-    ] = None,
+        Path,
+        typer.Argument(
+            help="Path to infrastructure configuration YAML (e.g., infra.yaml).",
+            show_default=False,
+        ),
+    ],
     force: Annotated[
         bool,
         typer.Option(
             "--force",
+            "-f",
             help="Tear down existing infrastructure before setup",
         ),
     ] = False,
     verbose: Annotated[
         bool, typer.Option("--verbose", "-v", help="Show real-time output from tools")
     ] = False,
+    auto_approve: Annotated[
+        bool,
+        typer.Option(
+            "--yes",
+            "-y",
+            help="Skip confirmation prompts (useful for CI/CD)",
+        ),
+    ] = False,
 ) -> None:
     """
     [bold green]Setup[/bold green]: Provision and configure the research environment.
     """
+    if force and not auto_approve:
+        confirm = typer.confirm(
+            "[bold red]WARNING: --force will DESTROY existing infrastructure before rebuilding. Continue?[/bold red]"
+        )
+        if not confirm:
+            raise typer.Abort()
+
     from orchestrator.actions.setup import provider as setup_provider
 
     setup_provider.run_setup(infra_path=infra_path, force=force, verbose=verbose)

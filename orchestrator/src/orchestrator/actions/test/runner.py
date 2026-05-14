@@ -2,7 +2,7 @@ import datetime
 import json
 import re
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from multiprocessing import Manager
 from pathlib import Path
 from typing import Any, cast
@@ -233,21 +233,20 @@ class TestRunner:
                 )
                 measurement_window = {"warmup": w_sec, "duration": d_sec}
 
-        # Run via ansible-runner (async to allow for cancellation)
+        # Run via ansible-runner (async to allow for cancellation).
+        # cancel_callback is polled by ansible-runner between events; returning
+        # True triggers a clean cancellation of the underlying ansible-playbook.
         thread, r = ansible_runner.run_async(
             private_data_dir=str(ANSIBLE_DIR),
             playbook=playbook,
             extravars=extra_vars,
             envvars=get_ansible_env(),
+            cancel_callback=self.shutdown_event.is_set,
             quiet=True,
         )
 
         try:
-            while thread.is_alive():
-                if self.shutdown_event.is_set():
-                    r.cancel()
-                    break
-                thread.join(timeout=0.5)
+            thread.join()
         except Exception:
             r.cancel()
             raise
@@ -293,6 +292,7 @@ class TestRunner:
                     "server_type": scenario_name,
                 },
                 envvars=get_ansible_env(),
+                cancel_callback=self.shutdown_event.is_set,
                 quiet=True,
             )
             return {"success": False, "name": scenario_name}
@@ -335,17 +335,21 @@ class TestRunner:
                 )
                 run_results = []
 
-                # Use ThreadPoolExecutor without 'with' context manager to allow
-                # immediate shutdown on KeyboardInterrupt without waiting for threads.
+                # Poll with a timeout so the main thread regularly returns to
+                # Python bytecode and KeyboardInterrupt can be delivered.
+                # (concurrent.futures' no-timeout waits sit in a C-level lock
+                # that swallows SIGINT until a future completes.)
                 executor = ThreadPoolExecutor(max_workers=len(scenarios))
                 futures = [executor.submit(self.run_scenario, run, s) for s in scenarios]
                 try:
-                    for fut in as_completed(futures):
-                        run_results.append(fut.result())
+                    pending = set(futures)
+                    while pending:
+                        done, pending = wait(pending, timeout=0.5, return_when=FIRST_COMPLETED)
+                        for fut in done:
+                            run_results.append(fut.result())
                 except KeyboardInterrupt:
                     console.print("\n[bold red]Interrupt received! Stopping all runs...[/bold red]")
                     self.shutdown_event.set()
-                    # Cancel pending futures and don't wait for running ones
                     executor.shutdown(wait=False, cancel_futures=True)
                     raise
                 finally:
@@ -445,10 +449,14 @@ class TestRunner:
 
     def _sync_k6_script(self) -> bool:
         with console.status("[bold cyan]Syncing k6 script to load generators...", spinner="dots"):
+            # cancel_callback must be passed explicitly; otherwise ansible-runner
+            # installs a silent SIGINT/SIGTERM handler that breaks Ctrl+C for the
+            # rest of the process lifetime.
             r = ansible_runner.run(
                 private_data_dir=str(ANSIBLE_DIR),
                 playbook=SYNC_SCRIPT_PLAYBOOK_PATH,
                 envvars=get_ansible_env(),
+                cancel_callback=self.shutdown_event.is_set,
                 quiet=True,
             )
         if r.status != "successful":
@@ -460,10 +468,13 @@ class TestRunner:
         try:
             console.print("[bold yellow]Initiating global emergency stop...[/bold yellow]")
             # Run the stop_all playbook to be sure
+            # cancel_callback=lambda: False keeps teardown un-cancellable AND
+            # prevents ansible-runner from installing its silent SIGINT handler.
             ansible_runner.run(
                 private_data_dir=str(ANSIBLE_DIR),
                 playbook="ops/test_stop_all.yml",
                 envvars=get_ansible_env(),
+                cancel_callback=lambda: False,
                 quiet=True,
             )
             console.print("[bold green]All tests stopped and containers removed.[/bold green]")
