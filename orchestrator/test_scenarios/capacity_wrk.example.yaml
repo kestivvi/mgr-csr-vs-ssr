@@ -2,7 +2,7 @@
 # WRK is a high-performance HTTP benchmarking tool
 
 test_type: capacity_wrk
-num_runs: 1
+num_repetitions: 1
 
 capacity_wrk_options:
   # Total number of threads to use across all load generators

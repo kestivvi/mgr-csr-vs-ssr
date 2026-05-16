@@ -1,5 +1,5 @@
 test_type: capacity_wrk
-num_runs: 2
+num_repetitions: 2
 
 capacity_wrk_options:
   threads: 2

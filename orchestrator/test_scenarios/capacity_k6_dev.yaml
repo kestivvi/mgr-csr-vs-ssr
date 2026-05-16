@@ -1,6 +1,6 @@
 test_type: capacity_k6
-num_runs: 1
-inter_run_delay: 1m
+num_repetitions: 1
+inter_repetition_delay: 1m
 
 capacity_k6_options:
   peak_rate: 42000

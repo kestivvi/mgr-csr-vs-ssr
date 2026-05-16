@@ -99,14 +99,14 @@ class TestRunner:
         elif config_dict:
             raw_config = config_dict
         else:
-            raw_config = {"test_type": "load", "num_runs": 1}
+            raw_config = {"test_type": "load", "num_repetitions": 1}
 
         # Apply overrides to raw_config before validation
         if overrides:
             for key, value in overrides.items():
                 if value is not None:
                     console.print(f"[dim yellow]Override: {key} set to {value}[/dim yellow]")
-                    if key in ["num_runs", "inter_run_delay", "auto_approve"]:
+                    if key in ["num_repetitions", "inter_repetition_delay", "auto_approve"]:
                         raw_config[key] = value
                     else:
                         # Auto-detect which options block to update
@@ -121,7 +121,7 @@ class TestRunner:
 
         self.config = ExperimentConfig(**raw_config)
         self.test_type = self.config.test_type
-        self.num_runs = self.config.num_runs
+        self.num_repetitions = self.config.num_repetitions
 
         if output_dir:
             self.results_base_dir = output_dir
@@ -161,21 +161,21 @@ class TestRunner:
                     continue
         return None
 
-    def run_scenario(self, run_number: int, scenario: ScenarioMetadata) -> ScenarioResult:
+    def run_scenario(self, repetition_number: int, scenario: ScenarioMetadata) -> ScenarioResult:
         if self.shutdown_event.is_set():
             return {"success": False}
 
         scenario_name = scenario["name"]
-        run_prefix = f"{run_number:02d}"
+        repetition_prefix = f"{repetition_number:02d}"
         tool = "wrk" if self.test_type == "capacity_wrk" else "k6"
 
-        console.print(f"[{run_prefix}:{scenario_name}] Starting {tool} test.")
+        console.print(f"[{repetition_prefix}:{scenario_name}] Starting {tool} test.")
 
         extra_vars: dict[str, Any] = {
             "target_host_group": scenario["load_generator_group"],
             "target_url": f"https://{scenario['subject_server_ip']}",
             "server_type": scenario_name,
-            "prometheus_url": f"http://{scenario['monitoring_private_ip']}:9090",
+            "prometheus_url": f"http://{scenario['monitoring_host_private_ip']}:9090",
         }
 
         # Logic for tool-specific vars
@@ -204,7 +204,7 @@ class TestRunner:
                     "k6_request_timeout": opts.get("timeout"),
                     "k6_log_path": str(
                         self.logs_dir
-                        / f"{run_prefix}_{scenario_name.lower().replace('-', '_')}.log"
+                        / f"{repetition_prefix}_{scenario_name.lower().replace('-', '_')}.log"
                     ),
                     "k6_skip_assets": opts.get("skip_assets"),
                 }
@@ -227,7 +227,7 @@ class TestRunner:
                         "k6_request_timeout": load_opts.timeout,
                         "k6_log_path": str(
                             self.logs_dir
-                            / f"{run_prefix}_{scenario_name.lower().replace('-', '_')}.log"
+                            / f"{repetition_prefix}_{scenario_name.lower().replace('-', '_')}.log"
                         ),
                         "k6_skip_assets": load_opts.skip_assets,
                     }
@@ -269,14 +269,14 @@ class TestRunner:
         # Save log file (Note: For k6, logs are now fetched directly by the playbook to avoid OOM)
         log_path = None
         if tool == "wrk":
-            log_filename = f"{run_prefix}_{scenario_name.lower().replace('-', '_')}.log"
+            log_filename = f"{repetition_prefix}_{scenario_name.lower().replace('-', '_')}.log"
             log_path = self.logs_dir / log_filename
             with open(log_path, "w") as f:
                 f.write(output)
 
         if not r.status == "successful" or not timestamps:
             msg = (
-                f"[{run_prefix}:{scenario_name}] Failed. "
+                f"[{repetition_prefix}:{scenario_name}] Failed. "
                 f"Status: {r.status}, Timestamps: {bool(timestamps)}"
             )
             console.print(msg)
@@ -327,14 +327,14 @@ class TestRunner:
             start_ts: float = 0.0
             end_ts: float = 0.0
 
-            for run in range(1, self.num_runs + 1):
+            for run in range(1, self.num_repetitions + 1):
                 if self.shutdown_event.is_set():
                     break
 
                 console.print(
-                    f"\n[bold blue]--- Starting Run {run} of {self.num_runs} ---[/bold blue]"
+                    f"\n[bold blue]--- Starting Run {run} of {self.num_repetitions} ---[/bold blue]"
                 )
-                run_results = []
+                repetition_results = []
 
                 # Poll with a timeout so the main thread regularly returns to
                 # Python bytecode and KeyboardInterrupt can be delivered.
@@ -347,7 +347,7 @@ class TestRunner:
                     while pending:
                         done, pending = wait(pending, timeout=0.5, return_when=FIRST_COMPLETED)
                         for fut in done:
-                            run_results.append(fut.result())
+                            repetition_results.append(fut.result())
                 except KeyboardInterrupt:
                     console.print("\n[bold red]Interrupt received! Stopping all runs...[/bold red]")
                     self.shutdown_event.set()
@@ -356,7 +356,9 @@ class TestRunner:
                 finally:
                     executor.shutdown(wait=False)
 
-                successful = [r for r in run_results if r.get("success") and r.get("timestamps")]
+                successful = [
+                    r for r in repetition_results if r.get("success") and r.get("timestamps")
+                ]
                 if not successful:
                     continue
 
@@ -373,11 +375,11 @@ class TestRunner:
                     # 1. Collect Prometheus metrics
                     ts_dict = cast(dict[str, float], res["timestamps"])
                     collect_metrics(
-                        prometheus_url=f"http://{res['scenario']['monitoring_public_ip']}:9090",
+                        prometheus_url=f"http://{res['scenario']['monitoring_host_public_ip']}:9090",
                         start_epoch=int(ts_dict["start"]),
                         end_epoch=int(ts_dict["end"]),
                         server_type=res["name"],
-                        run_number=run,
+                        repetition_number=run,
                         output_dir=self.results_base_dir,
                     )
 
@@ -391,11 +393,11 @@ class TestRunner:
                             json.dump(res["wrk_results"], out_file, indent=2)
                         console.print(f"[green]Saved wrk results to {res_path}[/green]")
 
-                if run < self.num_runs:
-                    delay_sec = parse_duration_to_seconds(self.config.inter_run_delay)
+                if run < self.num_repetitions:
+                    delay_sec = parse_duration_to_seconds(self.config.inter_repetition_delay)
                     console.print(
                         f"\n[bold yellow]Wait period:[/bold yellow] "
-                        f"Sleeping for {self.config.inter_run_delay} ({delay_sec}s) "
+                        f"Sleeping for {self.config.inter_repetition_delay} ({delay_sec}s) "
                         "before next run..."
                     )
                     time.sleep(delay_sec)
@@ -416,7 +418,9 @@ class TestRunner:
             # 4. Save metadata for analyzer
             if end_ts > start_ts:
                 metadata = {
-                    "run_timestamp_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                    "repetition_timestamp_utc": datetime.datetime.now(
+                        datetime.timezone.utc
+                    ).isoformat(),
                     "test_type": self.test_type,
                     "parameters": self.config.model_dump(exclude_none=True),
                     "subjects": subjects_meta,
@@ -507,8 +511,8 @@ class TestRunner:
         # --- Section: General ---
         table.add_row("[bold white]General[/bold white]", "")
         table.add_row("  Test Type", self.test_type.upper())
-        table.add_row("  Num Runs", str(self.num_runs))
-        table.add_row("  Inter-Run Delay", self.config.inter_run_delay)
+        table.add_row("  Num Runs", str(self.num_repetitions))
+        table.add_row("  Inter-Run Delay", self.config.inter_repetition_delay)
         table.add_row("  Scenarios", str(len(scenarios)))
 
         options = self.config.get_options()
@@ -599,7 +603,7 @@ class TestRunner:
 
         scenarios = []
         all_hosts = inv.get("all", {}).get("children", {})
-        mon = list(all_hosts.get("role_monitoring_server", {}).get("hosts", {}).values())[0]
+        mon = list(all_hosts.get("role_monitoring_host", {}).get("hosts", {}).values())[0]
 
         for group, content in all_hosts.items():
             if group.startswith("subject_server_"):
@@ -624,8 +628,8 @@ class TestRunner:
                         "name": name,
                         "subject_server_ip": subject_ip,
                         "load_generator_group": f"role_load_generator_{name}",
-                        "monitoring_public_ip": mon["public_ip"],
-                        "monitoring_private_ip": mon["private_ip"],
+                        "monitoring_host_public_ip": mon["public_ip"],
+                        "monitoring_host_private_ip": mon["private_ip"],
                     }
                 )
         return cast(list[ScenarioMetadata], scenarios)

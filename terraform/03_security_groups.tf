@@ -100,7 +100,7 @@ resource "aws_security_group_rule" "subject_server_ingress_node_exporter" {
   from_port                = var.node_exporter_port
   to_port                  = var.node_exporter_port
   protocol                 = "tcp"
-  source_security_group_id = aws_security_group.monitoring_server.id
+  source_security_group_id = aws_security_group.monitoring_host.id
   description              = "Allow Prometheus to scrape node_exporter"
 }
 
@@ -110,7 +110,7 @@ resource "aws_security_group_rule" "subject_server_ingress_nginx_exporter" {
   from_port                = var.nginx_exporter_port
   to_port                  = var.nginx_exporter_port
   protocol                 = "tcp"
-  source_security_group_id = aws_security_group.monitoring_server.id
+  source_security_group_id = aws_security_group.monitoring_host.id
   description              = "Allow Prometheus to scrape nginx_log_exporter"
 }
 
@@ -120,7 +120,7 @@ resource "aws_security_group_rule" "subject_server_ingress_cadvisor" {
   from_port                = var.cadvisor_port
   to_port                  = var.cadvisor_port
   protocol                 = "tcp"
-  source_security_group_id = aws_security_group.monitoring_server.id
+  source_security_group_id = aws_security_group.monitoring_host.id
   description              = "Allow Prometheus to scrape cAdvisor"
 }
 
@@ -153,27 +153,27 @@ resource "aws_security_group_rule" "load_generator_ingress_node_exporter" {
   from_port                = var.node_exporter_port
   to_port                  = var.node_exporter_port
   protocol                 = "tcp"
-  source_security_group_id = aws_security_group.monitoring_server.id
+  source_security_group_id = aws_security_group.monitoring_host.id
   description              = "Allow Prometheus to scrape node_exporter"
 }
 
 
-# Grupa dla serwera monitoringu
-resource "aws_security_group" "monitoring_server" {
-  name        = "${var.project_name}-monitoring-server-sg"
-  description = "Security group for Monitoring Server"
+# Grupa dla monitoring host
+resource "aws_security_group" "monitoring_host" {
+  name        = "${var.project_name}-monitoring-host-sg"
+  description = "Security group for Monitoring Host"
   vpc_id      = aws_vpc.main.id
 
   tags = {
-    Name = "${var.project_name}-monitoring-server-sg"
+    Name = "${var.project_name}-monitoring-host-sg"
     Role = "security"
   }
 }
 
 # trivy:ignore:AVD-AWS-0104[OK_for_thesis] Egress is open to allow OS updates and software installation.
-resource "aws_security_group_rule" "monitoring_server_egress_all" {
+resource "aws_security_group_rule" "monitoring_host_egress_all" {
   type              = "egress"
-  security_group_id = aws_security_group.monitoring_server.id
+  security_group_id = aws_security_group.monitoring_host.id
   from_port         = 0
   to_port           = 0
   protocol          = "-1"
@@ -182,9 +182,9 @@ resource "aws_security_group_rule" "monitoring_server_egress_all" {
   description       = "Allow all outbound traffic"
 }
 
-resource "aws_security_group_rule" "monitoring_server_ingress_grafana" {
+resource "aws_security_group_rule" "monitoring_host_ingress_grafana" {
   type              = "ingress"
-  security_group_id = aws_security_group.monitoring_server.id
+  security_group_id = aws_security_group.monitoring_host.id
   from_port         = var.grafana_port
   to_port           = var.grafana_port
   protocol          = "tcp"
@@ -192,9 +192,9 @@ resource "aws_security_group_rule" "monitoring_server_ingress_grafana" {
   description       = "Allow Grafana access from my IP"
 }
 
-resource "aws_security_group_rule" "monitoring_server_ingress_prometheus_ui" {
+resource "aws_security_group_rule" "monitoring_host_ingress_prometheus_ui" {
   type              = "ingress"
-  security_group_id = aws_security_group.monitoring_server.id
+  security_group_id = aws_security_group.monitoring_host.id
   from_port         = var.prometheus_port
   to_port           = var.prometheus_port
   protocol          = "tcp"
@@ -202,9 +202,9 @@ resource "aws_security_group_rule" "monitoring_server_ingress_prometheus_ui" {
   description       = "Allow Prometheus UI access from my IP"
 }
 
-resource "aws_security_group_rule" "monitoring_server_ingress_node_exporter_self" {
+resource "aws_security_group_rule" "monitoring_host_ingress_node_exporter_self" {
   type              = "ingress"
-  security_group_id = aws_security_group.monitoring_server.id
+  security_group_id = aws_security_group.monitoring_host.id
   from_port         = var.node_exporter_port
   to_port           = var.node_exporter_port
   protocol          = "tcp"
@@ -218,6 +218,6 @@ resource "aws_security_group_rule" "allow_prometheus_rw_from_lg" {
   to_port                  = var.prometheus_port
   protocol                 = "tcp"
   source_security_group_id = aws_security_group.load_generator.id
-  security_group_id        = aws_security_group.monitoring_server.id
+  security_group_id        = aws_security_group.monitoring_host.id
   description              = "Allow k6 to push metrics to Prometheus"
 }

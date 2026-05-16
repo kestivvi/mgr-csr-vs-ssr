@@ -13,7 +13,7 @@ class Column:
     VALUE = "metric_value"
     SERVER_TYPE = "server_type"
     GROUP = "group"
-    RUN_NUMBER = "run_number"
+    REPETITION_NUMBER = "repetition_number"
     TIME_SEC = "time_sec"
 
 

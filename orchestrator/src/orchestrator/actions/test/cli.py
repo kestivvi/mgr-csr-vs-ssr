@@ -7,8 +7,8 @@ from orchestrator.config import resolve_path
 def run(
     mode: str,
     path: str | None = None,
-    num_runs: int | None = None,
-    inter_run_delay: str | None = None,
+    num_repetitions: int | None = None,
+    inter_repetition_delay: str | None = None,
     duration: str | None = None,
     warmup: str | None = None,
     after: str | None = None,
@@ -29,10 +29,10 @@ def run(
     Core test execution logic.
     """
     overrides: dict[str, Any] = {}
-    if num_runs is not None:
-        overrides["num_runs"] = num_runs
-    if inter_run_delay is not None:
-        overrides["inter_run_delay"] = inter_run_delay
+    if num_repetitions is not None:
+        overrides["num_repetitions"] = num_repetitions
+    if inter_repetition_delay is not None:
+        overrides["inter_repetition_delay"] = inter_repetition_delay
     if duration is not None:
         overrides["duration"] = duration
     if warmup is not None:
@@ -81,11 +81,13 @@ def run(
 
 
 def run_local_wrk(
-    subject_filter: str | None = None, num_runs: int = 1, verbose: bool = False
+    subject_filter: str | None = None, num_repetitions: int = 1, verbose: bool = False
 ) -> None:
     """
     Run local capacity testing with wrk.
     """
     from orchestrator.actions.test.local_wrk import run_capacity_local_wrk
 
-    run_capacity_local_wrk(subject_filter=subject_filter, num_runs=num_runs, verbose=verbose)
+    run_capacity_local_wrk(
+        subject_filter=subject_filter, num_repetitions=num_repetitions, verbose=verbose
+    )

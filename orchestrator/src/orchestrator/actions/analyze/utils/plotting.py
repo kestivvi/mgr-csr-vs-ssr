@@ -234,11 +234,11 @@ def create_timeseries_plot(
 
     full_time_index = pd.to_timedelta(np.arange(int(max_time) + 1), unit="s")
     processed_dfs = []
-    for group, group_df in df_metric.groupby([Column.SERVER_TYPE, Column.RUN_NUMBER]):
+    for group, group_df in df_metric.groupby([Column.SERVER_TYPE, Column.REPETITION_NUMBER]):
         temp_df = group_df.set_index(pd.to_timedelta(group_df[Column.TIME_SEC], unit="s"))
         temp_df = temp_df.reindex(full_time_index).ffill().bfill()
         temp_df[Column.SERVER_TYPE] = group[0]
-        temp_df[Column.RUN_NUMBER] = group[1]
+        temp_df[Column.REPETITION_NUMBER] = group[1]
         temp_df[Column.TIME_SEC] = temp_df.index.total_seconds()
         processed_dfs.append(temp_df.reset_index(drop=True))
 

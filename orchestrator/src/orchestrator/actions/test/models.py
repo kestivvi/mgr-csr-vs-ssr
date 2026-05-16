@@ -7,8 +7,8 @@ class ScenarioMetadata(TypedDict):
     name: str
     subject_server_ip: str
     load_generator_group: str
-    monitoring_public_ip: str
-    monitoring_private_ip: str
+    monitoring_host_public_ip: str
+    monitoring_host_private_ip: str
 
 
 class ScenarioResult(TypedDict, total=False):
@@ -118,8 +118,8 @@ class CapacityWrkOptions(BaseModel):
 
 class ExperimentConfig(BaseModel):
     test_type: str = Field(..., description="load, capacity_k6, or capacity_wrk")
-    num_runs: int = 1
-    inter_run_delay: str = "1m"
+    num_repetitions: int = 1
+    inter_repetition_delay: str = "1m"
     auto_approve: bool = False
     load_options: LoadOptions | None = None
     capacity_k6_options: CapacityK6Options | None = None

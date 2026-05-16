@@ -41,11 +41,11 @@ all:
 %{ endfor ~}
 
     # 3. DEFINE THE STATIC MONITORING GROUP
-    role_monitoring_server:
+    role_monitoring_host:
       hosts:
-        ${monitoring_server.tags.Name}:
-          ansible_host: ${monitoring_server.public_ip}
-          private_ip: ${monitoring_server.private_ip}
-          public_ip: ${monitoring_server.public_ip}
-          private_dns: ${monitoring_server.private_dns}
-          public_dns: ${monitoring_server.public_dns}
+        ${monitoring_host.tags.Name}:
+          ansible_host: ${monitoring_host.public_ip}
+          private_ip: ${monitoring_host.private_ip}
+          public_ip: ${monitoring_host.public_ip}
+          private_dns: ${monitoring_host.private_dns}
+          public_dns: ${monitoring_host.public_dns}

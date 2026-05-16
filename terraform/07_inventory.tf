@@ -14,12 +14,12 @@ resource "local_file" "ansible_inventory" {
       public_dns  = v.public_dns
       private_dns = v.private_dns
     } }
-    monitoring_server = {
-      tags        = aws_instance.monitoring_server.tags
-      public_ip   = aws_instance.monitoring_server.public_ip
-      private_ip  = aws_instance.monitoring_server.private_ip
-      public_dns  = aws_instance.monitoring_server.public_dns
-      private_dns = aws_instance.monitoring_server.private_dns
+    monitoring_host = {
+      tags        = aws_instance.monitoring_host.tags
+      public_ip   = aws_instance.monitoring_host.public_ip
+      private_ip  = aws_instance.monitoring_host.private_ip
+      public_dns  = aws_instance.monitoring_host.public_dns
+      private_dns = aws_instance.monitoring_host.private_dns
     }
     ssh_user         = "ec2-user"
     private_key_path = "~/.ssh/${var.key_name}.pem"

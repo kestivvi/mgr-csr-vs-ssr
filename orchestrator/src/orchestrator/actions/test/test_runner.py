@@ -35,8 +35,8 @@ def test_runner_captures_subject_manifests_in_metadata(tmp_path: Path, mocker: A
                 "name": "ssr-solid",
                 "subject_server_ip": "1.2.3.4",
                 "load_generator_group": "lg1",
-                "monitoring_public_ip": "5.6.7.8",
-                "monitoring_private_ip": "10.0.0.1",
+                "monitoring_host_public_ip": "5.6.7.8",
+                "monitoring_host_private_ip": "10.0.0.1",
             }
         ],
     )
@@ -62,8 +62,8 @@ def test_runner_captures_subject_manifests_in_metadata(tmp_path: Path, mocker: A
         "name": "ssr-solid",
         "load_generator_group": "lg1",
         "subject_server_ip": "1.2.3.4",
-        "monitoring_public_ip": "5.6.7.8",
-        "monitoring_private_ip": "10.0.0.1",
+        "monitoring_host_public_ip": "5.6.7.8",
+        "monitoring_host_private_ip": "10.0.0.1",
     }
     mocker.patch.object(
         runner,

@@ -22,15 +22,15 @@ output "server_details" {
       }
     },
     {
-      "monitoring_server" = {
-        public_ip         = aws_instance.monitoring_server.public_ip
-        private_ip        = aws_instance.monitoring_server.private_ip
-        type              = "Monitoring Server"
-        purpose           = "Hosts Grafana and Prometheus monitoring stack"
+      "monitoring_host" = {
+        public_ip         = aws_instance.monitoring_host.public_ip
+        private_ip        = aws_instance.monitoring_host.private_ip
+        type              = "Monitoring Host"
+        purpose           = "Hosts Grafana and Prometheus (monitoring stack is an implementation detail of the Monitoring Host)"
         ssh_user          = "ec2-user"
-        grafana           = "http://${aws_instance.monitoring_server.public_ip}:${var.grafana_port}"
-        prometheus        = "http://${aws_instance.monitoring_server.public_ip}:${var.prometheus_port}"
-        terraform_address = "aws_instance.monitoring_server"
+        grafana           = "http://${aws_instance.monitoring_host.public_ip}:${var.grafana_port}"
+        prometheus        = "http://${aws_instance.monitoring_host.public_ip}:${var.prometheus_port}"
+        terraform_address = "aws_instance.monitoring_host"
       }
     }
   )

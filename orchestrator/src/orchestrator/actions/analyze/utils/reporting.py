@@ -14,8 +14,8 @@ def render_metadata_md(analyzer: PerformanceAnalyzer) -> str:
     params = meta.get("parameters", {})
     durations = meta.get("calculated_durations_sec", {})
     rows = [
-        ["Run Timestamp (UTC)", f"`{meta.get('run_timestamp_utc', 'N/A')}`"],
-        ["Runs per Technology", params.get("num_runs", "N/A")],
+        ["Run Timestamp (UTC)", f"`{meta.get('repetition_timestamp_utc', 'N/A')}`"],
+        ["Runs per Technology", params.get("num_repetitions", "N/A")],
         ["Target RPS per Instance", params.get("rate", "N/A")],
         ["k6 Test Duration", f"`{params.get('k6_duration', 'N/A')}`"],
         ["Warm-up Duration", f"`{params.get('warmup_duration', 'N/A')}`"],

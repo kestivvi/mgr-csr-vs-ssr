@@ -1,5 +1,5 @@
 test_type: load
-num_runs: 5
+num_repetitions: 5
 
 load_options:
   rps: 50

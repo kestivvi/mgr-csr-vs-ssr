@@ -60,7 +60,7 @@ Custom YAML files are **strictly validated** using Pydantic. Here is an exhausti
 ```yaml
 # my_experiment.yaml
 test_type: capacity_k6 # options: load, capacity_k6, capacity_wrk
-num_runs: 1
+num_repetitions: 1
 
 # --- If test_type is 'load' ---
 load_options:
@@ -98,7 +98,7 @@ capacity_wrk_options:
 | Block            | Field         | Type  | Default      | Description                              |
 | :--------------- | :------------ | :---- | :----------- | :--------------------------------------- |
 | **Root**         | `test_type`   | `str` | **Required** | `load`, `capacity_k6`, `capacity_wrk`    |
-|                  | `num_runs`    | `int` | `1`          | Number of times to repeat the experiment |
+|                  | `num_repetitions`    | `int` | `1`          | Number of times to repeat the experiment |
 | **Load**         | `rps`         | `int` | `100`        | Target Requests Per Second               |
 |                  | `duration`    | `str` | `5m`         | Duration of the test                     |
 |                  | `vus`         | `int` | `200`        | Number of virtual users                  |

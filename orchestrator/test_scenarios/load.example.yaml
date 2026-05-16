@@ -2,7 +2,7 @@
 # Use this for steady-state load testing
 
 test_type: load
-num_runs: 1
+num_repetitions: 1
 
 load_options:
   # Requests per second per load generator

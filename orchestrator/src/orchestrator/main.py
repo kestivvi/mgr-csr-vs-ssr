@@ -101,22 +101,22 @@ def test_load(
             rich_help_panel="Scope",
         ),
     ] = None,
-    num_runs: Annotated[
+    num_repetitions: Annotated[
         int,
         typer.Option(
-            "--num-runs",
+            "--repetitions",
             "-n",
             help="Number of times to repeat the entire experiment cycle.",
             show_default=True,
             rich_help_panel="General",
         ),
     ] = 1,
-    inter_run_delay: Annotated[
+    inter_repetition_delay: Annotated[
         str,
         typer.Option(
-            "--inter-run-delay",
+            "--inter-repetition-delay",
             "--delay",
-            help="Wait duration between successive runs (e.g., 1m, 30s).",
+            help="Wait duration between successive repetitions (e.g., 1m, 30s).",
             show_default=True,
             rich_help_panel="General",
         ),
@@ -193,8 +193,8 @@ def test_load(
     test_cli.run(
         mode="load",
         subjects=subjects,
-        num_runs=num_runs,
-        inter_run_delay=inter_run_delay,
+        num_repetitions=num_repetitions,
+        inter_repetition_delay=inter_repetition_delay,
         duration=duration,
         warmup=warmup,
         after=after,
@@ -217,22 +217,22 @@ def test_capacity(
             rich_help_panel="Scope",
         ),
     ] = None,
-    num_runs: Annotated[
+    num_repetitions: Annotated[
         int,
         typer.Option(
-            "--num-runs",
+            "--repetitions",
             "-n",
             help="Number of times to repeat the entire experiment cycle.",
             show_default=True,
             rich_help_panel="General",
         ),
     ] = 1,
-    inter_run_delay: Annotated[
+    inter_repetition_delay: Annotated[
         str,
         typer.Option(
-            "--inter-run-delay",
+            "--inter-repetition-delay",
             "--delay",
-            help="Wait duration between successive runs (e.g., 1m, 30s).",
+            help="Wait duration between successive repetitions (e.g., 1m, 30s).",
             show_default=True,
             rich_help_panel="General",
         ),
@@ -325,8 +325,8 @@ def test_capacity(
     test_cli.run(
         mode="capacity",
         subjects=subjects,
-        num_runs=num_runs,
-        inter_run_delay=inter_run_delay,
+        num_repetitions=num_repetitions,
+        inter_repetition_delay=inter_repetition_delay,
         peak_rate=peak_rate,
         ramp_up=ramp_up,
         sustain=sustain,
@@ -342,16 +342,18 @@ def test_capacity(
 @subjects_app.command(name="file")
 def test_file(
     path: Annotated[str, typer.Argument(help="Path to custom experiment configuration YAML file.")],
-    num_runs: Annotated[
+    num_repetitions: Annotated[
         int | None,
-        typer.Option("--num-runs", "-n", help="Override the number of runs specified in the YAML."),
+        typer.Option(
+            "--repetitions", "-n", help="Override the number of repetitions specified in the YAML."
+        ),
     ] = None,
-    inter_run_delay: Annotated[
+    inter_repetition_delay: Annotated[
         str | None,
         typer.Option(
-            "--inter-run-delay",
+            "--inter-repetition-delay",
             "--delay",
-            help="Override wait duration between runs (e.g., 1m, 30s).",
+            help="Override wait duration between repetitions (e.g., 1m, 30s).",
         ),
     ] = None,
     duration: Annotated[
@@ -403,8 +405,8 @@ def test_file(
     test_cli.run(
         mode="file",
         path=path,
-        num_runs=num_runs,
-        inter_run_delay=inter_run_delay,
+        num_repetitions=num_repetitions,
+        inter_repetition_delay=inter_repetition_delay,
         duration=duration,
         warmup=warmup,
         after=after,
@@ -427,9 +429,11 @@ def test_wrk(
             help="Filter subjects by ID (partial matches, comma-separated).",
         ),
     ] = None,
-    num_runs: Annotated[
+    num_repetitions: Annotated[
         int,
-        typer.Option("--num-runs", "-n", help="Number of test runs per subject", show_default=True),
+        typer.Option(
+            "--repetitions", "-n", help="Number of repetitions per subject", show_default=True
+        ),
     ] = 1,
     verbose: Annotated[
         bool, typer.Option("--verbose", "-v", help="Show real-time output from tools")
@@ -438,7 +442,9 @@ def test_wrk(
     """Run local [cyan]capacity benchmarks[/cyan] using wrk."""
     from orchestrator.actions.test import cli as test_cli
 
-    test_cli.run_local_wrk(subject_filter=subjects, num_runs=num_runs, verbose=verbose)
+    test_cli.run_local_wrk(
+        subject_filter=subjects, num_repetitions=num_repetitions, verbose=verbose
+    )
 
 
 @subjects_app.command(name="stop")
@@ -541,7 +547,7 @@ def aggregate(
     lax: Annotated[
         bool,
         typer.Option(
-            "--lax", help="Allow aggregation of runs with different parameters (dangerous!)"
+            "--lax", help="Allow aggregation of repetitions with different parameters (dangerous!)"
         ),
     ] = False,
     no_logs: Annotated[
@@ -550,7 +556,7 @@ def aggregate(
     ] = False,
 ) -> None:
     """
-    [bold blue]Aggregate[/bold blue]: Combine multiple test runs into a single sequential dataset.
+    [bold blue]Aggregate[/bold blue]: Combine multiple test repetitions into a single sequential dataset.
     """
     from orchestrator.actions.aggregate import cli as aggregate_cli
 
@@ -584,12 +590,12 @@ def verify(
 
 
 @app.command()
-def run(
+def preview(
     subject: Annotated[
         str | None,
         typer.Argument(
             help=(
-                "Subject ID or filter. If provided, runs that subject directly. "
+                "Subject ID or filter. If provided, previews that subject directly. "
                 "Otherwise shows interactive selection menu."
             ),
         ),
@@ -607,13 +613,13 @@ def run(
     ] = False,
 ) -> None:
     """
-    [bold blue]Run[/bold blue]: Start a selected subject locally for manual testing in browser.
+    [bold blue]Preview[/bold blue]: Start a selected subject locally for manual testing in browser.
 
     Interactive selection if no subject specified. Streams logs and cleans up on Ctrl+C.
     """
-    from orchestrator.actions.run import cli as run_cli
+    from orchestrator.actions.preview import cli as preview_cli
 
-    run_cli.run(subject_filter=subject, port=port, verbose=verbose)
+    preview_cli.run(subject_filter=subject, port=port, verbose=verbose)
 
 
 if __name__ == "__main__":

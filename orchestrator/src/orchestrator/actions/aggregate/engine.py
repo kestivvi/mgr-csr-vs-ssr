@@ -35,7 +35,7 @@ class DataAggregator:
             ts = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
             self.output_dir = RESULTS_DIR / f"aggregated_{ts}"
 
-        self.global_run_counter = 0
+        self.global_repetition_counter = 0
         self.master_metadata: dict[str, Any] = {}
         self.lineage: list[dict[str, Any]] = []
         self.subject_counts: dict[str, int] = {}
@@ -89,16 +89,17 @@ class DataAggregator:
                 include = {f for f in filters if not f.startswith("!")}
                 exclude = {f[1:] for f in filters if f.startswith("!")}
 
-            runs = src_artifact.get_runs(include_subjects=include, exclude_subjects=exclude)
+            runs = src_artifact.get_repetitions(include_subjects=include, exclude_subjects=exclude)
 
             # Map local run IDs to global sequence
-            local_runs = sorted(list(set(r.run_id for r in runs)))
-            run_mapping = {
-                local: (i + 1 + self.global_run_counter) for i, local in enumerate(local_runs)
+            local_repetitions = sorted(list(set(r.repetition_id for r in runs)))
+            repetition_mapping = {
+                local: (i + 1 + self.global_repetition_counter)
+                for i, local in enumerate(local_repetitions)
             }
 
             for run in runs:
-                global_id = run_mapping[run.run_id]
+                global_id = repetition_mapping[run.repetition_id]
 
                 # Copy Metrics
                 if run.metrics_path:
@@ -118,14 +119,14 @@ class DataAggregator:
                     new_name = f"{global_id:02d}_{run.server_type.replace('-', '_')}.log"
                     shutil.copy2(run.logs_path, self.output_dir / "logs" / new_name)
 
-            if local_runs:
-                self.global_run_counter = max(run_mapping.values())
+            if local_repetitions:
+                self.global_repetition_counter = max(repetition_mapping.values())
 
             self.lineage.append(
                 {
                     "source": str(src_path.absolute()),
                     "filter": filter_str,
-                    "mapped_runs": run_mapping,
+                    "mapped_repetitions": repetition_mapping,
                 }
             )
 
@@ -140,7 +141,7 @@ class DataAggregator:
         new_meta = self.master_metadata.copy()
         new_meta["aggregated_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
         new_meta["lineage"] = self.lineage
-        new_meta["num_runs"] = self.global_run_counter
+        new_meta["num_repetitions"] = self.global_repetition_counter
         new_meta["is_consistent"] = not self.inconsistency_detected
 
         with open(self.output_dir / "metadata.yaml", "w") as f:
@@ -148,7 +149,7 @@ class DataAggregator:
 
     def _print_summary(self) -> None:
         console.print("\n[bold green]Aggregation Complete![/bold green]")
-        console.print(f"Total runs: {self.global_run_counter}")
+        console.print(f"Total runs: {self.global_repetition_counter}")
         console.print("Sample counts per subject:")
         if not self.subject_counts:
             console.print(" [yellow]No subjects were aggregated![/yellow]")

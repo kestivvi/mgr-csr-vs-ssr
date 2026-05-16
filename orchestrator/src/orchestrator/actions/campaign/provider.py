@@ -137,7 +137,7 @@ def run_campaign(
                     )
                     warmup_config = {
                         "test_type": "load",
-                        "num_runs": 1,
+                        "num_repetitions": 1,
                         "load_options": {
                             "rps": 50,
                             "warmup": "0s",

@@ -6,7 +6,7 @@ my_ip: 0.0.0.0/0
 # Instance Types
 app_server_instance_type: c8g.medium
 load_generator_instance_type: c8g.2xlarge
-monitoring_server_instance_type: t4g.small
+monitoring_host_instance_type: t4g.small
 
 # Technologies to deploy
 # Note: This block is now auto-populated by the orchestrator at runtime via Subject Autodiscovery.

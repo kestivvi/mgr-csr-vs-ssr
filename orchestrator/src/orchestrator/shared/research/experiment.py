@@ -74,7 +74,7 @@ class ExperimentLoader:
         return Experiment(metadata=metadata, metrics=metrics_df, wrk_results=wrk_df)
 
     def _load_metrics(self, artifact: ResearchArtifact) -> pd.DataFrame:
-        runs = artifact.get_runs()
+        runs = artifact.get_repetitions()
         if not runs:
             return pd.DataFrame()
 
@@ -90,7 +90,7 @@ class ExperimentLoader:
                 var_name=Column.METRIC,
                 value_name=Column.VALUE,
             )
-            long_df[Column.RUN_NUMBER] = run.run_id
+            long_df[Column.REPETITION_NUMBER] = run.repetition_id
             long_df[Column.SERVER_TYPE] = run.server_type
 
             # Apply Taxonomy
@@ -108,9 +108,9 @@ class ExperimentLoader:
 
         # Time Calculation
         df[Column.TIMESTAMP] = pd.to_datetime(df[Column.TIMESTAMP])
-        df[Column.TIME_SEC] = df.groupby([Column.SERVER_TYPE, Column.RUN_NUMBER, Column.METRIC])[
-            Column.TIMESTAMP
-        ].transform(lambda x: (x - x.min()).dt.total_seconds())
+        df[Column.TIME_SEC] = df.groupby(
+            [Column.SERVER_TYPE, Column.REPETITION_NUMBER, Column.METRIC]
+        )[Column.TIMESTAMP].transform(lambda x: (x - x.min()).dt.total_seconds())
 
         return df
 
@@ -125,7 +125,7 @@ class ExperimentLoader:
         df.loc[df[Column.METRIC] == MetricName.NETWORK_RX, Column.VALUE] /= 1024 * 1024
 
     def _load_wrk_results(self, artifact: ResearchArtifact) -> pd.DataFrame | None:
-        runs = artifact.get_runs()
+        runs = artifact.get_repetitions()
         if not runs:
             return None
 
@@ -148,7 +148,7 @@ class ExperimentLoader:
 
                 records.append(
                     {
-                        Column.RUN_NUMBER: run.run_id,
+                        Column.REPETITION_NUMBER: run.repetition_id,
                         Column.SERVER_TYPE: run.server_type,
                         Column.GROUP: self._get_group(run.server_type),
                         "rps": float(res.get("rps", 0.0)),

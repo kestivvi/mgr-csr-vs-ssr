@@ -27,8 +27,8 @@
     - subject_server
     - cadvisor
 
-- name: Configure Monitoring Server
-  hosts: role_monitoring_server
+- name: Configure Monitoring Host
+  hosts: role_monitoring_host
   become: true
   roles:
-    - monitoring
+    - monitoring_host

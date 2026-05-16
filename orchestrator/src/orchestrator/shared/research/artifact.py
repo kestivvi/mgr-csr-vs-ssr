@@ -12,10 +12,10 @@ import yaml
 class ResearchRun:
     """
     A logical unit of an experiment, grouping all files for one technology instance.
-    This is a "Deep" representation of a (run_number, server_type) pair.
+    This is a "Deep" representation of a (repetition_number, server_type) pair.
     """
 
-    run_id: int
+    repetition_id: int
     server_type: str
     metrics_path: Path | None = None
     results_path: Path | None = None
@@ -49,7 +49,7 @@ class ResearchArtifact:
         with open(meta_path, "r") as f:
             return yaml.safe_load(f) or {}
 
-    def get_runs(
+    def get_repetitions(
         self, include_subjects: set[str] | None = None, exclude_subjects: set[str] | None = None
     ) -> list[ResearchRun]:
         """
@@ -62,49 +62,51 @@ class ResearchArtifact:
         metrics_dir = self.path / "metrics"
         if metrics_dir.exists():
             for p in metrics_dir.glob("*.csv"):
-                run_id, tech = self._parse_filename(p.name, ".csv")
+                repetition_id, tech = self._parse_filename(p.name, ".csv")
                 if (
-                    run_id is not None
+                    repetition_id is not None
                     and tech is not None
                     and self._should_include(tech, include_subjects, exclude_subjects)
                 ):
-                    key = (run_id, tech)
-                    runs_map[key] = ResearchRun(run_id=run_id, server_type=tech, metrics_path=p)
+                    key = (repetition_id, tech)
+                    runs_map[key] = ResearchRun(
+                        repetition_id=repetition_id, server_type=tech, metrics_path=p
+                    )
 
         # 2. Scan Tool Results (wrk/k6)
         results_dir = self.path / "tool_results"
         if results_dir.exists():
             for p in results_dir.glob("*_wrk.json"):
-                run_id, tech = self._parse_filename(p.name, "_wrk.json")
+                repetition_id, tech = self._parse_filename(p.name, "_wrk.json")
                 if (
-                    run_id is not None
+                    repetition_id is not None
                     and tech is not None
                     and self._should_include(tech, include_subjects, exclude_subjects)
                 ):
-                    key = (run_id, tech)
+                    key = (repetition_id, tech)
                     if key not in runs_map:
-                        runs_map[key] = ResearchRun(run_id=run_id, server_type=tech)
+                        runs_map[key] = ResearchRun(repetition_id=repetition_id, server_type=tech)
                     runs_map[key].results_path = p
 
         # 3. Scan Logs
         logs_dir = self.path / "logs"
         if logs_dir.exists():
             for p in logs_dir.glob("*.log"):
-                run_id, tech = self._parse_filename(p.name, ".log")
+                repetition_id, tech = self._parse_filename(p.name, ".log")
                 if (
-                    run_id is not None
+                    repetition_id is not None
                     and tech is not None
                     and self._should_include(tech, include_subjects, exclude_subjects)
                 ):
-                    key = (run_id, tech)
+                    key = (repetition_id, tech)
                     if key not in runs_map:
-                        runs_map[key] = ResearchRun(run_id=run_id, server_type=tech)
+                        runs_map[key] = ResearchRun(repetition_id=repetition_id, server_type=tech)
                     runs_map[key].logs_path = p
 
-        return sorted(runs_map.values(), key=lambda r: (r.run_id, r.server_type))
+        return sorted(runs_map.values(), key=lambda r: (r.repetition_id, r.server_type))
 
     def _parse_filename(self, filename: str, suffix: str) -> tuple[int | None, str | None]:
-        """Internal helper to extract (run_id, server_type) from a filename."""
+        """Internal helper to extract (repetition_id, server_type) from a filename."""
         regex = re.compile(rf"^(\d+)_(.*){re.escape(suffix)}$")
         match = regex.match(filename)
         if match:

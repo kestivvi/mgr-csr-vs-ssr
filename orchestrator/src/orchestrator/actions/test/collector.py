@@ -117,7 +117,7 @@ def collect_metrics(
     start_epoch: int,
     end_epoch: int,
     server_type: str,
-    run_number: int,
+    repetition_number: int,
     output_dir: Path,
 ) -> None:
     """Main entry point for metric collection."""
@@ -150,7 +150,7 @@ def collect_metrics(
     merged_df.fillna(0, inplace=True)
 
     sanitized_server_type = server_type.lower().replace("-", "_")
-    filename = f"{run_number:02d}_{sanitized_server_type}.csv"
+    filename = f"{repetition_number:02d}_{sanitized_server_type}.csv"
     output_path = metrics_dir / filename
     merged_df.to_csv(output_path, index=True, index_label="timestamp")
     console.print(f"[green]Saved metrics to {output_path}[/green]")

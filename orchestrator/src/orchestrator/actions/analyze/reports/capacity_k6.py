@@ -40,7 +40,7 @@ def compute_capacity_metrics(analyzer: PerformanceAnalyzer) -> Optional[pd.DataF
         return None
 
     results = []
-    for (tech, run), run_df in metrics_df.groupby([Column.SERVER_TYPE, Column.RUN_NUMBER]):
+    for (tech, run), run_df in metrics_df.groupby([Column.SERVER_TYPE, Column.REPETITION_NUMBER]):
         pivot = (
             run_df.pivot_table(index=Column.TIME_SEC, columns=Column.METRIC, values=Column.VALUE)
             .reindex(columns=required)
@@ -65,7 +65,7 @@ def compute_capacity_metrics(analyzer: PerformanceAnalyzer) -> Optional[pd.DataF
             {
                 Column.GROUP: group,
                 Column.SERVER_TYPE: tech,
-                Column.RUN_NUMBER: run,
+                Column.REPETITION_NUMBER: run,
                 "sustained_rps": sustained_rps,
                 "peak_rps": peak_rps,
                 "cpu_at_sustained": cpu_at,
@@ -144,7 +144,7 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, raw_results: pd.DataF
         if col == "sustained_rps":
             # Grouped bar chart for RPS (Peak vs Sustained)
             rps_df = plot_df.melt(
-                id_vars=["display_name", Column.GROUP, Column.RUN_NUMBER],
+                id_vars=["display_name", Column.GROUP, Column.REPETITION_NUMBER],
                 value_vars=["sustained_rps", "peak_rps"],
                 var_name="metric_type",
                 value_name="rps",

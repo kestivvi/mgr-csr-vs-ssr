@@ -2,7 +2,7 @@
 # Use this for finding the breaking point of the system (ramp-up test)
 
 test_type: capacity_k6
-num_runs: 1
+num_repetitions: 1
 
 capacity_k6_options:
   # The starting rate (RPS)

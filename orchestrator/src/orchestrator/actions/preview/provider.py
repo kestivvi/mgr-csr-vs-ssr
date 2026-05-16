@@ -116,10 +116,10 @@ def _stream_logs_interactive(
         console.print("\n[yellow]Stopping logs stream...[/yellow]")
 
 
-def run_subject(
+def preview_subject(
     subject_filter: str | None = None, port: int | None = None, verbose: bool = False
 ) -> None:
-    """Run a selected subject locally using docker-compose."""
+    """Preview a selected subject locally using docker-compose."""
     # Discover subjects
     subjects = _discover_subjects()
     if not subjects:

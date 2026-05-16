@@ -32,8 +32,8 @@ variable "load_generator_instance_type" {
   # default     = "c8g.2xlarge"
 }
 
-variable "monitoring_server_instance_type" {
-  description = "Instance type for the monitoring server."
+variable "monitoring_host_instance_type" {
+  description = "Instance type for the Monitoring Host."
   type        = string
   default     = "t4g.micro"
 }

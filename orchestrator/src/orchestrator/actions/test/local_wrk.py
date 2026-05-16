@@ -48,7 +48,7 @@ def wait_for_subject_ready(
 
 
 def run_capacity_local_wrk(
-    subject_filter: str | None = None, num_runs: int = 1, verbose: bool = False
+    subject_filter: str | None = None, num_repetitions: int = 1, verbose: bool = False
 ) -> None:
     """Orchestrates local capacity testing using wrk."""
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
@@ -57,7 +57,7 @@ def run_capacity_local_wrk(
 
     console.print(f"[bold green]Starting local capacity benchmark (wrk): {timestamp}[/bold green]")
     console.print(f"[yellow]Logs will be stored in: {run_log_dir}[/yellow]")
-    console.print(f"[yellow]Number of test runs: {num_runs}[/yellow]")
+    console.print(f"[yellow]Number of test runs: {num_repetitions}[/yellow]")
 
     # 1. Find subjects
     subjects = sorted(
@@ -138,11 +138,11 @@ def run_capacity_local_wrk(
                             )
 
                             # N Runs
-                            for i in range(1, num_runs + 1):
+                            for i in range(1, num_repetitions + 1):
                                 progress.update(
                                     task,
                                     description=(
-                                        f"[cyan]Test Run {i}/{num_runs} (10s) "
+                                        f"[cyan]Test Run {i}/{num_repetitions} (10s) "
                                         f"[bold]{subject_id}[/bold]..."
                                     ),
                                 )
@@ -167,7 +167,7 @@ def run_capacity_local_wrk(
                                 subject_result["Status"] = "PASS"
                                 progress.console.print(
                                     f"[bold green]✓ {subject_id}: {avg_rps:.2f} req/s "
-                                    f"(avg of {num_runs})[/bold green]"
+                                    f"(avg of {num_repetitions})[/bold green]"
                                 )
                         else:
                             progress.console.print(
@@ -207,7 +207,7 @@ def run_capacity_local_wrk(
         with open(results_file, "w") as f:
             f.write(f"# Local Capacity Benchmark Results (wrk) - {timestamp}\n\n")
             f.write("Parameters: `-t2 -c100 -d10s`\n")
-            f.write(f"Runs per subject: {num_runs}\n\n")
+            f.write(f"Runs per subject: {num_repetitions}\n\n")
             f.write(summary_table)
             f.write("\n")
 

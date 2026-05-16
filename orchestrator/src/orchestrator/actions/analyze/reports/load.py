@@ -29,9 +29,9 @@ def run_load_analysis(analyzer: PerformanceAnalyzer) -> None:
 
     # Compute summary_df locally (Mean/Std/P95 per tech/run/metric)
     summary_df = (
-        metrics_df.groupby([Column.GROUP, Column.SERVER_TYPE, Column.RUN_NUMBER, Column.METRIC])[
-            Column.VALUE
-        ]
+        metrics_df.groupby(
+            [Column.GROUP, Column.SERVER_TYPE, Column.REPETITION_NUMBER, Column.METRIC]
+        )[Column.VALUE]
         .agg(["mean", "std", lambda x: x.quantile(0.99)])
         .reset_index()
     )
@@ -112,8 +112,8 @@ def compute_scorecard_and_winner(
         winners = winner_counts.most_common()
 
         num_metrics = len(scorecard_ranks_df)
-        num_runs = (
-            analyzer.experiment.metadata.get("num_runs", "multiple")
+        num_repetitions = (
+            analyzer.experiment.metadata.get("num_repetitions", "multiple")
             if analyzer.experiment
             else "multiple"
         )
@@ -122,7 +122,7 @@ def compute_scorecard_and_winner(
             winner_tech, win_count = winners[0]
             summary_text = (
                 f"Based on an analysis of **{num_metrics} key metrics** across "
-                f"**{num_runs} runs**, **`{winner_tech}`** emerges as the top overall "
+                f"**{num_repetitions} runs**, **`{winner_tech}`** emerges as the top overall "
                 f"performer, achieving the #1 rank in **{win_count} categories**. "
                 "The performance scorecard below provides a detailed breakdown "
                 "of all technologies."
@@ -131,7 +131,7 @@ def compute_scorecard_and_winner(
             top_contenders = [tech for tech, count in winners if count == winners[0][1]]
             contender_str = "`, `".join(top_contenders)
             summary_text = (
-                f"The analysis of **{num_metrics} key metrics** across **{num_runs} runs** "
+                f"The analysis of **{num_metrics} key metrics** across **{num_repetitions} runs** "
                 "did not yield a single clear winner. Several technologies showed "
                 "top-tier performance in different areas, with "
                 f"**`{contender_str}`** leading in an equal number of categories. "
