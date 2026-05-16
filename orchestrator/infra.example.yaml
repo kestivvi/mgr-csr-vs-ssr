@@ -43,6 +43,11 @@ technologies:
   #   purpose: "Hosts Client-Side Rendered application"
   #   app_dir: "apps/csr-react"
 
+  # "CSR-NextJS-Export":
+  #   description: "Application Server (CSR-NextJS-Export)"
+  #   purpose: "Hosts NextJS Client-Side Rendered application (Static Export)"
+  #   app_dir: "apps/csr-nextjs-export"
+
   # "CSR-SolidJS":
   #   description: "Application Server (CSR-SolidJS-Nginx)"
   #   purpose: "Hosts Client-Side Rendered application"

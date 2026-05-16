@@ -5,7 +5,7 @@ my_ip: 46.205.203.156/32
 
 # Instance Types
 app_server_instance_type: c8g.medium
-load_generator_instance_type: c8g.large
+load_generator_instance_type: c8g.xlarge
 monitoring_server_instance_type: t4g.small
 
 # Technologies to deploy
@@ -13,161 +13,166 @@ technologies:
   ##########################
   # Static Site
   ##########################
-  # "CSR-Vanilla":
-  #   description: "Application Server (CSR-Vanilla)"
-  #   purpose: "Hosts Client-Side Rendered application"
-  #   app_dir: "apps/csr-vanilla-nginx"
+  "CSR-Vanilla":
+    description: "Application Server (CSR-Vanilla)"
+    purpose: "Hosts Client-Side Rendered application"
+    app_dir: "apps/csr-vanilla-nginx"
 
-  # "CSR-Vanilla-Apache":
-  #   description: "Application Server (CSR-Vanilla-Apache)"
-  #   purpose: "Hosts Client-Side Rendered application"
-  #   app_dir: "apps/csr-vanilla-apache"
+  "CSR-Vanilla-Apache":
+    description: "Application Server (CSR-Vanilla-Apache)"
+    purpose: "Hosts Client-Side Rendered application"
+    app_dir: "apps/csr-vanilla-apache"
 
   ##########################
   # CSR
   ##########################
-  # "CSR-Angular":
-  #   description: "Application Server (CSR-Angular-Nginx)"
-  #   purpose: "Hosts Angular Client-Side Rendered application"
-  #   app_dir: "apps/csr-angular"
+  "CSR-Angular":
+    description: "Application Server (CSR-Angular-Nginx)"
+    purpose: "Hosts Angular Client-Side Rendered application"
+    app_dir: "apps/csr-angular"
 
-  # "CSR-React":
-  #   description: "Application Server (CSR-React-Nginx)"
-  #   purpose: "Hosts Client-Side Rendered application"
-  #   app_dir: "apps/csr-react"
+  "CSR-React":
+    description: "Application Server (CSR-React-Nginx)"
+    purpose: "Hosts Client-Side Rendered application"
+    app_dir: "apps/csr-react"
 
-  # "CSR-SolidJS":
-  #   description: "Application Server (CSR-SolidJS-Nginx)"
-  #   purpose: "Hosts Client-Side Rendered application"
-  #   app_dir: "apps/csr-solidjs"
+  "CSR-NextJS-Export":
+    description: "Application Server (CSR-NextJS-Export)"
+    purpose: "Hosts NextJS Client-Side Rendered application (Static Export)"
+    app_dir: "apps/csr-nextjs-export"
 
-  # "CSR-SolidJS-Apache":
-  #   description: "Application Server (CSR-SolidJS-Apache)"
-  #   purpose: "Hosts Client-Side Rendered application"
-  #   app_dir: "apps/csr-solidjs-apache"
+  "CSR-SolidJS":
+    description: "Application Server (CSR-SolidJS-Nginx)"
+    purpose: "Hosts Client-Side Rendered application"
+    app_dir: "apps/csr-solidjs"
 
-  # "CSR-SvelteKit-Static":
-  #   description: "Application Server (CSR-SvelteKit-Static-Nginx)"
-  #   purpose: "Hosts SvelteKit Client-Side Rendered application"
-  #   app_dir: "apps/csr-svelte-kit-static"
+  "CSR-SolidJS-Apache":
+    description: "Application Server (CSR-SolidJS-Apache)"
+    purpose: "Hosts Client-Side Rendered application"
+    app_dir: "apps/csr-solidjs-apache"
 
-  # "CSR-Vue":
-  #   description: "Application Server (CSR-Vue-Nginx)"
-  #   purpose: "Hosts Vue Client-Side Rendered application"
-  #   app_dir: "apps/csr-vue"
+  "CSR-SvelteKit-Static":
+    description: "Application Server (CSR-SvelteKit-Static-Nginx)"
+    purpose: "Hosts SvelteKit Client-Side Rendered application"
+    app_dir: "apps/csr-svelte-kit-static"
 
-  # "CSR-Lit":
-  #   description: "Application Server (CSR-Lit-Nginx)"
-  #   purpose: "Hosts Lit Client-Side Rendered application"
-  #   app_dir: "apps/csr-lit"
+  "CSR-Vue":
+    description: "Application Server (CSR-Vue-Nginx)"
+    purpose: "Hosts Vue Client-Side Rendered application"
+    app_dir: "apps/csr-vue"
+
+  "CSR-Lit":
+    description: "Application Server (CSR-Lit-Nginx)"
+    purpose: "Hosts Lit Client-Side Rendered application"
+    app_dir: "apps/csr-lit"
 
   ##########################
   # SSR (Node.js / Deno)
   ##########################
-  # "SSR-AnalogJS":
-  #   description: "Application Server (SSR-AnalogJS)"
-  #   purpose: "Hosts AnalogJS Server-Side Rendered application"
-  #   app_dir: "apps/ssr-analogjs"
+  "SSR-AnalogJS":
+    description: "Application Server (SSR-AnalogJS)"
+    purpose: "Hosts AnalogJS Server-Side Rendered application"
+    app_dir: "apps/ssr-analogjs"
 
   "SSR-Angular":
     description: "Application Server (SSR-Angular)"
     purpose: "Hosts Angular Server-Side Rendered application"
     app_dir: "apps/ssr-angular"
 
-  # "SSR-Astro":
-  #   description: "Application Server (SSR-Astro)"
-  #   purpose: "Hosts Astro Server-Side Rendered application"
-  #   app_dir: "apps/ssr-astro"
+  "SSR-Astro":
+    description: "Application Server (SSR-Astro)"
+    purpose: "Hosts Astro Server-Side Rendered application"
+    app_dir: "apps/ssr-astro"
 
-  # "SSR-Fresh":
-  #   description: "Application Server (SSR-Fresh)"
-  #   purpose: "Hosts Fresh Server-Side Rendered application"
-  #   app_dir: "apps/ssr-fresh"
+  "SSR-Fresh":
+    description: "Application Server (SSR-Fresh)"
+    purpose: "Hosts Fresh Server-Side Rendered application"
+    app_dir: "apps/ssr-fresh"
 
-  # "SSR-Lit":
-  #   description: "Application Server (SSR-Lit)"
-  #   purpose: "Hosts Lit Server-Side Rendered application"
-  #   app_dir: "apps/ssr-lit"
+  "SSR-Lit":
+    description: "Application Server (SSR-Lit)"
+    purpose: "Hosts Lit Server-Side Rendered application"
+    app_dir: "apps/ssr-lit"
 
-  # "SSR-NextJS":
-  #   description: "Application Server (SSR-NextJS)"
-  #   purpose: "Hosts NextJS Server-Side Rendered application"
-  #   app_dir: "apps/ssr-nextjs"
+  "SSR-NextJS":
+    description: "Application Server (SSR-NextJS)"
+    purpose: "Hosts NextJS Server-Side Rendered application"
+    app_dir: "apps/ssr-nextjs"
 
-  # "SSR-NuxtJS":
-  #   description: "Application Server (SSR-NuxtJS)"
-  #   purpose: "Hosts NuxtJS Server-Side Rendered application"
-  #   app_dir: "apps/ssr-nuxtjs"
+  "SSR-NuxtJS":
+    description: "Application Server (SSR-NuxtJS)"
+    purpose: "Hosts NuxtJS Server-Side Rendered application"
+    app_dir: "apps/ssr-nuxtjs"
 
-  # "SSR-Qwik-City":
-  #   description: "Application Server (SSR-Qwik-City)"
-  #   purpose: "Hosts Qwik-City Server-Side Rendered application"
-  #   app_dir: "apps/ssr-qwik-city"
+  "SSR-Qwik-City":
+    description: "Application Server (SSR-Qwik-City)"
+    purpose: "Hosts Qwik-City Server-Side Rendered application"
+    app_dir: "apps/ssr-qwik-city"
 
-  # "SSR-React-Router":
-  #   description: "Application Server (SSR-React-Router)"
-  #   purpose: "Hosts React-Router Server-Side Rendered application"
-  #   app_dir: "apps/ssr-react-router"
+  "SSR-React-Router":
+    description: "Application Server (SSR-React-Router)"
+    purpose: "Hosts React-Router Server-Side Rendered application"
+    app_dir: "apps/ssr-react-router"
 
-  # "SSR-Solid-Start":
-  #   description: "Application Server (SSR-Solid-Start)"
-  #   purpose: "Hosts Solid-Start Server-Side Rendered application"
-  #   app_dir: "apps/ssr-solid-start"
+  "SSR-Solid-Start":
+    description: "Application Server (SSR-Solid-Start)"
+    purpose: "Hosts Solid-Start Server-Side Rendered application"
+    app_dir: "apps/ssr-solid-start"
 
-  # "SSR-SvelteKit":
-  #   description: "Application Server (SSR-SvelteKit)"
-  #   purpose: "Hosts SvelteKit Server-Side Rendered application"
-  #   app_dir: "apps/ssr-svelte-kit"
+  "SSR-SvelteKit":
+    description: "Application Server (SSR-SvelteKit)"
+    purpose: "Hosts SvelteKit Server-Side Rendered application"
+    app_dir: "apps/ssr-svelte-kit"
 
-  # "SSR-Tanstack-Start-React":
-  #   description: "Application Server (SSR-Tanstack-Start-React)"
-  #   purpose: "Hosts TanStack Start React Server-Side Rendered application"
-  #   app_dir: "apps/ssr-tanstack-start-react"
+  "SSR-Tanstack-Start-React":
+    description: "Application Server (SSR-Tanstack-Start-React)"
+    purpose: "Hosts TanStack Start React Server-Side Rendered application"
+    app_dir: "apps/ssr-tanstack-start-react"
 
-  # "SSR-Tanstack-Start-Solid":
-  #   description: "Application Server (SSR-Tanstack-Start-Solid)"
-  #   purpose: "Hosts TanStack Start Solid Server-Side Rendered application"
-  #   app_dir: "apps/ssr-tanstack-start-solid"
+  "SSR-Tanstack-Start-Solid":
+    description: "Application Server (SSR-Tanstack-Start-Solid)"
+    purpose: "Hosts TanStack Start Solid Server-Side Rendered application"
+    app_dir: "apps/ssr-tanstack-start-solid"
 
   ##########################
   # SSR (Bun)
   ##########################
-  # "SSR-Astro-Bun":
-  #   description: "Application Server (SSR-Astro-Bun)"
-  #   purpose: "Hosts Astro Server-Side Rendered application (Bun)"
-  #   app_dir: "apps/ssr-astro-bun"
+  "SSR-Astro-Bun":
+    description: "Application Server (SSR-Astro-Bun)"
+    purpose: "Hosts Astro Server-Side Rendered application (Bun)"
+    app_dir: "apps/ssr-astro-bun"
 
   "SSR-NextJS-Bun":
     description: "Application Server (SSR-NextJS-Bun)"
     purpose: "Hosts NextJS Server-Side Rendered application (Bun)"
     app_dir: "apps/ssr-nextjs-bun"
 
-  # "SSR-NuxtJS-Bun":
-  #   description: "Application Server (SSR-NuxtJS-Bun)"
-  #   purpose: "Hosts NuxtJS Server-Side Rendered application (Bun)"
-  #   app_dir: "apps/ssr-nuxtjs-bun"
+  "SSR-NuxtJS-Bun":
+    description: "Application Server (SSR-NuxtJS-Bun)"
+    purpose: "Hosts NuxtJS Server-Side Rendered application (Bun)"
+    app_dir: "apps/ssr-nuxtjs-bun"
 
-  # "SSR-Qwik-City-Bun":
-  #   description: "Application Server (SSR-Qwik-City-Bun)"
-  #   purpose: "Hosts Qwik-City Server-Side Rendered application (Bun)"
-  #   app_dir: "apps/ssr-qwik-city-bun"
+  "SSR-Qwik-City-Bun":
+    description: "Application Server (SSR-Qwik-City-Bun)"
+    purpose: "Hosts Qwik-City Server-Side Rendered application (Bun)"
+    app_dir: "apps/ssr-qwik-city-bun"
 
-  # "SSR-Solid-Start-Bun":
-  #   description: "Application Server (SSR-Solid-Start-Bun)"
-  #   purpose: "Hosts Solid-Start Server-Side Rendered application (Bun)"
-  #   app_dir: "apps/ssr-solid-start-bun"
+  "SSR-Solid-Start-Bun":
+    description: "Application Server (SSR-Solid-Start-Bun)"
+    purpose: "Hosts Solid-Start Server-Side Rendered application (Bun)"
+    app_dir: "apps/ssr-solid-start-bun"
 
-  # "SSR-SvelteKit-Bun":
-  #   description: "Application Server (SSR-SvelteKit-Bun)"
-  #   purpose: "Hosts SvelteKit Server-Side Rendered application (Bun)"
-  #   app_dir: "apps/ssr-svelte-kit-bun"
+  "SSR-SvelteKit-Bun":
+    description: "Application Server (SSR-SvelteKit-Bun)"
+    purpose: "Hosts SvelteKit Server-Side Rendered application (Bun)"
+    app_dir: "apps/ssr-svelte-kit-bun"
 
-  # "SSR-Tanstack-Start-React-Bun":
-  #   description: "Application Server (SSR-Tanstack-Start-React-Bun)"
-  #   purpose: "Hosts TanStack Start React Server-Side Rendered application (Bun)"
-  #   app_dir: "apps/ssr-tanstack-start-react-bun"
+  "SSR-Tanstack-Start-React-Bun":
+    description: "Application Server (SSR-Tanstack-Start-React-Bun)"
+    purpose: "Hosts TanStack Start React Server-Side Rendered application (Bun)"
+    app_dir: "apps/ssr-tanstack-start-react-bun"
 
-  # "SSR-Tanstack-Start-Solid-Bun":
-  #   description: "Application Server (SSR-Tanstack-Start-Solid-Bun)"
-  #   purpose: "Hosts TanStack Start Solid Server-Side Rendered application (Bun)"
-  #   app_dir: "apps/ssr-tanstack-start-solid-bun"
+  "SSR-Tanstack-Start-Solid-Bun":
+    description: "Application Server (SSR-Tanstack-Start-Solid-Bun)"
+    purpose: "Hosts TanStack Start Solid Server-Side Rendered application (Bun)"
+    app_dir: "apps/ssr-tanstack-start-solid-bun"
