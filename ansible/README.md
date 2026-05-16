@@ -1,28 +1,21 @@
-Need to install terraform-inventory tool.
+# Ansible
 
-Commands:
-```sh
-# 
+Configures the EC2 hosts provisioned by Terraform: subjects (Docker + reverse proxy), load generators (k6, wrk), and the monitoring host (Prometheus, Grafana). Driven by `mgr setup` — see [mgr-code/README.md](../README.md).
+
+The inventory is sourced from Terraform state via [`terraform-inventory`](https://github.com/adammck/terraform-inventory).
+
+## Manual invocation (debugging)
+
+```bash
 TF_STATE=../terraform ansible-inventory -i $(which terraform-inventory) --graph
-
-# 
-TF_STATE=../terraform ansible-inventory -i $(which terraform-inventory) --list
-
-#
-TF_STATE=../terraform ansible-playbook -i $(which terraform-inventory) ./ping.yml
-
-#
-TF_STATE=../terraform ansible-playbook -i $(which terraform-inventory) ./site.yml
+TF_STATE=../terraform ansible-playbook  -i $(which terraform-inventory) ./ping.yml
+TF_STATE=../terraform ansible-playbook  -i $(which terraform-inventory) ./site.yml
 ```
 
-To check the validity of ansible:
+## Quality control
+
 ```bash
-# Format the ansible files
-prettier --write "**/*.{yml,yaml}"
-
-# Run ansible-lint
+prettier --check "**/*.{yml,yaml}" --write
+yamllint .
 ansible-lint
-
-# Run trivy
-trivy config .
 ```
