@@ -44,13 +44,9 @@ class PerformanceAnalyzer:
             self.report_type, f"report_{self.report_type}.md"
         )
 
-        self.groups_config: Dict[str, List[str]] = {}
-        self.chart_order: List[str] = []
+        self.families: List[str] = []
+        self.runtime_priority: List[str] = []
         self.experiment: Optional[Experiment] = None
-
-        # Legacy properties for report compatibility (will be refactored)
-        self.raw_df = pd.DataFrame()
-        self.wrk_df = pd.DataFrame()
 
     def run(self) -> None:
         console.print(f"[bold cyan]Starting analysis for:[/bold cyan] {self.input_dir}")
@@ -82,12 +78,9 @@ class PerformanceAnalyzer:
                 console.print("Use --force to analyze inconsistent data.")
                 return
 
-        loader = ExperimentLoader(groups_config=self.groups_config)
+        loader = ExperimentLoader()
         try:
             self.experiment = loader.load(artifact)
-            self.raw_df = self.experiment.metrics
-            if self.experiment.wrk_results is not None:
-                self.wrk_df = self.experiment.wrk_results
         except Exception as e:
             console.print(f"[bold red]Failed to load experiment data:[/bold red] {e}")
             return
@@ -110,8 +103,8 @@ class PerformanceAnalyzer:
         try:
             with open(config_path, "r") as f:
                 config_data = yaml.safe_load(f)
-                self.groups_config = config_data.get("groups", {})
-                self.chart_order = config_data.get("chart_order", [])
+                self.families = config_data.get("families", [])
+                self.runtime_priority = config_data.get("runtime_priority", [])
             shutil.copy(config_path, self.output_dir / "config.yaml")
             return True
         except Exception as e:

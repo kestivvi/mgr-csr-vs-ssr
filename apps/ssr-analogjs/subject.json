@@ -1,0 +1,6 @@
+{
+  "family": "angular",
+  "meta_framework": "analogjs",
+  "strategy": "ssr",
+  "runtime": "node"
+}

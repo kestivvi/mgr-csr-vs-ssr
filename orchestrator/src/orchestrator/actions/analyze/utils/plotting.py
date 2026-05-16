@@ -16,14 +16,53 @@ import seaborn as sns
 
 from ..config import PLOT_PALETTE
 
+# Ensure Gap is transparent
+PLOT_PALETTE["Gap"] = "none"
+
 sns.set_theme(style="whitegrid")
 
 
 def get_ordered_tech_list(analyzer: PerformanceAnalyzer, df: pd.DataFrame) -> List[str]:
-    all_techs = set(df[Column.SERVER_TYPE].unique())
-    ordered = [t for t in analyzer.chart_order if t in all_techs]
-    remaining = sorted([t for t in all_techs if t not in set(ordered)])
-    return ordered + remaining
+    all_techs = list(df[Column.SERVER_TYPE].unique())
+
+    def get_sort_key(tech: str):
+        tech_lower = tech.lower()
+        
+        # Lookup manifest from structured metadata
+        subjects = analyzer.experiment.subject_metadata if analyzer.experiment else {}
+        manifest = subjects.get(tech_lower, {})
+        
+        # 1. Family Priority (from config.yaml)
+        family = manifest.get("family", "unknown")
+        family_score = 999
+        for i, family_keywords in enumerate(analyzer.families):
+            keywords = [family_keywords] if isinstance(family_keywords, str) else family_keywords
+            # Match by explicit family name or fallback to keyword matching
+            if family in keywords or any(k in tech_lower for k in keywords):
+                family_score = i
+                break
+
+        # 2. Strategy Priority (CSR < SSR)
+        strategy = manifest.get("strategy", "csr" if tech_lower.startswith("csr-") else "ssr")
+        strategy_score = 0 if strategy == "csr" else 1
+
+        # 3. Meta-framework Priority (Pure first, then Alphabetical)
+        meta = manifest.get("meta_framework")
+        meta_sort_key = "" if meta is None else str(meta)
+
+        # 4. Runtime Priority (from config.yaml)
+        runtime = manifest.get("runtime", "node")
+        runtime_score = 999
+        for i, r in enumerate(analyzer.runtime_priority):
+            if runtime == r:
+                runtime_score = i
+                break
+
+        return (family_score, strategy_score, meta_sort_key, runtime_score, tech_lower)
+
+    return sorted(all_techs, key=get_sort_key)
+
+
 
 
 def clean_tech_names_df(df: pd.DataFrame) -> pd.DataFrame:
@@ -35,7 +74,6 @@ def clean_tech_names_df(df: pd.DataFrame) -> pd.DataFrame:
     df["display_name"] = df[Column.SERVER_TYPE].str.replace(r"^(csr|ssr)-", "", regex=True)
 
     # Handle duplicates across groups
-    # Group by display_name and count unique groups
     counts = df.groupby("display_name")[Column.GROUP].nunique()
     dupes = counts[counts > 1].index
 
@@ -62,8 +100,11 @@ def create_scorecard_heatmap(
 
     # Get display names mapping
     temp_df = pd.DataFrame({Column.SERVER_TYPE: ordered_techs})
-    # Get groups from raw_df
-    tech_to_group = analyzer.raw_df.groupby(Column.SERVER_TYPE)[Column.GROUP].first().to_dict()
+    # Get groups from experiment
+    if not analyzer.experiment:
+        return None
+    metrics_df = analyzer.experiment.metrics
+    tech_to_group = metrics_df.groupby(Column.SERVER_TYPE)[Column.GROUP].first().to_dict()
     temp_df[Column.GROUP] = temp_df[Column.SERVER_TYPE].map(tech_to_group).fillna("Uncategorized")
     temp_df = clean_tech_names_df(temp_df)
     display_name_map = temp_df.set_index(Column.SERVER_TYPE)["display_name"].to_dict()
@@ -177,13 +218,16 @@ def create_timeseries_plot(
     metric_name: str,
     group_filter: Optional[str] = None,
 ) -> Optional[Path]:
+    if not analyzer.experiment:
+        return None
+    metrics_df = analyzer.experiment.metrics
     if group_filter:
-        df_metric = analyzer.raw_df[
-            (analyzer.raw_df[Column.METRIC] == metric)
-            & (analyzer.raw_df[Column.GROUP] == group_filter)
+        df_metric = metrics_df[
+            (metrics_df[Column.METRIC] == metric)
+            & (metrics_df[Column.GROUP] == group_filter)
         ]
     else:
-        df_metric = analyzer.raw_df[analyzer.raw_df[Column.METRIC] == metric]
+        df_metric = metrics_df[metrics_df[Column.METRIC] == metric]
 
     if df_metric.empty:
         return None

@@ -24,6 +24,7 @@ from orchestrator.config import (
     ANSIBLE_DIR,
     ANSIBLE_INVENTORY,
     RESULTS_DIR,
+    APPS_DIR,
 )
 from orchestrator.shared.ansible import get_ansible_env
 
@@ -399,12 +400,26 @@ class TestRunner:
                     )
                     time.sleep(delay_sec)
 
-            # 3. Save metadata for analyzer
+            # 3. Capture Subject Manifests
+            subjects_meta = {}
+
+            for scenario in scenarios:
+                app_name = scenario["name"]
+                manifest_path = APPS_DIR / app_name / "subject.json"
+                if manifest_path.exists():
+                    with open(manifest_path, "r") as f:
+                        subjects_meta[app_name] = json.load(f)
+                else:
+                    # This should have been caught by _parse_inventory, but as a secondary guard:
+                    console.print(f"[bold red]Warning: Missing manifest for {app_name}[/bold red]")
+
+            # 4. Save metadata for analyzer
             if end_ts > start_ts:
                 metadata = {
                     "run_timestamp_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                     "test_type": self.test_type,
                     "parameters": self.config.model_dump(exclude_none=True),
+                    "subjects": subjects_meta,
                     "calculated_durations_sec": {
                         "measurement": end_ts - start_ts,
                     },
@@ -597,6 +612,11 @@ class TestRunner:
                         continue
 
                 app_ip = list(content.get("hosts", {}).values())[0].get("private_ip")
+                
+                # Manifest Integrity Guard (Fail-Fast)
+                if not (APPS_DIR / name / "subject.json").exists():
+                    raise ValueError(f"Missing subject.json in {name}. All apps must have a manifest.")
+
                 scenarios.append(
                     {
                         "name": name,

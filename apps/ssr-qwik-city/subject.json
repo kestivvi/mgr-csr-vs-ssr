@@ -1,0 +1,6 @@
+{
+  "family": "qwik",
+  "meta_framework": "qwik-city",
+  "strategy": "ssr",
+  "runtime": "node"
+}

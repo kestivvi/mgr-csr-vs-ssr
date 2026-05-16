@@ -1,0 +1,6 @@
+{
+  "family": "react",
+  "meta_framework": "astro",
+  "strategy": "ssr",
+  "runtime": "bun"
+}

@@ -17,14 +17,15 @@ if TYPE_CHECKING:
 
 
 def run_champions_analysis(analyzer: PerformanceAnalyzer) -> None:
-    if analyzer.raw_df.empty:
+    if not analyzer.experiment or analyzer.experiment.metrics.empty:
         return
+    metrics_df = analyzer.experiment.metrics
     # Prepare local state
     champion_results: Dict[str, ChampionResult] = {}
 
     # Compute summary_df locally
     summary_df = (
-        analyzer.raw_df.groupby(
+        metrics_df.groupby(
             [Column.GROUP, Column.SERVER_TYPE, Column.RUN_NUMBER, Column.METRIC]
         )[Column.VALUE]
         .agg(["mean", "std", lambda x: x.quantile(0.99)])

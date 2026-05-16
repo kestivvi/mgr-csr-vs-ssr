@@ -1,0 +1,6 @@
+{
+  "family": "solid",
+  "meta_framework": "tanstack-start",
+  "strategy": "ssr",
+  "runtime": "node"
+}

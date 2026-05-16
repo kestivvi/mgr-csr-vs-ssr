@@ -1,62 +1,30 @@
 # This file defines analytical groups and chart ordering for the performance analysis.
-# The analyzer.py script reads this file to categorize technologies and order plots.
+# The analyzer transforms aggregated data into statistical reports and plots.
 
-# 'groups' defines the categories for technologies. This is used for grouping
-# in plots and for selecting "champions" for statistical comparison.
-groups:
-  CSR:
-    - csr-angular
-    - csr-react
-    - csr-solidjs
-    - csr-solidjs-apache
-    - csr-sveltekit-static
-    - csr-vue
-    - csr-vanilla
-    - csr-vanilla-apache
+# 'families' defines the order of framework ecosystems from most to least performant.
+# Each entry is a list of keywords; a subject matching ANY keyword belongs to that family.
+# Strategy: CSR/SSR hybrid families first, SSR-only families at the end.
+families:
+  - [vanilla]
+  - [solid]
+  - [svelte]
+  - [lit]
+  - [vue, nuxt]
+  - [react, nextjs, tanstack-start-react]
+  - [angular, analog]
+  - [qwik]         # SSR only
+  - [astro]        # SSR only
+  - [react-router] # SSR only
+  - [fresh]        # SSR only
 
-  SSR:
-    - ssr-analogjs
-    - ssr-nextjs
-    - ssr-nextjs-bun
-    - ssr-nuxtjs
-    - ssr-qwik-city
-    - ssr-solid-start
-    - ssr-sveltekit
-    - ssr-sveltekit-bun
-    - ssr-react-router
-    - ssr-angular
-    - ssr-tanstack-start-react
-    - ssr-tanstack-start-solid
+# 'runtime_priority' defines the internal order within a family.
+runtime_priority:
+  - static
+  - apache
+  - nginx
+  - export
+  - bun
+  - node
 
-# 'chart_order' defines the specific order in which frameworks should appear
-# on the x-axis of comparison charts and in the legend of time-series charts.
-# This order is completely independent of the groups defined above.
-# Any framework found in the data but not listed here will be appended
-# to the end of the list alphabetically.
-chart_order:
-  - csr-vanilla
-  - csr-solidjs
-  - csr-vue
-  - csr-react
-  - csr-vanilla-apache
-  - csr-solidjs-apache
-  - csr-angular
-  - csr-sveltekit-static
-  - ssr-sveltekit-bun
-  - ssr-sveltekit
-  - ssr-solid-start
-  - ssr-qwik-city
-  - ssr-nuxtjs
-  - ssr-nextjs-bun
-  - ssr-nextjs
-  - ssr-analogjs
-  - ssr-react-router
-  - ssr-angular
-  - ssr-tanstack-start-react
-  - ssr-tanstack-start-solid
-
-  # Svelte Family
-  # NextJS Family
-  # SolidJS Family
-  # Angular Family
-  # Others
+groups: {}
+chart_order: []

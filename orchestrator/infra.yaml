@@ -5,7 +5,7 @@ my_ip: 46.205.203.156/32
 
 # Instance Types
 app_server_instance_type: c8g.medium
-load_generator_instance_type: c8g.xlarge
+load_generator_instance_type: c8g.2xlarge
 monitoring_server_instance_type: t4g.small
 
 # Technologies to deploy

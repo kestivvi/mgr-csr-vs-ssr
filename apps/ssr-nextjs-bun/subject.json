@@ -1,0 +1,6 @@
+{
+  "family": "react",
+  "meta_framework": "nextjs",
+  "strategy": "ssr",
+  "runtime": "bun"
+}

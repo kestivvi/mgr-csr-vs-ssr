@@ -10,6 +10,7 @@ from matplotlib.patches import Patch
 from orchestrator.shared.research import Column, MetricName
 
 from ..config import PLOT_PALETTE
+from ..utils.plotting import get_ordered_tech_list
 from ..utils.reporting import write_report
 
 if TYPE_CHECKING:
@@ -17,7 +18,7 @@ if TYPE_CHECKING:
 
 
 def run_capacity_k6_analysis(analyzer: PerformanceAnalyzer) -> None:
-    if analyzer.raw_df.empty:
+    if not analyzer.experiment or analyzer.experiment.metrics.empty:
         return
     raw_results = compute_capacity_metrics(analyzer)
     if raw_results is not None:
@@ -33,12 +34,13 @@ def compute_capacity_metrics(analyzer: PerformanceAnalyzer) -> Optional[pd.DataF
         MetricName.CPU,
         MetricName.MEMORY,
     ]
-    available = analyzer.raw_df[Column.METRIC].unique()
+    metrics_df = analyzer.experiment.metrics
+    available = metrics_df[Column.METRIC].unique()
     if not all(m in available for m in required):
         return None
 
     results = []
-    for (tech, run), run_df in analyzer.raw_df.groupby([Column.SERVER_TYPE, Column.RUN_NUMBER]):
+    for (tech, run), run_df in metrics_df.groupby([Column.SERVER_TYPE, Column.RUN_NUMBER]):
         pivot = (
             run_df.pivot_table(index=Column.TIME_SEC, columns=Column.METRIC, values=Column.VALUE)
             .reindex(columns=required)
@@ -86,8 +88,9 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, raw_results: pd.DataF
         MetricName.CPU: "Zużycie CPU (%)",
         MetricName.MEMORY: "Zużycie pamięci (MB)",
     }
+    metrics_df = analyzer.experiment.metrics
     for metric, filename in metrics_to_plot.items():
-        m_df = analyzer.raw_df[analyzer.raw_df[Column.METRIC] == metric]
+        m_df = metrics_df[metrics_df[Column.METRIC] == metric]
         if m_df.empty:
             continue
 
@@ -150,13 +153,10 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, raw_results: pd.DataF
                 {"peak_rps": "Szczytowy", "sustained_rps": "Utrzymany"}
             )
 
-            # Sort by Peak mean
-            order = (
-                plot_df.groupby("display_name")["peak_rps"]
-                .mean()
-                .sort_values(ascending=False)
-                .index
-            )
+            # Use global family-based order
+            full_order = get_ordered_tech_list(analyzer, plot_df)
+            order_map = plot_df.set_index(Column.SERVER_TYPE)["display_name"].to_dict()
+            order = [order_map[t] for t in full_order if t in order_map]
 
             sns.barplot(
                 data=rps_df,
@@ -240,8 +240,10 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, raw_results: pd.DataF
                 fontsize=8,
             )
         else:
-            # Standard bar chart for CPU/RAM
-            order = plot_df.groupby("display_name")[col].mean().sort_values(ascending=False).index
+            # Standard bar chart for CPU/RAM - use global family-based order
+            full_order = get_ordered_tech_list(analyzer, plot_df)
+            order_map = plot_df.set_index(Column.SERVER_TYPE)["display_name"].to_dict()
+            order = [order_map[t] for t in full_order if t in order_map]
             sns.barplot(
                 data=plot_df,
                 y="display_name",
@@ -318,6 +320,11 @@ def generate_capacity_report(analyzer: PerformanceAnalyzer, raw_results: pd.Data
     # Flatten multi-index columns
     summary.columns = [f"{col}_{stat}" for col, stat in summary.columns]
     summary = summary.reset_index()
+
+    # Sort summary by global family-based order
+    full_order = get_ordered_tech_list(analyzer, summary)
+    summary[Column.SERVER_TYPE] = pd.Categorical(summary[Column.SERVER_TYPE], categories=full_order, ordered=True)
+    summary = summary.sort_values(Column.SERVER_TYPE)
 
     # Create a user-friendly table
     rows = []

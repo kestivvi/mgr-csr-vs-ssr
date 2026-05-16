@@ -10,6 +10,7 @@ import seaborn as sns
 from orchestrator.shared.research import Column, MetricName
 
 from ..config import PLOT_PALETTE
+from ..utils.plotting import get_ordered_tech_list
 from ..utils.reporting import write_report
 
 if TYPE_CHECKING:
@@ -17,12 +18,13 @@ if TYPE_CHECKING:
 
 
 def run_capacity_wrk_analysis(analyzer: PerformanceAnalyzer) -> None:
-    if analyzer.wrk_df.empty:
+    if not analyzer.experiment or analyzer.experiment.wrk_results is None or analyzer.experiment.wrk_results.empty:
         return
 
+    wrk_df = analyzer.experiment.wrk_results
     # Compute summary locally
     wrk_summary = (
-        analyzer.wrk_df.groupby([Column.GROUP, Column.SERVER_TYPE])
+        wrk_df.groupby([Column.GROUP, Column.SERVER_TYPE])
         .agg({"rps": ["mean", "std", "max"], "latency_ms": ["mean", "std", "max"]})
         .reset_index()
     )
@@ -49,9 +51,12 @@ def generate_capacity_wrk_plots(analyzer: PerformanceAnalyzer, wrk_summary: pd.D
         "lat_mean": ("Average Latency (ms)", "capacity_wrk_latency_comparison.png"),
     }
 
+    full_order = get_ordered_tech_list(analyzer, wrk_summary)
     for col, (title, filename) in metrics.items():
         plt.figure(figsize=(12, 8))
-        sorted_df = wrk_summary.sort_values(col, ascending=(col == "lat_mean"))
+        sorted_df = wrk_summary.copy()
+        display_name_map = sorted_df.set_index(Column.SERVER_TYPE).index.to_series().to_dict() # Use server_type as display for now
+        order = [t for t in full_order if t in display_name_map]
         sns.barplot(
             data=sorted_df,
             y=Column.SERVER_TYPE,
@@ -59,6 +64,7 @@ def generate_capacity_wrk_plots(analyzer: PerformanceAnalyzer, wrk_summary: pd.D
             hue=Column.GROUP,
             palette=PLOT_PALETTE,
             dodge=False,
+            order=order,
         )
         plt.title(title)
         plt.xlabel(title.split("(")[-1].replace(")", ""))
@@ -80,10 +86,11 @@ def generate_capacity_wrk_plots(analyzer: PerformanceAnalyzer, wrk_summary: pd.D
         plt.close()
 
     # 2. Resource & Efficiency Plots (if available)
-    if not analyzer.raw_df.empty:
+    if analyzer.experiment and not analyzer.experiment.metrics.empty:
         # Get mean resource usage per framework
+        metrics_df = analyzer.experiment.metrics
         resource_means = (
-            analyzer.raw_df.groupby([Column.SERVER_TYPE, Column.METRIC])[Column.VALUE]
+            metrics_df.groupby([Column.SERVER_TYPE, Column.METRIC])[Column.VALUE]
             .mean()
             .unstack()
         )
@@ -109,7 +116,9 @@ def generate_capacity_wrk_plots(analyzer: PerformanceAnalyzer, wrk_summary: pd.D
             if col not in merged.columns:
                 continue
             plt.figure(figsize=(12, 8))
-            sorted_merged = merged.sort_values(col, ascending=(col != "efficiency"))
+            sorted_merged = merged.copy()
+            display_name_map = sorted_merged.set_index(Column.SERVER_TYPE).index.to_series().to_dict()
+            order = [t for t in full_order if t in display_name_map]
             sns.barplot(
                 data=sorted_merged,
                 y=Column.SERVER_TYPE,
@@ -117,6 +126,7 @@ def generate_capacity_wrk_plots(analyzer: PerformanceAnalyzer, wrk_summary: pd.D
                 hue=Column.GROUP,
                 palette=PLOT_PALETTE,
                 dodge=False,
+                order=order,
             )
             plt.title(title)
             plt.xlabel(title.split("(")[-1].replace(")", ""))
@@ -142,7 +152,7 @@ def generate_capacity_wrk_plots(analyzer: PerformanceAnalyzer, wrk_summary: pd.D
             MetricName.CPU: "cpu_timeseries",
             MetricName.MEMORY: "ram_timeseries",
         }.items():
-            m_df = analyzer.raw_df[analyzer.raw_df[Column.METRIC] == metric]
+            m_df = metrics_df[metrics_df[Column.METRIC] == metric]
             if not m_df.empty:
                 plt.figure(figsize=(12, 7))
                 sns.lineplot(

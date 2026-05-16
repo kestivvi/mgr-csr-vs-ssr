@@ -1,0 +1,6 @@
+{
+  "family": "svelte",
+  "meta_framework": "svelte-kit",
+  "strategy": "csr",
+  "runtime": "node"
+}

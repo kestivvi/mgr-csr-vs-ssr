@@ -1,0 +1,6 @@
+{
+  "family": "vue",
+  "meta_framework": "nuxtjs",
+  "strategy": "ssr",
+  "runtime": "node"
+}

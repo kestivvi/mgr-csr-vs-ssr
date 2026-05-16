@@ -15,6 +15,8 @@ dependencies = [
     "rich",
     "prometheus-api-client",
     "tabulate",
+    "pytest",
+    "pytest-mock",
 ]
 
 [project.scripts]
@@ -37,4 +39,5 @@ strict = true
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["src"]
+python_files = "test_*.py"

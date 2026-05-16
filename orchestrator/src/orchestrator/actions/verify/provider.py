@@ -35,6 +35,11 @@ def run_verify(app_filter: str | None = None, verbose: bool = False) -> None:
         console.print("[bold red]No apps found to verify![/bold red]")
         return
 
+    # 3. Manifest Integrity Guard (Fail-Fast)
+    for app_path in apps:
+        if not (app_path / "subject.json").exists():
+            raise ValueError(f"Missing subject.json in {app_path.name}. All apps must have a manifest.")
+
     console.print(f"[bold blue]Found {len(apps)} apps to verify:[/bold blue]")
     for app in apps:
         console.print(f" - {app.name}")

@@ -7,8 +7,6 @@ pyyaml
 matplotlib
 rich
 prometheus-api-client
-ruff
-mypy
-types-PyYAML
-pydantic>=2.0.0
 tabulate
+pytest
+pytest-mock

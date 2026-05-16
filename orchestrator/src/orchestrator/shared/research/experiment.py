@@ -32,26 +32,38 @@ class Experiment:
     def test_type(self) -> str:
         return str(self.metadata.get("test_type", "unknown"))
 
+    @property
+    def subject_metadata(self) -> dict[str, dict[str, Any]]:
+        """Returns the structured metadata for all subjects in this experiment."""
+        return self.metadata.get("subjects", {})
+
 
 class ExperimentLoader:
     """
     Deep loader that transforms raw results into an Experiment object.
     """
 
-    groups_config: dict[str, list[str]]
-    _tech_to_group: dict[str, str]
+    def __init__(self) -> None:
+        pass
 
-    def __init__(self, groups_config: dict[str, list[str]] | None = None):
-        self.groups_config = groups_config or {}
-        self._tech_to_group = {
-            tech.lower(): group for group, techs in self.groups_config.items() for tech in techs
-        }
+    def _get_group(self, server_type: str) -> str:
+        """Determines the Rendering Strategy (Group) from the server type name prefix."""
+        name = server_type.lower()
+        if name.startswith("csr-"):
+            return "CSR"
+        if name.startswith("ssr-"):
+            return "SSR"
+        return "Uncategorized"
 
     def load(self, artifact: ResearchArtifact) -> Experiment:
         # 1. Use Metadata from artifact
         metadata = artifact.metadata
+        
+        # 2. Structured Metadata Guard (Fail-Fast)
+        if "subjects" not in metadata:
+            raise ValueError("Missing structured subject metadata in artifact.")
 
-        # 2. Load Metrics (Resource utilization)
+        # 3. Load Metrics (Resource utilization)
         metrics_df = self._load_metrics(artifact)
 
         # 3. Load Tool Results
@@ -80,12 +92,7 @@ class ExperimentLoader:
             long_df[Column.SERVER_TYPE] = run.server_type
 
             # Apply Taxonomy
-            long_df[Column.GROUP] = (
-                long_df[Column.SERVER_TYPE]
-                .str.lower()
-                .map(self._tech_to_group)
-                .fillna("Uncategorized")
-            )
+            long_df[Column.GROUP] = long_df[Column.SERVER_TYPE].apply(self._get_group)
 
             # Normalization (Research Standards)
             self._normalize_units(long_df)
@@ -141,9 +148,7 @@ class ExperimentLoader:
                     {
                         Column.RUN_NUMBER: run.run_id,
                         Column.SERVER_TYPE: run.server_type,
-                        Column.GROUP: self._tech_to_group.get(
-                            run.server_type.lower(), "Uncategorized"
-                        ),
+                        Column.GROUP: self._get_group(run.server_type),
                         "rps": float(res.get("rps", 0.0)),
                         "latency_ms": lat_val,
                     }

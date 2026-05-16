@@ -1,0 +1,6 @@
+{
+  "family": "react",
+  "meta_framework": "react-router",
+  "strategy": "ssr",
+  "runtime": "node"
+}

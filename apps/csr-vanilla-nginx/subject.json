@@ -1,0 +1,6 @@
+{
+  "family": "vanilla",
+  "meta_framework": null,
+  "strategy": "csr",
+  "runtime": "nginx"
+}

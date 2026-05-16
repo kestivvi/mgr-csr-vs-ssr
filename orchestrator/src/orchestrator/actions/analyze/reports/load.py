@@ -21,14 +21,15 @@ if TYPE_CHECKING:
 
 
 def run_load_analysis(analyzer: PerformanceAnalyzer) -> None:
-    if analyzer.raw_df.empty:
+    if not analyzer.experiment or analyzer.experiment.metrics.empty:
         return
+    metrics_df = analyzer.experiment.metrics
     # Prepare session state for rankings
     ranking_results: Dict[str, pd.DataFrame] = {}
 
     # Compute summary_df locally (Mean/Std/P95 per tech/run/metric)
     summary_df = (
-        analyzer.raw_df.groupby(
+        metrics_df.groupby(
             [Column.GROUP, Column.SERVER_TYPE, Column.RUN_NUMBER, Column.METRIC]
         )[Column.VALUE]
         .agg(["mean", "std", lambda x: x.quantile(0.99)])
@@ -160,7 +161,7 @@ def generate_load_plots(
             )
 
     for metric, config in METRIC_CONFIG["mean"].items():
-        for group in analyzer.raw_df[Column.GROUP].unique():
+        for group in summary_df[Column.GROUP].unique():
             create_timeseries_plot(analyzer, metric, str(config["name"]), group_filter=group)
 
 
@@ -244,7 +245,10 @@ def render_visual_overview_md(analyzer: PerformanceAnalyzer) -> str:
 
 def render_temporal_analysis_md(analyzer: PerformanceAnalyzer) -> str:
     md = ["\n### Temporal Analysis"]
-    for group in sorted(analyzer.raw_df[Column.GROUP].unique()):
+    if not analyzer.experiment:
+        return ""
+    groups = sorted(analyzer.experiment.metrics[Column.GROUP].unique())
+    for group in groups:
         md.append(f"#### Group: {group}")
         for _metric, config in METRIC_CONFIG["mean"].items():
             name = str(config["name"])
