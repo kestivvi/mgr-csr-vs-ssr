@@ -1,0 +1,83 @@
+---
+- name: Extract project metadata
+  ansible.builtin.set_fact:
+    project_name: "{{ subject_dir.split('/')[-1] }}"
+    subject_id: "{{ subject_dir.split('/')[-1] | replace('-', '_') }}"
+
+- name: Determine subject type and template
+  ansible.builtin.set_fact:
+    subject_type: "{{ 'ssr-nginx' if project_name.startswith('ssr-') else ('csr-apache' if 'apache' in project_name else 'csr-nginx') }}"
+
+- name: Set build target and static path for master templates
+  ansible.builtin.set_fact:
+    build_target: "{{ 'runner' if subject_type == 'ssr-nginx' else ('nginx' if subject_type == 'csr-nginx' else 'apache') }}"
+    static_path: >-
+      {{
+        '/_nuxt/' if 'nuxt' in project_name else
+        ('/_build/' if ('solid' in project_name or 'svelte' in project_name) else
+        ('/_astro/' if 'astro' in project_name else
+        '/_next/static/'))
+      }}
+
+- name: Create subjects directory
+  ansible.builtin.file:
+    path: "/home/ec2-user/subjects"
+    state: directory
+    mode: "0755"
+
+- name: Copy infrastructure templates
+  ansible.posix.synchronize:
+    src: "{{ playbook_dir }}/../../subjects/_infra/"
+    dest: "/home/ec2-user/subjects/_infra"
+
+- name: Build base images
+  community.docker.docker_image:
+    build:
+      path: "/home/ec2-user/subjects/_infra"
+      dockerfile: "docker/Dockerfile.{{ item }}"
+    name: "mgr-base-{{ item }}"
+    source: build
+  loop:
+    - nginx
+    - node-builder
+    - node-runner
+    - bun-builder
+    - bun-runner
+
+- name: Copy subject files
+  ansible.posix.synchronize:
+    src: "{{ playbook_dir }}/../../{{ subject_dir }}/"
+    dest: "/home/ec2-user/subjects/{{ project_name }}"
+    rsync_opts:
+      - "--exclude=node_modules"
+      - "--exclude=.next"
+
+- name: Create subject log directory
+  ansible.builtin.file:
+    path: "/var/log/{{ project_name }}"
+    state: directory
+    mode: "0777"
+  become: true
+
+- name: Include nginx_log_exporter role
+  ansible.builtin.include_role:
+    name: nginx_log_exporter
+  vars:
+    nginx_log_exporter_log_path: "/var/log/{{ project_name }}/access.log"
+  when: "'Apache' not in scenario_type"
+
+- name: Ensure Subject Server stack is running
+  community.docker.docker_compose_v2:
+    project_src: "/home/ec2-user/subjects/_infra/compose"
+    files:
+      - "{{ subject_type }}.yml"
+    project_name: "{{ project_name }}"
+    build: always
+    recreate: always
+  environment:
+    SUBJECT_DIR: "{{ project_name }}"
+    SUBJECT_ID: "{{ subject_id }}"
+    BUILD_TARGET: "{{ build_target }}"
+    STATIC_PATH: "{{ static_path }}"
+    HOST_PORT: "80"
+    SUBJECT_PORT: "3000"

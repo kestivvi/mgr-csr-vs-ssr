@@ -29,9 +29,9 @@ def run_load_analysis(analyzer: PerformanceAnalyzer) -> None:
 
     # Compute summary_df locally (Mean/Std/P95 per tech/run/metric)
     summary_df = (
-        metrics_df.groupby(
-            [Column.GROUP, Column.SERVER_TYPE, Column.RUN_NUMBER, Column.METRIC]
-        )[Column.VALUE]
+        metrics_df.groupby([Column.GROUP, Column.SERVER_TYPE, Column.RUN_NUMBER, Column.METRIC])[
+            Column.VALUE
+        ]
         .agg(["mean", "std", lambda x: x.quantile(0.99)])
         .reset_index()
     )

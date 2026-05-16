@@ -1,6 +1,6 @@
 ---
-- name: Ping app server CSR
-  hosts: role_app_server
+- name: Ping subject servers
+  hosts: role_subject_servers
   gather_facts: false
   tasks:
     - name: Ping host

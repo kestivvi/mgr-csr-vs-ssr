@@ -19,7 +19,7 @@ class HealthCheck:
 
 @dataclass
 class HealthProfile:
-    """A collection of health checks defining 'healthy' for a category of apps."""
+    """A collection of health checks defining 'healthy' for a category of subjects."""
 
     name: str
     checks: list[HealthCheck]
@@ -45,9 +45,9 @@ CSR_PROFILE = HealthProfile(
 )
 
 
-class AppVerifier(BaseAdapter):
+class SubjectVerifier(BaseAdapter):
     """
-    A deep module for verifying application health.
+    A deep module for verifying subject health.
     Leverages BaseAdapter for unified process execution and logging.
     """
 
@@ -70,10 +70,10 @@ class AppVerifier(BaseAdapter):
         log_path: Path | None = None,
     ) -> bool:
         """
-        Polls the application until all health checks in the profile pass.
+        Polls the subject until all health checks in the profile pass.
 
         Args:
-            base_url: The root URL of the app (e.g. http://localhost:80).
+            base_url: The root URL of the subject (e.g. http://localhost:80).
             profile: The HealthProfile (SSR/CSR) to validate against.
             retries: Maximum number of attempts.
             delay: Seconds to wait between attempts.

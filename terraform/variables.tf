@@ -18,7 +18,7 @@ variable "my_ip" {
   default     = "46.205.195.40/32" # https://www.whatismyip.com/ or allow all IPs with 0.0.0.0/0
 }
 
-variable "app_server_instance_type" {
+variable "subject_server_instance_type" {
   description = "Instance type for all application servers (e.g., 2 vCPUs)."
   type        = string
   default     = "t4g.micro"
@@ -29,7 +29,7 @@ variable "load_generator_instance_type" {
   description = "Instance type for all load generator servers (e.g., 4 vCPUs)."
   type        = string
   default     = "t4g.micro"
-  # default = "c8g.2xlarge"
+  # default     = "c8g.2xlarge"
 }
 
 variable "monitoring_server_instance_type" {
@@ -39,17 +39,17 @@ variable "monitoring_server_instance_type" {
 }
 
 variable "technologies" {
-  description = "A map of technologies (apps) to provision. The key is the short name (e.g., 'csr')."
+  description = "A map of technologies (subjects) to provision. The key is the subject ID (e.g., 'csr-vanilla')."
   type = map(object({
     description = string
     purpose     = string
-    app_dir     = string
+    subject_dir = string
   }))
   default = {
     "CSR-Vanilla" = {
-      description = "Application Server (CSR-Vanilla)"
-      purpose     = "Hosts Client-Side Rendered application"
-      app_dir     = "apps/csr-vanilla-nginx"
+      description = "Subject Server (CSR-Vanilla)"
+      purpose     = "Hosts Client-Side Rendered subject"
+      subject_dir = "subjects/csr-vanilla-nginx"
     }
   }
 }

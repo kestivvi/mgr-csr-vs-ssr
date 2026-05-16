@@ -1,0 +1,22 @@
+[
+  {
+    "old": "ssr-tanstack-start-react-bun",
+    "new": "ssr-tanstack-start-bun",
+    "path": "/home/kestivvi/PARA/1Projects/MGR/mgr-code/apps/ssr-tanstack-start-react-bun"
+  },
+  {
+    "old": "ssr-tanstack-start-react-node",
+    "new": "ssr-tanstack-start-node",
+    "path": "/home/kestivvi/PARA/1Projects/MGR/mgr-code/apps/ssr-tanstack-start-react-node"
+  },
+  {
+    "old": "ssr-tanstack-start-solid-bun",
+    "new": "ssr-tanstack-start-bun",
+    "path": "/home/kestivvi/PARA/1Projects/MGR/mgr-code/apps/ssr-tanstack-start-solid-bun"
+  },
+  {
+    "old": "ssr-tanstack-start-solid-node",
+    "new": "ssr-tanstack-start-node",
+    "path": "/home/kestivvi/PARA/1Projects/MGR/mgr-code/apps/ssr-tanstack-start-solid-node"
+  }
+]

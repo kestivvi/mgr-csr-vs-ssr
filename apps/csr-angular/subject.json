@@ -1,6 +1,0 @@
-{
-  "family": "angular",
-  "meta_framework": null,
-  "strategy": "csr",
-  "runtime": "node"
-}

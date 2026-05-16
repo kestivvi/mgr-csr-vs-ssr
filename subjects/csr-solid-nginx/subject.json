@@ -1,0 +1,6 @@
+{
+  "family": "solid",
+  "meta_framework": null,
+  "strategy": "csr",
+  "runtime": "nginx"
+}

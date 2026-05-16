@@ -24,7 +24,7 @@ from orchestrator.config import (
     ANSIBLE_DIR,
     ANSIBLE_INVENTORY,
     RESULTS_DIR,
-    APPS_DIR,
+    SUBJECTS_DIR,
 )
 from orchestrator.shared.ansible import get_ansible_env
 
@@ -90,7 +90,7 @@ class TestRunner:
         overrides: dict[str, Any] | None = None,
         config_dict: dict[str, Any] | None = None,
         output_dir: Path | None = None,
-        apps: str | None = None,
+        subjects_filter: str | None = None,
     ) -> None:
         raw_config: dict[str, Any] = {}
         if config_path and config_path.exists():
@@ -135,7 +135,7 @@ class TestRunner:
         self.logs_dir = self.results_base_dir / "logs"
         self.logs_dir.mkdir(parents=True, exist_ok=True)
 
-        self.apps_filter = apps
+        self.subjects_filter = subjects_filter
 
         self.manager = Manager()
         self.shutdown_event = self.manager.Event()
@@ -173,7 +173,7 @@ class TestRunner:
 
         extra_vars: dict[str, Any] = {
             "target_host_group": scenario["load_generator_group"],
-            "target_url": f"https://{scenario['app_server_ip']}",
+            "target_url": f"https://{scenario['subject_server_ip']}",
             "server_type": scenario_name,
             "prometheus_url": f"http://{scenario['monitoring_private_ip']}:9090",
         }
@@ -405,7 +405,7 @@ class TestRunner:
 
             for scenario in scenarios:
                 app_name = scenario["name"]
-                manifest_path = APPS_DIR / app_name / "subject.json"
+                manifest_path = SUBJECTS_DIR / app_name / "subject.json"
                 if manifest_path.exists():
                     with open(manifest_path, "r") as f:
                         subjects_meta[app_name] = json.load(f)
@@ -602,25 +602,27 @@ class TestRunner:
         mon = list(all_hosts.get("role_monitoring_server", {}).get("hosts", {}).values())[0]
 
         for group, content in all_hosts.items():
-            if group.startswith("app_server_"):
-                name = group.replace("app_server_", "")
+            if group.startswith("subject_server_"):
+                name = group.replace("subject_server_", "")
 
-                # Filter by app name if specified
-                if self.apps_filter:
-                    allowed = [a.strip().lower() for a in self.apps_filter.split(",")]
-                    if not any(a in name.lower() for a in allowed):
+                # Filter by subject ID if specified
+                if self.subjects_filter:
+                    allowed = [s.strip().lower() for s in self.subjects_filter.split(",")]
+                    if not any(s in name.lower() for s in allowed):
                         continue
 
-                app_ip = list(content.get("hosts", {}).values())[0].get("private_ip")
-                
+                subject_ip = list(content.get("hosts", {}).values())[0].get("private_ip")
+
                 # Manifest Integrity Guard (Fail-Fast)
-                if not (APPS_DIR / name / "subject.json").exists():
-                    raise ValueError(f"Missing subject.json in {name}. All apps must have a manifest.")
+                if not (SUBJECTS_DIR / name / "subject.json").exists():
+                    raise ValueError(
+                        f"Missing subject.json in {name}. All subjects must have a manifest."
+                    )
 
                 scenarios.append(
                     {
                         "name": name,
-                        "app_server_ip": app_ip,
+                        "subject_server_ip": subject_ip,
                         "load_generator_group": f"role_load_generator_{name}",
                         "monitoring_public_ip": mon["public_ip"],
                         "monitoring_private_ip": mon["private_ip"],

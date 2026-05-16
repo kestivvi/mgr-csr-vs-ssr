@@ -19,7 +19,7 @@ CAMPAIGN_STATE_FILE = "campaign_state.json"
 
 def run_campaign(
     path: Path,
-    app_filter: str | None = None,
+    subject_filter: str | None = None,
     resume: Path | None = None,
     infra_path: Path | None = None,
     verbose: bool = False,
@@ -58,35 +58,37 @@ def run_campaign(
         campaign_dir = RESULTS_DIR / f"campaign_{timestamp}"
         campaign_dir.mkdir(parents=True, exist_ok=True)
         state_path = campaign_dir / CAMPAIGN_STATE_FILE
-        state = {"completed_apps": [], "failed_apps": []}
+        state = {"completed_subjects": [], "failed_subjects": []}
         console.print(
             f"[bold magenta]Created new campaign directory: {campaign_dir}[/bold magenta]"
         )
 
-    # 3. Filter Apps from YAML
-    # The campaign YAML should define the experiment profile and the list of apps
+    # 3. Filter Subjects from YAML
+    # The campaign YAML should define the experiment profile and the list of subjects
     experiment_config = campaign_config.get("experiment", {})
-    apps_in_config = experiment_config.get("apps", [])
+    subjects_in_config = experiment_config.get("subjects", [])
 
-    if app_filter:
-        filters = [f.strip() for f in app_filter.split(",")]
-        apps_to_test = [a for a in apps_in_config if any(f in a for f in filters)]
+    if subject_filter:
+        filters = [f.strip() for f in subject_filter.split(",")]
+        subjects_to_test = [s for s in subjects_in_config if any(f in s for f in filters)]
     else:
-        apps_to_test = apps_in_config
+        subjects_to_test = subjects_in_config
 
-    if not apps_to_test:
-        console.print("[bold yellow]No apps found to test in campaign config.[/bold yellow]")
+    if not subjects_to_test:
+        console.print("[bold yellow]No subjects found to test in campaign config.[/bold yellow]")
         return
 
-    # Filter out completed apps if resuming
-    apps_to_run = [a for a in apps_to_test if a not in state["completed_apps"]]
+    # Filter out completed subjects if resuming
+    subjects_to_run = [s for s in subjects_to_test if s not in state["completed_subjects"]]
 
-    if not apps_to_run:
-        console.print("[bold green]All requested apps have already been completed.[/bold green]")
+    if not subjects_to_run:
+        console.print(
+            "[bold green]All requested subjects have already been completed.[/bold green]"
+        )
         return
 
     console.print(
-        f"[bold magenta]Starting Campaign: {len(apps_to_run)} subjects to test.[/bold magenta]"
+        f"[bold magenta]Starting Campaign: {len(subjects_to_run)} subjects to test.[/bold magenta]"
     )
 
     env = CloudEnvironment()
@@ -101,35 +103,37 @@ def run_campaign(
             console=console,
             disable=verbose,
         ) as progress:
-            campaign_task = progress.add_task("[magenta]Campaign Progress", total=len(apps_to_test))
-            progress.update(campaign_task, completed=len(state["completed_apps"]))
+            campaign_task = progress.add_task(
+                "[magenta]Campaign Progress", total=len(subjects_to_test)
+            )
+            progress.update(campaign_task, completed=len(state["completed_subjects"]))
 
-            for app_name in apps_to_run:
+            for subject_id in subjects_to_run:
                 progress.update(
-                    campaign_task, description=f"[magenta]Processing [bold]{app_name}[/bold]..."
+                    campaign_task, description=f"[magenta]Processing [bold]{subject_id}[/bold]..."
                 )
 
                 try:
                     # --- Step 0: Strict Whitelist Check ---
                     infra_technologies = base_infra_config.get("technologies", {})
-                    if app_name not in infra_technologies:
+                    if subject_id not in infra_technologies:
                         raise ValueError(
-                            f"App '{app_name}' is not defined in infrastructure config.\n"
+                            f"Subject '{subject_id}' is not defined in infrastructure config.\n"
                             "Campaign aborted for this subject."
                         )
 
                     # --- Step 1: Provision & Configure ---
                     progress.console.print(
-                        f"[cyan][{app_name}] Provisioning infrastructure...[/cyan]"
+                        f"[cyan][{subject_id}] Provisioning infrastructure...[/cyan]"
                     )
                     infra_config = base_infra_config.copy()
-                    # We only provision ONE app at a time
-                    infra_config["technologies"] = {app_name: infra_technologies[app_name]}
+                    # We only provision ONE subject at a time
+                    infra_config["technologies"] = {subject_id: infra_technologies[subject_id]}
                     env.setup(infra_config, verbose=verbose)
 
                     # --- Step 2: Warmup (50 RPS with assets) ---
                     progress.console.print(
-                        f"[cyan][{app_name}] Starting Warmup (50 RPS, assets ENABLED)...[/cyan]"
+                        f"[cyan][{subject_id}] Starting Warmup (50 RPS, assets ENABLED)...[/cyan]"
                     )
                     warmup_config = {
                         "test_type": "load",
@@ -147,36 +151,36 @@ def run_campaign(
                     warmup_runner = TestRunner(
                         None,
                         config_dict=warmup_config,
-                        output_dir=campaign_dir / ".warmup" / app_name,
+                        output_dir=campaign_dir / ".warmup" / subject_id,
                     )
                     warmup_runner.run_all()
 
                     # --- Step 3: Experiment (Profile from YAML) ---
-                    progress.console.print(f"[cyan][{app_name}] Starting Experiment...[/cyan]")
+                    progress.console.print(f"[cyan][{subject_id}] Starting Experiment...[/cyan]")
 
-                    # The campaign experiment config is shared across all apps in the loop
-                    # All apps save to the SAME FLAT metrics directory for aggregation compatibility
+                    # The campaign experiment config is shared across all subjects in the loop
+                    # All subjects save to the SAME FLAT metrics directory for aggregation compatibility
                     runner = TestRunner(
                         None, config_dict=experiment_config, output_dir=campaign_dir
                     )
                     runner.run_all()
 
                     # --- Step 4: Finalize Subject ---
-                    state["completed_apps"].append(app_name)
+                    state["completed_subjects"].append(subject_id)
                     with open(state_path, "w") as f:
                         json.dump(state, f, indent=2)
 
                     progress.console.print(
-                        f"[bold green]\u2713 {app_name} completed successfully.[/bold green]"
+                        f"[bold green]\u2713 {subject_id} completed successfully.[/bold green]"
                     )
 
                 except Exception as e:
-                    progress.console.print(f"[bold red]\u2717 {app_name} failed: {e}[/bold red]")
-                    state["failed_apps"].append({"name": app_name, "error": str(e)})
+                    progress.console.print(f"[bold red]\u2717 {subject_id} failed: {e}[/bold red]")
+                    state["failed_subjects"].append({"name": subject_id, "error": str(e)})
                     with open(state_path, "w") as f:
                         json.dump(state, f, indent=2)
 
-                    # Continue to next app unless we hit a critical infra error
+                    # Continue to next subject unless we hit a critical infra error
                     if isinstance(e, InfrastructureError):
                         progress.console.print(
                             "[red]Critical Infrastructure Error. Stopping campaign.[/red]"

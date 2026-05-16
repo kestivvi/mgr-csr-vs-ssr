@@ -32,13 +32,13 @@ This document outlines the reasoning and conclusions regarding the EC2 instance 
 *   **Load vs. Capacity Nuance:** Empirical testing shows that for steady-state **Load Tests** (e.g., constant 50 RPS), a `.medium` generator is sufficient. However, for **Capacity Tests** (ramping up to thousands of RPS to find the breaking point), a `.2xlarge` is required.
 *   **Preventing Generator-Side Throttling:** During rapid ramping, a 1 vCPU generator (`.medium`) becomes the bottleneck before the target server. This results in "clipped" peaks and inaccurate latency reporting.
 *   **Precision at Scale:** A `2xlarge` instance provides 8 cores, allowing the load generation tool (like k6) to use multiple threads for networking, encryption, and VU management. This ensures that the requested RPS is delivered with microsecond precision during high-load capacity tests.
-*   **Clean Data:** By over-provisioning the generator for capacity runs, we guarantee that any latency measured is caused solely by the **App Server**, removing the "noisy generator" variable from the thesis data.
+*   **Clean Data:** By over-provisioning the generator for capacity runs, we guarantee that any latency measured is caused solely by the **Subject Server**, removing the "noisy generator" variable from the thesis data.
 
 ## Summary Table
 
 | Role | Instance Type | vCPU | RAM | Rationale |
 | :--- | :--- | :--- | :--- | :--- |
-| **App Server** | `c8g.medium` | 1 | 2 GiB | Measures single-core efficiency; saturates early for clear data. |
+| **Subject Server** | `c8g.medium` | 1 | 2 GiB | Measures single-core efficiency; saturates early for clear data. |
 | **Load Generator** | `c8g.2xlarge` | 8 | 16 GiB | Essential for **Capacity Tests**; `.medium` is only sufficient for light **Load Tests**. |
 | **Monitoring** | `t4g.small` | 2 | 2 GiB | Burstable is acceptable here as monitoring is not being measured. |
 

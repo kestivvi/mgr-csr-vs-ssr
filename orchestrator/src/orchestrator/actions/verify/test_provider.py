@@ -1,22 +1,24 @@
 import pytest
 from pathlib import Path
+from typing import Any
 from orchestrator.actions.verify.provider import run_verify
 
-def test_run_verify_fails_if_subject_json_missing(tmp_path, mocker):
-    # Setup mock apps directory
-    apps_dir = tmp_path / "apps"
-    apps_dir.mkdir()
-    
-    app1 = apps_dir / "csr-app"
-    app1.mkdir()
-    (app1 / "Dockerfile").write_text("FROM scratch")
+
+def test_run_verify_fails_if_subject_json_missing(tmp_path: Path, mocker: Any) -> None:
+    # Setup mock subjects directory
+    subjects_dir = tmp_path / "subjects"
+    subjects_dir.mkdir()
+
+    subject1 = subjects_dir / "csr-subject"
+    subject1.mkdir()
+    (subject1 / "Dockerfile").write_text("FROM scratch")
     # subject.json is missing!
-    
-    # Mock APPS_DIR and console
-    mocker.patch("orchestrator.actions.verify.provider.APPS_DIR", apps_dir)
+
+    # Mock SUBJECTS_DIR and console
+    mocker.patch("orchestrator.actions.verify.provider.SUBJECTS_DIR", subjects_dir)
     mock_console = mocker.patch("orchestrator.actions.verify.provider.console")
-    
+
     # We expect it to raise a ValueError or similar, or at least log an error and stop
     # Given our "Fail Fast" agreement, it should probably raise an exception
     with pytest.raises(ValueError, match="Missing subject.json"):
-        run_verify()
+        run_verify(subject_filter=None)

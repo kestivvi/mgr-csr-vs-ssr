@@ -1,0 +1,36 @@
+services:
+  runner:
+    build:
+      context: ../../${SUBJECT_DIR}
+      target: ${BUILD_TARGET:-runner}
+    image: mgr-${SUBJECT_ID}-runner
+    restart: unless-stopped
+    networks:
+      - subject-net
+
+  nginx:
+    build:
+      context: ../../${SUBJECT_DIR}
+      additional_contexts:
+        infra: ../nginx
+      target: nginx
+    image: mgr-${SUBJECT_ID}-nginx
+    restart: unless-stopped
+    ports:
+      - "${HOST_PORT:-80}:80"
+      - "443:443"
+      - "8060:8060"
+    depends_on:
+      - runner
+    networks:
+      - subject-net
+    environment:
+      - NGINX_TEMPLATE=/etc/nginx/conf.d/default.conf.template
+      - APP_NAME=runner
+      - APP_PORT=${SUBJECT_PORT:-3000}
+      - SUBJECT_PORT=${SUBJECT_PORT:-3000}
+      - STATIC_PATH=${STATIC_PATH:-/_next/static/}
+
+networks:
+  subject-net:
+    driver: bridge

@@ -35,7 +35,9 @@ class Experiment:
     @property
     def subject_metadata(self) -> dict[str, dict[str, Any]]:
         """Returns the structured metadata for all subjects in this experiment."""
-        return self.metadata.get("subjects", {})
+        from typing import cast
+
+        return cast(dict[str, dict[str, Any]], self.metadata.get("subjects", {}))
 
 
 class ExperimentLoader:
@@ -58,7 +60,7 @@ class ExperimentLoader:
     def load(self, artifact: ResearchArtifact) -> Experiment:
         # 1. Use Metadata from artifact
         metadata = artifact.metadata
-        
+
         # 2. Structured Metadata Guard (Fail-Fast)
         if "subjects" not in metadata:
             raise ValueError("Missing structured subject metadata in artifact.")

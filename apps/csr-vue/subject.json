@@ -1,6 +1,0 @@
-{
-  "family": "vue",
-  "meta_framework": null,
-  "strategy": "csr",
-  "runtime": "node"
-}

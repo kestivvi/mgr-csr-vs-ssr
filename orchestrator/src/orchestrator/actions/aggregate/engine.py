@@ -38,7 +38,7 @@ class DataAggregator:
         self.global_run_counter = 0
         self.master_metadata: dict[str, Any] = {}
         self.lineage: list[dict[str, Any]] = []
-        self.app_counts: dict[str, int] = {}
+        self.subject_counts: dict[str, int] = {}
         self.inconsistency_detected = False
 
     def run(self) -> None:
@@ -89,7 +89,7 @@ class DataAggregator:
                 include = {f for f in filters if not f.startswith("!")}
                 exclude = {f[1:] for f in filters if f.startswith("!")}
 
-            runs = src_artifact.get_runs(include_apps=include, exclude_apps=exclude)
+            runs = src_artifact.get_runs(include_subjects=include, exclude_subjects=exclude)
 
             # Map local run IDs to global sequence
             local_runs = sorted(list(set(r.run_id for r in runs)))
@@ -104,7 +104,9 @@ class DataAggregator:
                 if run.metrics_path:
                     new_name = f"{global_id:02d}_{run.server_type.replace('-', '_')}.csv"
                     shutil.copy2(run.metrics_path, self.output_dir / "metrics" / new_name)
-                    self.app_counts[run.server_type] = self.app_counts.get(run.server_type, 0) + 1
+                    self.subject_counts[run.server_type] = (
+                        self.subject_counts.get(run.server_type, 0) + 1
+                    )
 
                 # Copy Results
                 if run.results_path:
@@ -147,9 +149,9 @@ class DataAggregator:
     def _print_summary(self) -> None:
         console.print("\n[bold green]Aggregation Complete![/bold green]")
         console.print(f"Total runs: {self.global_run_counter}")
-        console.print("Sample counts per app:")
-        if not self.app_counts:
-            console.print(" [yellow]No apps were aggregated![/yellow]")
-        for app, count in sorted(self.app_counts.items()):
-            console.print(f" - {app}: {count} runs")
+        console.print("Sample counts per subject:")
+        if not self.subject_counts:
+            console.print(" [yellow]No subjects were aggregated![/yellow]")
+        for subject, count in sorted(self.subject_counts.items()):
+            console.print(f" - {subject}: {count} runs")
         console.print(f"\nResults saved to: [cyan]{self.output_dir}[/cyan]")

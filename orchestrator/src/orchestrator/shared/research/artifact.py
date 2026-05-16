@@ -50,7 +50,7 @@ class ResearchArtifact:
             return yaml.safe_load(f) or {}
 
     def get_runs(
-        self, include_apps: set[str] | None = None, exclude_apps: set[str] | None = None
+        self, include_subjects: set[str] | None = None, exclude_subjects: set[str] | None = None
     ) -> list[ResearchRun]:
         """
         Discovers and pairs all runs within the artifact.
@@ -66,7 +66,7 @@ class ResearchArtifact:
                 if (
                     run_id is not None
                     and tech is not None
-                    and self._should_include(tech, include_apps, exclude_apps)
+                    and self._should_include(tech, include_subjects, exclude_subjects)
                 ):
                     key = (run_id, tech)
                     runs_map[key] = ResearchRun(run_id=run_id, server_type=tech, metrics_path=p)
@@ -79,7 +79,7 @@ class ResearchArtifact:
                 if (
                     run_id is not None
                     and tech is not None
-                    and self._should_include(tech, include_apps, exclude_apps)
+                    and self._should_include(tech, include_subjects, exclude_subjects)
                 ):
                     key = (run_id, tech)
                     if key not in runs_map:
@@ -94,7 +94,7 @@ class ResearchArtifact:
                 if (
                     run_id is not None
                     and tech is not None
-                    and self._should_include(tech, include_apps, exclude_apps)
+                    and self._should_include(tech, include_subjects, exclude_subjects)
                 ):
                     key = (run_id, tech)
                     if key not in runs_map:

@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Optional
 
 import typer
 from rich.console import Console
@@ -43,6 +43,20 @@ def setup(
             help="Skip confirmation prompts (useful for CI/CD)",
         ),
     ] = False,
+    subjects: Annotated[
+        Optional[str],
+        typer.Option(
+            "--subjects",
+            help="Comma-separated list of subject IDs to deploy (e.g. csr-angular,ssr-next).",
+        ),
+    ] = None,
+    exclude: Annotated[
+        Optional[str],
+        typer.Option(
+            "--exclude",
+            help="Comma-separated list of subject IDs to EXCLUDE (e.g. ssr-nuxt).",
+        ),
+    ] = None,
 ) -> None:
     """
     [bold green]Setup[/bold green]: Provision and configure the research environment.
@@ -57,25 +71,33 @@ def setup(
 
     from orchestrator.actions.setup import provider as setup_provider
 
-    setup_provider.run_setup(infra_path=infra_path, force=force, verbose=verbose)
+    subject_list = subjects.split(",") if subjects else None
+    exclude_list = exclude.split(",") if exclude else None
+    setup_provider.run_setup(
+        infra_path=infra_path,
+        force=force,
+        verbose=verbose,
+        subjects=subject_list,
+        exclude=exclude_list,
+    )
 
 
-test_app = typer.Typer(
+subjects_app = typer.Typer(
     help="[bold blue]Test[/bold blue]: Run performance experiments (k6/wrk).",
     rich_markup_mode="rich",
 )
-app.add_typer(test_app, name="test")
+app.add_typer(subjects_app, name="test")
 
 
-@test_app.command(name="load")
+@subjects_app.command(name="load")
 def test_load(
-    apps: Annotated[
+    subjects: Annotated[
         str | None,
         typer.Option(
-            "--apps",
-            "--app",
-            "-a",
-            help="Filter apps by name (partial matches, comma-separated).",
+            "--subjects",
+            "--subject",
+            "-s",
+            help="Filter subjects by ID (partial matches, comma-separated).",
             rich_help_panel="Scope",
         ),
     ] = None,
@@ -170,7 +192,7 @@ def test_load(
 
     test_cli.run(
         mode="load",
-        apps=apps,
+        subjects=subjects,
         num_runs=num_runs,
         inter_run_delay=inter_run_delay,
         duration=duration,
@@ -183,15 +205,15 @@ def test_load(
     )
 
 
-@test_app.command(name="capacity")
+@subjects_app.command(name="capacity")
 def test_capacity(
-    apps: Annotated[
+    subjects: Annotated[
         str | None,
         typer.Option(
-            "--apps",
-            "--app",
-            "-a",
-            help="Filter apps by name (partial matches, comma-separated).",
+            "--subjects",
+            "--subject",
+            "-s",
+            help="Filter subjects by ID (partial matches, comma-separated).",
             rich_help_panel="Scope",
         ),
     ] = None,
@@ -302,7 +324,7 @@ def test_capacity(
 
     test_cli.run(
         mode="capacity",
-        apps=apps,
+        subjects=subjects,
         num_runs=num_runs,
         inter_run_delay=inter_run_delay,
         peak_rate=peak_rate,
@@ -317,7 +339,7 @@ def test_capacity(
     )
 
 
-@test_app.command(name="file")
+@subjects_app.command(name="file")
 def test_file(
     path: Annotated[str, typer.Argument(help="Path to custom experiment configuration YAML file.")],
     num_runs: Annotated[
@@ -394,20 +416,20 @@ def test_file(
     )
 
 
-@test_app.command(name="wrk")
+@subjects_app.command(name="wrk")
 def test_wrk(
-    apps: Annotated[
+    subjects: Annotated[
         str | None,
         typer.Option(
-            "--apps",
-            "--app",
-            "-a",
-            help="Filter apps by name (partial matches, comma-separated).",
+            "--subjects",
+            "--subject",
+            "-s",
+            help="Filter subjects by ID (partial matches, comma-separated).",
         ),
     ] = None,
     num_runs: Annotated[
         int,
-        typer.Option("--num-runs", "-n", help="Number of test runs per app", show_default=True),
+        typer.Option("--num-runs", "-n", help="Number of test runs per subject", show_default=True),
     ] = 1,
     verbose: Annotated[
         bool, typer.Option("--verbose", "-v", help="Show real-time output from tools")
@@ -416,10 +438,10 @@ def test_wrk(
     """Run local [cyan]capacity benchmarks[/cyan] using wrk."""
     from orchestrator.actions.test import cli as test_cli
 
-    test_cli.run_local_wrk(app_filter=apps, num_runs=num_runs, verbose=verbose)
+    test_cli.run_local_wrk(subject_filter=subjects, num_runs=num_runs, verbose=verbose)
 
 
-@test_app.command(name="stop")
+@subjects_app.command(name="stop")
 def test_stop() -> None:
     """[bold red]Emergency Stop[/bold red]: Kill all running k6 containers on all generators."""
     from orchestrator.actions.test.runner import TestRunner
@@ -474,11 +496,11 @@ def destroy(
 @app.command()
 def campaign(
     path: Annotated[Path, typer.Argument(help="Path to campaign experiment configuration YAML")],
-    apps: Annotated[
+    subjects: Annotated[
         str | None,
         typer.Option(
-            "--apps",
-            help="Comma-separated list of apps to include (overrides YAML)",
+            "--subjects",
+            help="Comma-separated list of subjects to include (overrides YAML)",
         ),
     ] = None,
     resume: Annotated[
@@ -497,16 +519,16 @@ def campaign(
     [bold magenta]Campaign[/bold magenta]: Run a sequential research campaign
     (Provision -> Warmup -> Test -> Rotate).
     """
-    from orchestrator.actions.campaign import cli as campaign_cli
+    from orchestrator.actions.campaign import cli as campaign_provider
 
-    campaign_cli.run(path=path, apps=apps, resume=resume, infra=infra, verbose=verbose)
+    campaign_provider.run(path=path, subjects=subjects, resume=resume, infra=infra, verbose=verbose)
 
 
 @app.command()
 def aggregate(
     sources: Annotated[
         list[str],
-        typer.Argument(help="Source directories with filters, e.g. 'path[app1,app2]'"),
+        typer.Argument(help="Source directories with filters, e.g. 'path[subject1,subject2]'"),
     ],
     output: Annotated[
         Path | None,
@@ -537,13 +559,14 @@ def aggregate(
 
 @app.command()
 def verify(
-    apps: Annotated[
+    subjects: Annotated[
         str | None,
         typer.Option(
-            "--apps",
-            "--app",
+            "--subjects",
+            "--subject",
+            "-s",
             help=(
-                "Filter apps by name. Supports [bold]partial matches[/bold] and "
+                "Filter subjects by ID. Supports [bold]partial matches[/bold] and "
                 "[bold]comma-separated lists[/bold] (e.g., 'nextjs,react')."
             ),
         ),
@@ -557,16 +580,16 @@ def verify(
     """
     from orchestrator.actions.verify import cli as verify_cli
 
-    verify_cli.run(app_filter=apps, verbose=verbose)
+    verify_cli.run(subject_filter=subjects, verbose=verbose)
 
 
 @app.command()
 def run(
-    app: Annotated[
+    subject: Annotated[
         str | None,
         typer.Argument(
             help=(
-                "App name or filter. If provided, runs that app directly. "
+                "Subject ID or filter. If provided, runs that subject directly. "
                 "Otherwise shows interactive selection menu."
             ),
         ),
@@ -584,13 +607,13 @@ def run(
     ] = False,
 ) -> None:
     """
-    [bold blue]Run[/bold blue]: Start a selected app locally for manual testing in browser.
+    [bold blue]Run[/bold blue]: Start a selected subject locally for manual testing in browser.
 
-    Interactive selection if no app specified. Streams logs and cleans up on Ctrl+C.
+    Interactive selection if no subject specified. Streams logs and cleans up on Ctrl+C.
     """
     from orchestrator.actions.run import cli as run_cli
 
-    run_cli.run(app_filter=app, port=port, verbose=verbose)
+    run_cli.run(subject_filter=subject, port=port, verbose=verbose)
 
 
 if __name__ == "__main__":

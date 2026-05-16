@@ -20,11 +20,11 @@
   roles:
     - load_generator_tuning
 
-- name: Configure All App Servers
-  hosts: role_app_servers
+- name: Configure All Subject Servers
+  hosts: role_subject_servers
   become: true
   roles:
-    - app_server
+    - subject_server
     - cadvisor
 
 - name: Configure Monitoring Server

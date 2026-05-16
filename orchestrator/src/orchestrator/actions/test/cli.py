@@ -23,7 +23,7 @@ def run(
     ramp_up_2: str | None = None,
     skip_assets: bool | None = None,
     auto_approve: bool = False,
-    apps: str | None = None,
+    subjects: str | None = None,
 ) -> None:
     """
     Core test execution logic.
@@ -68,20 +68,24 @@ def run(
         if path is None:
             raise ValueError("Config file path must be provided for 'file' mode.")
         config_path = resolve_path(path)
-        runner = TestRunner(config_path, overrides=overrides, apps=apps)
+        runner = TestRunner(config_path, overrides=overrides, subjects_filter=subjects)
     else:
         # For 'load' and 'capacity', we just use the values passed from the CLI
         # as the initial config.
         config_dict = {"test_type": "capacity_k6" if mode == "capacity" else "load"}
-        runner = TestRunner(None, overrides=overrides, config_dict=config_dict, apps=apps)
+        runner = TestRunner(
+            None, overrides=overrides, config_dict=config_dict, subjects_filter=subjects
+        )
 
     runner.run_all()
 
 
-def run_local_wrk(app_filter: str | None = None, num_runs: int = 1, verbose: bool = False) -> None:
+def run_local_wrk(
+    subject_filter: str | None = None, num_runs: int = 1, verbose: bool = False
+) -> None:
     """
     Run local capacity testing with wrk.
     """
     from orchestrator.actions.test.local_wrk import run_capacity_local_wrk
 
-    run_capacity_local_wrk(app_filter=app_filter, num_runs=num_runs, verbose=verbose)
+    run_capacity_local_wrk(subject_filter=subject_filter, num_runs=num_runs, verbose=verbose)

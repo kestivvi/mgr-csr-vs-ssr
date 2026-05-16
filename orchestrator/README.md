@@ -91,7 +91,7 @@ capacity_wrk_options:
 ```
 
 > [!IMPORTANT]
-> **Auto-Discovery**: The orchestrator automatically finds all provisioned app servers in your inventory. You do not need to specify hostnames or IPs in your configuration files.
+> **Auto-Discovery**: The orchestrator automatically finds all provisioned subject servers in your inventory. You do not need to specify hostnames or IPs in your configuration files.
 
 #### Configuration Reference
 

@@ -2,13 +2,13 @@ output "server_details" {
   description = "Detailed information about each server including IPs, purposes, and Terraform resource addresses"
   value = merge(
     {
-      for key, server in aws_instance.app_server : "app_server_${key}" => {
+      for key, server in aws_instance.subject_server : "subject_server_${key}" => {
         public_ip         = server.public_ip
         private_ip        = server.private_ip
         type              = var.technologies[key].description
         purpose           = var.technologies[key].purpose
         ssh_user          = "ec2-user"
-        terraform_address = "aws_instance.app_server[\"${key}\"]"
+        terraform_address = "aws_instance.subject_server[\"${key}\"]"
       }
     },
     {

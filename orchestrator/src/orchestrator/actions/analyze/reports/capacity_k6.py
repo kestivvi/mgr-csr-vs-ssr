@@ -323,7 +323,9 @@ def generate_capacity_report(analyzer: PerformanceAnalyzer, raw_results: pd.Data
 
     # Sort summary by global family-based order
     full_order = get_ordered_tech_list(analyzer, summary)
-    summary[Column.SERVER_TYPE] = pd.Categorical(summary[Column.SERVER_TYPE], categories=full_order, ordered=True)
+    summary[Column.SERVER_TYPE] = pd.Categorical(
+        summary[Column.SERVER_TYPE], categories=full_order, ordered=True
+    )
     summary = summary.sort_values(Column.SERVER_TYPE)
 
     # Create a user-friendly table

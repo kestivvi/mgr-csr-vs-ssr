@@ -18,7 +18,11 @@ if TYPE_CHECKING:
 
 
 def run_capacity_wrk_analysis(analyzer: PerformanceAnalyzer) -> None:
-    if not analyzer.experiment or analyzer.experiment.wrk_results is None or analyzer.experiment.wrk_results.empty:
+    if (
+        not analyzer.experiment
+        or analyzer.experiment.wrk_results is None
+        or analyzer.experiment.wrk_results.empty
+    ):
         return
 
     wrk_df = analyzer.experiment.wrk_results
@@ -55,7 +59,9 @@ def generate_capacity_wrk_plots(analyzer: PerformanceAnalyzer, wrk_summary: pd.D
     for col, (title, filename) in metrics.items():
         plt.figure(figsize=(12, 8))
         sorted_df = wrk_summary.copy()
-        display_name_map = sorted_df.set_index(Column.SERVER_TYPE).index.to_series().to_dict() # Use server_type as display for now
+        display_name_map = (
+            sorted_df.set_index(Column.SERVER_TYPE).index.to_series().to_dict()
+        )  # Use server_type as display for now
         order = [t for t in full_order if t in display_name_map]
         sns.barplot(
             data=sorted_df,
@@ -90,9 +96,7 @@ def generate_capacity_wrk_plots(analyzer: PerformanceAnalyzer, wrk_summary: pd.D
         # Get mean resource usage per framework
         metrics_df = analyzer.experiment.metrics
         resource_means = (
-            metrics_df.groupby([Column.SERVER_TYPE, Column.METRIC])[Column.VALUE]
-            .mean()
-            .unstack()
+            metrics_df.groupby([Column.SERVER_TYPE, Column.METRIC])[Column.VALUE].mean().unstack()
         )
 
         # Merge with wrk_summary
@@ -117,7 +121,9 @@ def generate_capacity_wrk_plots(analyzer: PerformanceAnalyzer, wrk_summary: pd.D
                 continue
             plt.figure(figsize=(12, 8))
             sorted_merged = merged.copy()
-            display_name_map = sorted_merged.set_index(Column.SERVER_TYPE).index.to_series().to_dict()
+            display_name_map = (
+                sorted_merged.set_index(Column.SERVER_TYPE).index.to_series().to_dict()
+            )
             order = [t for t in full_order if t in display_name_map]
             sns.barplot(
                 data=sorted_merged,

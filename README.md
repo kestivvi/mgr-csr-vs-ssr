@@ -68,7 +68,7 @@ _Run inside `terraform/` directory._
 - **Initial setup**: `terraform init`
 - **Preview changes**: `terraform plan`
 - **Deploy infrastructure**: `terraform apply -auto-approve`
-- **Deploy with custom instances**: `terraform apply -var="app_server_instance_type=c8g.large" -var="load_generator_instance_type=c8g.2xlarge"`
+- **Deploy with custom instances**: `terraform apply -var="subject_server_instance_type=c8g.large" -var="load_generator_instance_type=c8g.2xlarge"`
 - **Destroy everything**: `terraform destroy`
 
 ### ⚙️ Configuration (Ansible)
@@ -141,7 +141,7 @@ python ./scripts/experiments.py --test-type load \
 
 **Parameters:**
 
-- `--num-runs`: Number of times the entire experiment (for all apps) should be repeated. Essential for statistical significance (default: 1).
+- `--num-runs`: Number of times the entire experiment (for all subjects) should be repeated. Essential for statistical significance (default: 1).
 - `--rate`: Target requests per second (RPS).
 - `--duration`: Duration of the main measurement phase.
 - `--warmup`: Warm-up duration (default 30s). In `load` tests, this period is automatically excluded from the final metrics to ensure data represents steady-state performance. In `capacity` tests, it is included to capture the full ramp-up curve.
@@ -262,7 +262,7 @@ _Run from the project root._
 
 **Artifacts**:
 
-- `capacity_report_k6.md` or `report_all_apps.md`: Markdown summary with tables and charts.
+- `capacity_report_k6.md` or `report_all_subjects.md`: Markdown summary with tables and charts.
 - `plots/`: Subdirectory containing all generated `.png` charts.
 
 ### 🛠️ Development & Quality Control

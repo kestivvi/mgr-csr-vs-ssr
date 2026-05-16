@@ -27,11 +27,11 @@ def get_ordered_tech_list(analyzer: PerformanceAnalyzer, df: pd.DataFrame) -> Li
 
     def get_sort_key(tech: str):
         tech_lower = tech.lower()
-        
+
         # Lookup manifest from structured metadata
         subjects = analyzer.experiment.subject_metadata if analyzer.experiment else {}
         manifest = subjects.get(tech_lower, {})
-        
+
         # 1. Family Priority (from config.yaml)
         family = manifest.get("family", "unknown")
         family_score = 999
@@ -61,8 +61,6 @@ def get_ordered_tech_list(analyzer: PerformanceAnalyzer, df: pd.DataFrame) -> Li
         return (family_score, strategy_score, meta_sort_key, runtime_score, tech_lower)
 
     return sorted(all_techs, key=get_sort_key)
-
-
 
 
 def clean_tech_names_df(df: pd.DataFrame) -> pd.DataFrame:
@@ -223,8 +221,7 @@ def create_timeseries_plot(
     metrics_df = analyzer.experiment.metrics
     if group_filter:
         df_metric = metrics_df[
-            (metrics_df[Column.METRIC] == metric)
-            & (metrics_df[Column.GROUP] == group_filter)
+            (metrics_df[Column.METRIC] == metric) & (metrics_df[Column.GROUP] == group_filter)
         ]
     else:
         df_metric = metrics_df[metrics_df[Column.METRIC] == metric]
