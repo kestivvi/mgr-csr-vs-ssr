@@ -556,7 +556,7 @@ def aggregate(
     ] = False,
 ) -> None:
     """
-    [bold blue]Aggregate[/bold blue]: Combine multiple test repetitions into a single sequential dataset.
+    [bold blue]Aggregate[/bold blue]: Combine test repetitions into a single sequential dataset.
     """
     from orchestrator.actions.aggregate import cli as aggregate_cli
 

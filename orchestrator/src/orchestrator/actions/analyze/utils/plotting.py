@@ -25,7 +25,7 @@ sns.set_theme(style="whitegrid")
 def get_ordered_tech_list(analyzer: PerformanceAnalyzer, df: pd.DataFrame) -> List[str]:
     all_techs = list(df[Column.SERVER_TYPE].unique())
 
-    def get_sort_key(tech: str):
+    def get_sort_key(tech: str) -> tuple[int, int, str, int, str]:
         tech_lower = tech.lower()
 
         # Lookup manifest from structured metadata

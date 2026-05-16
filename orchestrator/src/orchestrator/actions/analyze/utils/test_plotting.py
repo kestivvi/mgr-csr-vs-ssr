@@ -1,18 +1,22 @@
-import pytest
+from typing import Any, List
+
 import pandas as pd
-from typing import List
+from pytest_mock import MockerFixture
+
 from orchestrator.actions.analyze.utils.plotting import get_ordered_tech_list
 from orchestrator.shared.research import Column
 
 
 class MockAnalyzer:
-    def __init__(self, families: List[List[str]], runtime_priority: List[str], experiment=None):
+    def __init__(
+        self, families: List[List[str] | str], runtime_priority: List[str], experiment: Any = None
+    ) -> None:
         self.families = families
         self.runtime_priority = runtime_priority
         self.experiment = experiment
 
 
-def test_sorting_logic_uses_structured_metadata(mocker):
+def test_sorting_logic_uses_structured_metadata(mocker: MockerFixture) -> None:
     # Setup mock data with explicit metadata
     # We simulate an experiment where subjects have structured metadata
     subjects_metadata = {
@@ -68,7 +72,7 @@ def test_sorting_logic_uses_structured_metadata(mocker):
         }
     )
 
-    ordered = get_ordered_tech_list(analyzer, df)
+    ordered = get_ordered_tech_list(analyzer, df)  # type: ignore[arg-type]
 
     # Expected order:
     # 1. Solid Family (Family index 1)

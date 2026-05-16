@@ -1,9 +1,8 @@
 import datetime
 import shutil
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List, Optional
 
-import pandas as pd
 import yaml
 from rich.console import Console
 

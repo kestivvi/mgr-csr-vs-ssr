@@ -182,7 +182,8 @@ def preview_subject(
         # Show access info
         console.print("\n[bold green]✓ Subject started successfully![/bold green]")
         console.print(f"[cyan]Access the subject at:[/cyan] [bold]http://localhost:{port}[/bold]")
-        container_name = f"mgr-{env.docker.subject_id}-{'runner' if subject_id.startswith('ssr-') else 'webserver'}"
+        container_suffix = "runner" if subject_id.startswith("ssr-") else "webserver"
+        container_name = f"mgr-{env.docker.subject_id}-{container_suffix}"
         console.print(f"[gray]Container:[/gray] {container_name}")
         console.print("[gray]Press Ctrl+C to stop and clean up...[/gray]\n")
 

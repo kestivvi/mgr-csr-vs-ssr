@@ -158,8 +158,8 @@ def run_campaign(
                     # --- Step 3: Experiment (Profile from YAML) ---
                     progress.console.print(f"[cyan][{subject_id}] Starting Experiment...[/cyan]")
 
-                    # The campaign experiment config is shared across all subjects in the loop
-                    # All subjects save to the SAME FLAT metrics directory for aggregation compatibility
+                    # The campaign experiment config is shared across all subjects in the loop.
+                    # All subjects save to the SAME FLAT directory for aggregation compatibility.
                     runner = TestRunner(
                         None, config_dict=experiment_config, output_dir=campaign_dir
                     )

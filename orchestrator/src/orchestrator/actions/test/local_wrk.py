@@ -7,7 +7,7 @@ from typing import Any
 from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
-from orchestrator.config import SUBJECTS_DIR, RESULTS_DIR
+from orchestrator.config import RESULTS_DIR, SUBJECTS_DIR
 from orchestrator.shared.infra import BaseAdapter, InfrastructureError, LocalEnvironment
 
 console = Console()

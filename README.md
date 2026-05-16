@@ -1,277 +1,201 @@
-# MGR Code
+# MGR Orchestrator
 
-Repository for Master's Thesis project.
+> Performance benchmarking engine for the Master's Thesis *"Comparative Analysis of Server Performance for Web Applications in CSR and SSR Architectures"*.
 
-## Setup
+[![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Terraform](https://img.shields.io/badge/Terraform-1.5%2B-7B42BC?logo=terraform&logoColor=white)](https://www.terraform.io/)
+[![Ansible](https://img.shields.io/badge/Ansible-2.15%2B-EE0000?logo=ansible&logoColor=white)](https://www.ansible.com/)
+[![k6](https://img.shields.io/badge/k6-load%20testing-7D64FF?logo=k6&logoColor=white)](https://k6.io/)
+[![AWS](https://img.shields.io/badge/AWS-Graviton%20%28ARM64%29-FF9900?logo=amazonaws&logoColor=white)](https://aws.amazon.com/ec2/graviton/)
 
-### Prerequisites
+The MGR Orchestrator automates the full empirical research lifecycle: provisioning isolated AWS environments, deploying 30+ web application **Subjects**, generating reproducible load with k6, and reducing the captured Prometheus time-series into publication-ready tables and plots.
 
-- **Linux Environment**: Ubuntu/Debian (WSL2 supported)
-- **AWS Account**: With EC2 permissions and a key pair (I named it "MGR1")
+## Highlights
 
-### Required Tools
+- **Single CLI (`mgr`)** — drives infrastructure, experiments, and analysis from one Typer-based entrypoint.
+- **30+ benchmark Subjects** — React, Vue, Svelte, Solid, Angular, Lit, Qwik, Next.js, Nuxt, Astro, SvelteKit, SolidStart, TanStack Start, Fresh, Analog… across Node.js, Bun, Deno, Nginx, and Apache.
+- **AWS Graviton native** — Terraform-managed `c8g`/`m8g` ARM64 fleet with Ansible-driven server roles.
+- **Strict isolation** — separate EC2 hosts for the System Under Test, the k6 load generators, and the Prometheus/Grafana monitoring stack.
+- **Scientific rigor** — JIT warmup phases, configurable repetitions, schema-validated artifacts, and aggregation utilities for partial reruns.
+- **Local pre-flight** — `mgr verify` exercises every Subject inside Docker before any cloud spend.
 
-#### Core Infrastructure
+## Architecture
 
-- **Terraform** - Infrastructure as Code (AWS provider ~> 5.0)
-- **Ansible** - Configuration management
-- **ansible-lint** - Ansible code linting
-- **AWS CLI** - AWS authentication and configuration
-
-#### Development and Testing
-
-- **Docker** - Containerization platform
-- **Docker Compose** - Multi-container orchestration
-- **yq** - YAML processor for inventory parsing
-- **k6** - Load testing tool (via Docker)
-
-#### Python Environment
-
-- **Python 3** - Runtime environment
-
-### Configuration Requirements
-
-#### AWS Setup
-
-- AWS credentials configured (`aws configure`)
-- EC2 key pair named "MGR1" with proper file permissions
-- Terraform variables updated in `terraform/variables.tf`:
-  - `my_ip`: Your public IP address
-  - `key_name`: AWS key pair name
-  - `aws_region`: AWS region (default: eu-central-1)
-
-## Workflow
-
-1. Install locally Terraform and Ansible.
-2. Configure AWS CLI and Terraform variables (see [Configuration Requirements](#configuration-requirements)).
-4. Install the orchestrator and run the setup:
-   ```bash
-   cd orchestrator
-   python3 -m venv venv
-   source venv/bin/activate
-   pip install -e .
-   mgr setup
-   ```
-
-To remove all provisioned infrastructure, run:
- 
- ```bash
- mgr destroy
- ```
-
-## Frequent Commands
-
-### 🏗️ Infrastructure (Terraform)
-
-_Run inside `terraform/` directory._
-
-- **Initial setup**: `terraform init`
-- **Preview changes**: `terraform plan`
-- **Deploy infrastructure**: `terraform apply -auto-approve`
-- **Deploy with custom instances**: `terraform apply -var="subject_server_instance_type=c8g.large" -var="load_generator_instance_type=c8g.2xlarge"`
-- **Destroy everything**: `terraform destroy`
-
-### ⚙️ Configuration (Ansible)
-
-_Run inside `ansible/` directory._
-
-- **Check connectivity**: `ansible-playbook ping.yml`
-- **Full configuration (Setup containers/exporters)**: `ansible-playbook site.yml`
-- **Clean all containers**: `ansible-playbook test_teardown.yml`
- 
-### 🔑 SSH Access
- 
-If you need to manually access the EC2 instances:
-- **User**: `ec2-user`
-- **Key**: Use the key file defined in `ansible/ansible.cfg` (e.g., `~/.ssh/MGR-M.pem`).
-- **Host**: Find the `public_ip` for the desired host in `ansible/inventory/inventory.yml`.
- 
-```bash
-ssh -i ~/.ssh/MGR-M.pem ec2-user@<PUBLIC_IP>
+```
+        ┌──────────────────┐         ┌──────────────────┐         ┌──────────────────┐
+        │ Load Generator   │ ──k6──▶ │ Subject (SUT)    │ ──────▶ │ Monitoring Host  │
+        │ EC2 (c8g.2xlarge)│         │ EC2 (c8g.medium) │ metrics │ Prometheus +     │
+        └──────────────────┘         └──────────────────┘         │ Grafana          │
+                  ▲                            ▲                  └──────────────────┘
+                  │                            │                            │
+                  └────────── mgr CLI ─────────┴────────────────────────────┘
+                          (Terraform + Ansible + Python)
 ```
 
+## Domain Vocabulary
 
-### 🧪 Running Experiments (Orchestrator)
- 
- The main tool for conducting research is the `mgr` orchestrator. It automates provisioning, test execution, and metric collection.
- 
- #### Prerequisites
- 
- 1.  **Infrastructure**: Ensure AWS resources are deployed and configured (`mgr setup`).
- 2.  **Environment**: Activate the Python virtual environment in the `orchestrator` directory.
- 
- #### Running Tests
- 
- Tests are defined in YAML files for reproducibility.
- 
- ```bash
- mgr test file orchestrator/test_scenarios/capacity_k6_dev.yaml
- ```
- 
- #### 1. Capacity Test (K6)
+The CLI, the codebase, and the thesis share one vocabulary. Keep these meanings straight when reading code or results.
 
-This test implements the **ramping-arrival-rate** executor in k6. It gradually increases the load to identify the server's breaking point (maximum throughput).
+| Term | Meaning |
+| :--- | :--- |
+| **Subject** | One web application under test, identified by `(strategy, framework, metaframework, runtime)`. |
+| **Profile** | The load specification (rate curve, duration, repetitions). Lives under `orchestrator/test_scenarios/`. |
+| **Study** | One execution of a Profile against a set of Subjects (`mgr test`). |
+| **Experiment** | The atomic unit: one Subject × one Profile run, producing one Artifact. |
+| **Artifact** | A structured directory in `results/` with raw Prometheus data, k6 output, logs, and metadata. |
+| **Campaign** | A scripted sequence: provision → warm-up → test → rotate Subjects. |
 
-```bash
-  --peak-rate 1000 \
-  --ramp-up 5m \
-  --sustain 1m \
-  --ramp-down 1m
-```
+## Prerequisites
 
-**Parameters:**
+- Linux or WSL2 (Ubuntu/Debian recommended)
+- Python **3.12+**, Terraform **1.5+**, Ansible **2.15+**, Docker + Compose
+- AWS account with an EC2 key pair and `aws configure` completed
 
-- `--peak-rate`: The target requests per second (RPS) at the peak of the ramp-up.
-- `--ramp-up`: Duration to linearly increase load from 0 to `peak-rate`.
-- `--sustain`: How long to maintain the `peak-rate` before ramping down.
-- `--max-vus`: (Optional) Maximum number of pre-allocated Virtual Users (default: 200). Increase if you hit VU limits at high RPS.
-
-#### 2. Load Test
-
-This test implements the **constant-arrival-rate** executor. It maintains a steady, predefined load throughout the test duration. It is ideal for studying application stability, resource consumption under sustained pressure, and determining precise latency percentiles.
+## Quick Start
 
 ```bash
-python ./scripts/experiments.py --test-type load \
-  --num-runs 3 \
-  --rate 100 \
-  --duration 5m \
-  --warmup 30s \
-  --cooldown 15s
-```
-
-**Parameters:**
-
-- `--num-runs`: Number of times the entire experiment (for all subjects) should be repeated. Essential for statistical significance (default: 1).
-- `--rate`: Target requests per second (RPS).
-- `--duration`: Duration of the main measurement phase.
-- `--warmup`: Warm-up duration (default 30s). In `load` tests, this period is automatically excluded from the final metrics to ensure data represents steady-state performance. In `capacity` tests, it is included to capture the full ramp-up curve.
-- `--cooldown`: Cooldown duration after the test (default 15s). Similar to warm-up, this is excluded from metrics in `load` tests.
-- `--path-type`: (`static` or `dynamic`) Determines whether k6 should hit a static path or generate dynamic parameters (e.g., random IDs).
-
-#### 3. Capacity Benchmark (wrk)
-
-This test uses the **wrk** tool on Load Generators to measure maximum throughput and latency. It includes a mandatory warmup phase to ensure JIT optimization (essential for Node.js/V8 frameworks).
-
-```bash
-python ./scripts/experiments.py --test-type capacity_wrk \
-  --num-runs 3 \
-  --duration 30s \
-  --warmup 30s \
-  --threads 2 \
-  --connections 100
-```
-
-**Parameters:**
-
-- `--test-type capacity_wrk`: Explicitly selects the wrk-based scientific test.
-- `--duration`: Duration of the measurement phase (e.g., `30s`, `1m`).
-- `--warmup`: Duration of the warmup phase (results are discarded, but JIT is warmed up).
-- `--threads`: Number of threads wrk should use.
-- `--connections`: Number of open connections.
-
-**Results:**
-
-- **Client-Side**: Saved to `[run]_wrk_client_results.json` (includes RPS, Average Latency, and Transfer Rate).
-- **Server-Side**: CPU, RAM, and Network metrics are collected from Prometheus as usual and saved to `[run]_[type]_[server].csv`.
-
-### 🎓 Master's Thesis Standard Benchmark
-
-For a Master's Thesis, reproducibility and statistical significance are paramount. The following configuration is the **recommended scientific standard** for your results chapter. It balances JIT warm-up, steady-state measurement, and AWS environmental noise reduction.
-
-```bash
-cd ./scripts
-# Recommended Command for Thesis Results
-sh ./setup.sh \
-&& python3 ./experiments.py \
-  --test-type capacity_wrk \
-  --num-runs 5 \
-  --duration 2m \
-  --warmup 1m \
-  --threads 2 \
-  --connections 100 \
-&& sh ./destroy.sh
-
-# 4. Generate the scientific report
-statistics/venv/bin/python3 statistics/analyzer.py \
-  --input-dir results/capacity_wrk_YYYY-MM-DD_HH-MM-SS \
-  --report-type capacity_wrk
-```
-
-**Scientific Rationale:**
-
-- **Warmup (1m)**: Ensures that JIT compilers (V8 for Node, Bun) have fully optimized hot code paths and that TCP connection pools are stabilized.
-- **Duration (2m)**: Provides enough time to capture multiple Garbage Collection (GC) cycles and average out micro-fluctuations in cloud network latency.
-- **Runs (5x)**: The academic minimum for calculating the **Mean** and **95% Confidence Intervals**, effectively filtering out AWS "noisy neighbor" effects.
-
-#### 🚀 Full Experiment Cycle (Automation)
-
-For a fully automated run (Provision → Test → Destroy), you can chain the scripts together from the `scripts/` directory:
-
-```bash
-cd scripts
-sh ./setup.sh && \
-python3 ./experiments.py --test-type capacity_wrk \
-  --num-runs 3 \
-  --duration 30s \
-  --warmup 30s \
-  --threads 2 \
-  --connections 100 && \
-sh ./destroy.sh
-```
-
-#### 4. Champion Comparison (A/B Test)
-
-#### 📊 Results and Monitoring
-
-- **Results Directory**: Every experiment creates a unique folder in `results/[prefix]_[datetime]/`.
-- **Artifacts**:
-  - `metadata.yaml`: Parameters used for the run.
-  - `orchestrator.txt`: Detailed logs of the orchestration process.
-  - `[run]_[type]_[server].csv`: Raw metrics collected from Prometheus for each instance.
-- **Emergency Stop**: To immediately terminate all running k6 containers on all load generators:
-  ```bash
-  ansible-playbook ./ansible/test_stop_all.yml
-  ```
-
-### 📊 Analysis
-
-_Run from the project root._
-
-1. **Activate Environment**:
-
-   ```bash
-   source statistics/venv/bin/activate
-   ```
-
-2. **Generate Capacity Report**:
-
-   ```bash
-   # Analyze specific experiment
-    mgr analyze capacity_k6 results/capacity_k6_YYYY-MM-DD_HH-MM-SS
-
-    # Analyze latest capacity_k6 experiment (Bash)
-    mgr analyze capacity_k6 $(ls -td results/capacity_k6_* | head -1)
-   ```
-
-3. **Generate Load Report**:
-   Use the `load` report type to compare all tested technologies in a ranking table and box plots.
-
-   ```bash
-    mgr analyze load results/load_k6_YYYY-MM-DD_HH-MM-SS
-   ```
-
-**Artifacts**:
-
-- `capacity_report_k6.md` or `report_all_subjects.md`: Markdown summary with tables and charts.
-- `plots/`: Subdirectory containing all generated `.png` charts.
-
-### 🛠️ Development & Quality Control
-
-The project uses `ruff` and `mypy` for code quality. Run these from the `orchestrator` directory:
-
-```bash
+# 1. Install the orchestrator
 cd orchestrator
-./venv/bin/ruff format .  # Format code
-./venv/bin/ruff check .   # Lint code
-./venv/bin/mypy .         # Type check
+python3 -m venv venv
+source venv/bin/activate
+pip install -e .
+
+# 2. Configure your AWS environment
+cp infra.example.yaml infra.yaml
+$EDITOR infra.yaml   # set aws_region, key_name, my_ip
+
+# 3. Verify Subjects locally (free, runs in Docker)
+mgr verify --subjects csr-react-nginx,ssr-nextjs-node
+```
+
+> [!IMPORTANT]
+> `mgr setup`, `mgr destroy`, and `mgr test` provision and exercise paid AWS resources. Run them yourself — don't delegate to autonomous agents.
+
+## CLI Overview
+
+```
+mgr setup       Provision + configure AWS infrastructure
+mgr destroy     Tear down all infrastructure
+mgr test        Run performance experiments (load | capacity | file | wrk | stop)
+mgr campaign    Sequential research campaign (provision → warmup → test → rotate)
+mgr analyze     Generate statistical reports and plots from results
+mgr aggregate   Merge repetition artifacts into one dataset
+mgr verify      Build & smoke-test Subjects locally in Docker
+mgr preview     Run a single Subject locally for manual inspection
+```
+
+### Provision the cloud environment
+
+```bash
+# Bring up only the Subjects you need (cost-conscious default)
+mgr setup infra.yaml --subjects csr-react-nginx,ssr-nextjs-node
+
+# Tear everything down when you're done
+mgr destroy
+```
+
+Useful flags: `-f/--force` to rebuild over an existing fleet, `--exclude` to skip Subjects, `-y/--yes` for non-interactive runs.
+
+### Run a performance study
+
+> [!TIP]
+> `mgr test` defaults to **every active Subject** in the fleet. You normally restrict the fleet at `mgr setup` time, not at test time — restricting tests would leave provisioned instances idle.
+
+```bash
+# Capacity test: ramp RPS until the system saturates → reveals Max RPS
+mgr test capacity --peak-rate 1000 --ramp-up 5m
+
+# Load test: hold a constant rate → measures CPU, RAM, p90/p95/p99 latency
+mgr test load --rps 200 --duration 5m --repetitions 3
+
+# Reproducible study driven by a YAML profile
+mgr test file orchestrator/test_scenarios/capacity_k6_prod.yaml
+```
+
+A minimal capacity profile (`test_scenarios/capacity_k6.example.yaml`):
+
+```yaml
+test_type: capacity_k6
+num_repetitions: 3
+
+capacity_k6_options:
+  start_rate: 1          # starting RPS
+  peak_rate: 1200        # target peak RPS
+  ramp_up: 5m            # linear ramp from start_rate to peak_rate
+  sustain: 2m            # hold at peak_rate
+  ramp_down: 1m
+  warmup: 1m             # JIT warmup before measurement begins
+  max_vus: 500           # pre-allocated virtual users
+  path_type: dynamic     # 'static' (fixed) or 'dynamic' (randomised paths)
+  timeout: 0.5s          # requests slower than this count as errors
+```
+
+### Analyze the results
+
+```bash
+# Reduce a capacity Study into a Markdown report + LaTeX-ready plots
+mgr analyze capacity_k6 results/capacity_k6_2026-05-16_23-00-00
+```
+
+Outputs land alongside the input directory:
+- `capacity_report_k6.md` — Markdown scorecards
+- `plots/` — PNG charts (violin, time-series, bar) sized for the thesis
+
+Available report types: `load`, `capacity_k6`, `capacity_wrk`, `champions` (head-to-head; pass `--champions <a>,<b>`).
+
+> [!NOTE]
+> **`mgr aggregate`** merges partial reruns back into a Study — useful when a handful of Experiments fail on a transient cloud issue and you'd rather rerun those individually than redo the whole Study.
+>
+> ```bash
+> mgr aggregate results/run_part1 results/run_part2 -o results/aggregated_run
+> ```
+
+### Inspect a Subject locally
+
+```bash
+mgr preview ssr-nextjs-node   # builds + runs the Subject; opens on localhost
+```
+
+## Repository Layout
+
+```
+mgr-code/
+├── orchestrator/        # Python CLI engine (Typer, pandas, matplotlib, seaborn)
+│   ├── src/orchestrator/
+│   │   └── actions/     # setup · test · analyze · aggregate · campaign · verify · preview · destroy
+│   ├── test_scenarios/  # YAML Profile templates (dev / preprod / prod)
+│   └── infra.example.yaml
+├── terraform/           # AWS Graviton infrastructure (c8g / m8g)
+├── ansible/             # Roles & playbooks for SUT, load generator, monitoring host
+├── subjects/            # 30+ benchmark Subjects (csr-* / ssr-*)
+├── k6/                  # k6 scripts used by the load generator
+├── docs/                # Methodology notes (inventory, infra rationale, wrk usage)
+└── results/             # Materialized Artifacts (git-ignored)
+```
+
+See [`subjects/README.md`](subjects/README.md) for the contract every benchmark Subject must satisfy (functional identity, static offloading, runtime versions). See [`docs/`](docs/) for methodology notes.
+
+## Quality Control
+
+Run before every commit. The orchestrator targets `mypy --strict` and clean Ruff output.
+
+```bash
+# Python
+cd orchestrator
+./venv/bin/ruff format .
+./venv/bin/ruff check .
+./venv/bin/mypy --strict .
+./venv/bin/pytest
+
+# Ansible
+cd ../ansible
+prettier --write "./**/*.{yml,yaml}"
+yamllint .
+ansible-lint
+
+# Terraform
+cd ../terraform
+terraform fmt -recursive
+terraform validate
+tflint --recursive
 ```

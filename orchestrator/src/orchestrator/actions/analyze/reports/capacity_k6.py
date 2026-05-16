@@ -28,6 +28,8 @@ def run_capacity_k6_analysis(analyzer: PerformanceAnalyzer) -> None:
 
 
 def compute_capacity_metrics(analyzer: PerformanceAnalyzer) -> Optional[pd.DataFrame]:
+    if not analyzer.experiment:
+        return None
     required = [
         MetricName.K6_SUCCESSFUL_RPS,
         MetricName.K6_TOTAL_RPS,
@@ -77,6 +79,8 @@ def compute_capacity_metrics(analyzer: PerformanceAnalyzer) -> Optional[pd.DataF
 
 
 def generate_capacity_plots(analyzer: PerformanceAnalyzer, raw_results: pd.DataFrame) -> None:
+    if not analyzer.experiment:
+        return
     # 1. Timeseries Plots
     metrics_to_plot = {
         MetricName.K6_SUCCESSFUL_RPS: "successful_throughput_rps_timeseries",

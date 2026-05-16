@@ -1,10 +1,9 @@
-import pytest
-import yaml
 from pathlib import Path
-from orchestrator.actions.test.runner import TestRunner
-
-
 from typing import Any
+
+import yaml
+
+from orchestrator.actions.test.runner import TestRunner
 
 
 def test_runner_captures_subject_manifests_in_metadata(tmp_path: Path, mocker: Any) -> None:

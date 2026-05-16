@@ -1,6 +1,8 @@
-import pytest
 from pathlib import Path
 from typing import Any
+
+import pytest
+
 from orchestrator.actions.verify.provider import run_verify
 
 
@@ -16,7 +18,7 @@ def test_run_verify_fails_if_subject_json_missing(tmp_path: Path, mocker: Any) -
 
     # Mock SUBJECTS_DIR and console
     mocker.patch("orchestrator.actions.verify.provider.SUBJECTS_DIR", subjects_dir)
-    mock_console = mocker.patch("orchestrator.actions.verify.provider.console")
+    mocker.patch("orchestrator.actions.verify.provider.console")
 
     # We expect it to raise a ValueError or similar, or at least log an error and stop
     # Given our "Fail Fast" agreement, it should probably raise an exception
