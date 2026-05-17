@@ -84,6 +84,8 @@ def parse_duration_to_seconds(duration_str: str) -> int:
 
 
 class TestRunner:
+    __test__ = False
+
     def __init__(
         self,
         config_path: Path | None,

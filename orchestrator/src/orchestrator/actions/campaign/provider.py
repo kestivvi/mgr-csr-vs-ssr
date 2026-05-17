@@ -202,6 +202,6 @@ def run_campaign(
             console.print(f"[red]Teardown failed: {e}[/red]")
 
     console.print("\n[bold magenta]Campaign Summary:[/bold magenta]")
-    console.print(f"  Completed: {len(state['completed_apps'])}")
-    console.print(f"  Failed:    {len(state['failed_apps'])}")
+    console.print(f"  Completed: {len(state['completed_subjects'])}")
+    console.print(f"  Failed:    {len(state['failed_subjects'])}")
     console.print(f"Results available in: [bold]{campaign_dir}[/bold]")

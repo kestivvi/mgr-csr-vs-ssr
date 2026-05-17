@@ -22,7 +22,7 @@ class Subject:
         with open(manifest_path, "r") as f:
             data = json.load(f)
 
-        return cls(
+        subj = cls(
             id=path.name,
             strategy=data["strategy"],
             family=data["family"],
@@ -30,6 +30,44 @@ class Subject:
             runtime=data["runtime"],
             path=path,
         )
+        subj.validate()
+        return subj
+
+    def validate(self) -> None:
+        """Enforces the official Naming Contract for Research Subjects."""
+        if self.strategy not in ["csr", "ssr"]:
+            raise ValueError(f"Strategy must start with 'csr-' or 'ssr-', got '{self.strategy}'")
+        if not (self.id.startswith("csr-") or self.id.startswith("ssr-")):
+            raise ValueError(f"Strategy must start with 'csr-' or 'ssr-', got ID '{self.id}'")
+        if not self.id.startswith(f"{self.strategy}-"):
+            raise ValueError(
+                "Folder name does not match Subject ID parts: "
+                f"strategy mismatch ('{self.strategy}' vs '{self.id}')"
+            )
+
+        valid_runtimes = ["nginx", "apache", "node", "bun", "deno"]
+        if self.runtime not in valid_runtimes:
+            raise ValueError(
+                f"Runtime suffix must end with a valid server runtime, got '{self.runtime}'"
+            )
+        if not self.id.endswith(f"-{self.runtime}"):
+            raise ValueError(
+                "Folder name does not match Subject ID parts: "
+                f"runtime mismatch ('{self.runtime}' vs '{self.id}')"
+            )
+
+        # Check that metaframework if present is in the ID
+        if self.meta_framework and self.meta_framework not in self.id:
+            raise ValueError(
+                "Folder name does not match Subject ID parts: "
+                f"missing metaframework '{self.meta_framework}'"
+            )
+        # Check that family is in ID (except for non-agnostic frameworks)
+        if self.family and self.family not in self.id:
+            if self.meta_framework in ["astro", "tanstack-start"] or not self.meta_framework:
+                raise ValueError(
+                    f"Folder name does not match Subject ID parts: missing family '{self.family}'"
+                )
 
     @property
     def slug(self) -> str:
@@ -41,7 +79,23 @@ class Subject:
         """Human readable name for plots."""
         parts = [self.strategy.upper()]
         if self.meta_framework:
-            parts.append(self.meta_framework.capitalize())
+            # Capitalize metaframework nicely
+            mf = self.meta_framework.lower()
+            if mf == "nextjs":
+                mf_name = "Next.js"
+            elif mf == "nuxtjs":
+                mf_name = "Nuxt"
+            elif mf == "svelte-kit":
+                mf_name = "SvelteKit"
+            elif mf == "tanstack-start":
+                mf_name = "TanStack Start"
+            else:
+                mf_name = self.meta_framework.capitalize()
+            parts.append(mf_name)
+
+            # Framework-agnostic metaframeworks require appending the framework family
+            if mf in ["astro", "tanstack-start"]:
+                parts.append(self.family.capitalize())
         else:
             parts.append(self.family.capitalize())
         parts.append(f"({self.runtime.capitalize()})")

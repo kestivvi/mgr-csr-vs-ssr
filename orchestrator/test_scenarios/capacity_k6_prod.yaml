@@ -10,7 +10,7 @@ capacity_k6_options:
   sustain: 1m
   ramp_down: 1m
   start_rate: 50
-  warmup: 60s
+  warmup: 120s
   max_vus: 400
   skip_assets: true
   timeout: 2.0s

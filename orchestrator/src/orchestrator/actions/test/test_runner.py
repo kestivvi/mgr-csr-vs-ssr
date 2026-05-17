@@ -1,13 +1,15 @@
+import json
 from pathlib import Path
 from typing import Any
 
+import pytest
 import yaml
 
-from orchestrator.actions.test.runner import TestRunner
+from orchestrator.actions.test.runner import TestRunner as OrchestratorTestRunner
 
 
 def test_runner_captures_subject_manifests_in_metadata(tmp_path: Path, mocker: Any) -> None:
-    # Setup mock subjects directory with manifests
+    # 1. Setup mock environment files (Filesystem Boundary)
     subjects_dir = tmp_path / "subjects"
     subjects_dir.mkdir()
 
@@ -19,70 +21,228 @@ def test_runner_captures_subject_manifests_in_metadata(tmp_path: Path, mocker: A
         "strategy": "ssr",
         "runtime": "node",
     }
-    import json
-
     with open(subject1_dir / "subject.json", "w") as f:
         json.dump(manifest, f)
 
-    # Mock inventory to return this subject
-    mocker.patch("orchestrator.actions.test.runner.ANSIBLE_INVENTORY", tmp_path / "inventory.yaml")
-    mocker.patch.object(
-        TestRunner,
-        "_parse_inventory",
-        return_value=[
-            {
-                "name": "ssr-solid",
-                "subject_server_ip": "1.2.3.4",
-                "load_generator_group": "lg1",
-                "monitoring_host_public_ip": "5.6.7.8",
-                "monitoring_host_private_ip": "10.0.0.1",
+    inventory_yaml = tmp_path / "inventory.yaml"
+    inventory_data = {
+        "all": {
+            "children": {
+                "role_monitoring_host": {
+                    "hosts": {
+                        "mon1": {
+                            "public_ip": "5.6.7.8",
+                            "private_ip": "10.0.0.1",
+                        }
+                    }
+                },
+                "subject_server_ssr-solid": {
+                    "hosts": {
+                        "server1": {
+                            "private_ip": "1.2.3.4",
+                        }
+                    }
+                },
             }
-        ],
+        }
+    }
+    with open(inventory_yaml, "w") as f:
+        yaml.dump(inventory_data, f)
+
+    # 2. Patch system boundary constants in runner module
+    mocker.patch("orchestrator.actions.test.runner.ANSIBLE_INVENTORY", inventory_yaml)
+    mocker.patch("orchestrator.actions.test.runner.SUBJECTS_DIR", subjects_dir)
+    mocker.patch("orchestrator.actions.test.runner.RESULTS_DIR", tmp_path / "results")
+    mocker.patch("orchestrator.actions.test.runner.ANSIBLE_DIR", tmp_path / "ansible")
+
+    # 3. Mock external execution boundaries (ansible_runner and collector)
+    mock_run_res = mocker.Mock()
+    mock_run_res.status = "successful"
+    mock_ar_run = mocker.patch("ansible_runner.run", return_value=mock_run_res)
+
+    mock_thread = mocker.Mock()
+    mock_async_res = mocker.Mock()
+    mock_async_res.status = "successful"
+    mock_async_res.stdout.read.return_value = (
+        'ORCHESTRATOR_TIMESTAMPS::{"start": 100.0, "end": 200.0}'
+    )
+    mock_ar_run_async = mocker.patch(
+        "ansible_runner.run_async", return_value=(mock_thread, mock_async_res)
     )
 
-    # Mock ANSIBLE_DIR and RESULTS_DIR
-    mocker.patch("orchestrator.actions.test.runner.ANSIBLE_DIR", tmp_path / "ansible")
-    mocker.patch("orchestrator.actions.test.runner.RESULTS_DIR", tmp_path / "results")
-    mocker.patch("orchestrator.actions.test.runner.SUBJECTS_DIR", subjects_dir)
+    mock_collect = mocker.patch("orchestrator.actions.test.runner.collect_metrics")
 
-    # Actually, I'll just mock the manifest loading logic once I implement it.
-    # For now, let's see how I implement the capture.
-
-    # Setup TestRunner
-    runner = TestRunner(
+    # 4. Setup OrchestratorTestRunner and execute run_all
+    runner = OrchestratorTestRunner(
         config_path=None,
         config_dict={"test_type": "capacity_k6", "auto_approve": True},
         output_dir=tmp_path / "result",
     )
 
-    # Mock dependencies of run_all
-    mocker.patch.object(runner, "_sync_k6_script", return_value=True)
-    mock_scenario = {
-        "name": "ssr-solid",
-        "load_generator_group": "lg1",
-        "subject_server_ip": "1.2.3.4",
-        "monitoring_host_public_ip": "5.6.7.8",
-        "monitoring_host_private_ip": "10.0.0.1",
-    }
-    mocker.patch.object(
-        runner,
-        "run_scenario",
-        return_value={
-            "success": True,
-            "name": "ssr-solid",
-            "timestamps": {"start": 100, "end": 200},
-            "scenario": mock_scenario,
-        },
-    )
-    mocker.patch("orchestrator.actions.test.runner.collect_metrics")
-
     runner.run_all()
 
-    # Verify metadata.yaml
+    # 5. Verify actual SUT integration behaviors
+    # Check that ansible_runner was executed for script sync
+    mock_ar_run.assert_called_once()
+    assert mock_ar_run.call_args[1]["playbook"] == "ops/test_sync_script.yml"
+
+    # Check that ansible_runner was executed asynchronously for capacity scenario
+    mock_ar_run_async.assert_called_once()
+    call_kwargs = mock_ar_run_async.call_args[1]
+    assert call_kwargs["playbook"] == "ops/test_capacity_run.yml"
+    assert call_kwargs["extravars"]["server_type"] == "ssr-solid"
+    assert call_kwargs["extravars"]["target_url"] == "https://1.2.3.4"
+
+    # Check that telemetry collector was triggered
+    mock_collect.assert_called_once_with(
+        prometheus_url="http://5.6.7.8:9090",
+        start_epoch=100,
+        end_epoch=200,
+        server_type="ssr-solid",
+        repetition_number=1,
+        output_dir=tmp_path / "result",
+    )
+
+    # Verify final compiled metadata on the filesystem contains parsed subject manifest
     meta_path = tmp_path / "result" / "metadata.yaml"
     assert meta_path.exists()
     with open(meta_path, "r") as f:
         meta = yaml.safe_load(f)
 
+    assert meta["test_type"] == "capacity_k6"
     assert "subjects" in meta
     assert meta["subjects"]["ssr-solid"] == manifest
+
+
+def test_runner_raises_value_error_if_manifest_missing(tmp_path: Path, mocker: Any) -> None:
+    # 1. Setup mock environment files without subject.json manifest
+    subjects_dir = tmp_path / "subjects"
+    subjects_dir.mkdir()
+
+    subject1_dir = subjects_dir / "ssr-solid"
+    subject1_dir.mkdir()
+    # manifest is missing!
+
+    inventory_yaml = tmp_path / "inventory.yaml"
+    inventory_data = {
+        "all": {
+            "children": {
+                "role_monitoring_host": {
+                    "hosts": {
+                        "mon1": {
+                            "public_ip": "5.6.7.8",
+                            "private_ip": "10.0.0.1",
+                        }
+                    }
+                },
+                "subject_server_ssr-solid": {
+                    "hosts": {
+                        "server1": {
+                            "private_ip": "1.2.3.4",
+                        }
+                    }
+                },
+            }
+        }
+    }
+    with open(inventory_yaml, "w") as f:
+        yaml.dump(inventory_data, f)
+
+    mocker.patch("orchestrator.actions.test.runner.ANSIBLE_INVENTORY", inventory_yaml)
+    mocker.patch("orchestrator.actions.test.runner.SUBJECTS_DIR", subjects_dir)
+
+    runner = OrchestratorTestRunner(
+        config_path=None,
+        config_dict={"test_type": "capacity_k6", "auto_approve": True},
+        output_dir=tmp_path / "result",
+    )
+
+    with pytest.raises(ValueError, match="Missing subject.json in ssr-solid"):
+        runner.run_all()
+
+
+def test_runner_filters_subjects(tmp_path: Path, mocker: Any) -> None:
+    # 1. Setup mock environment files with multiple subjects
+    subjects_dir = tmp_path / "subjects"
+    subjects_dir.mkdir()
+
+    # Subject 1 (solid)
+    s1_dir = subjects_dir / "ssr-solid"
+    s1_dir.mkdir()
+    with open(s1_dir / "subject.json", "w") as f:
+        json.dump({"strategy": "ssr", "runtime": "node"}, f)
+
+    # Subject 2 (react)
+    s2_dir = subjects_dir / "ssr-react"
+    s2_dir.mkdir()
+    with open(s2_dir / "subject.json", "w") as f:
+        json.dump({"strategy": "ssr", "runtime": "node"}, f)
+
+    inventory_yaml = tmp_path / "inventory.yaml"
+    inventory_data = {
+        "all": {
+            "children": {
+                "role_monitoring_host": {
+                    "hosts": {
+                        "mon1": {
+                            "public_ip": "5.6.7.8",
+                            "private_ip": "10.0.0.1",
+                        }
+                    }
+                },
+                "subject_server_ssr-solid": {
+                    "hosts": {
+                        "server1": {
+                            "private_ip": "1.2.3.4",
+                        }
+                    }
+                },
+                "subject_server_ssr-react": {
+                    "hosts": {
+                        "server2": {
+                            "private_ip": "1.2.3.5",
+                        }
+                    }
+                },
+            }
+        }
+    }
+    with open(inventory_yaml, "w") as f:
+        yaml.dump(inventory_data, f)
+
+    mocker.patch("orchestrator.actions.test.runner.ANSIBLE_INVENTORY", inventory_yaml)
+    mocker.patch("orchestrator.actions.test.runner.SUBJECTS_DIR", subjects_dir)
+    mocker.patch("orchestrator.actions.test.runner.RESULTS_DIR", tmp_path / "results")
+    mocker.patch("orchestrator.actions.test.runner.ANSIBLE_DIR", tmp_path / "ansible")
+
+    # Mocks
+    mock_run_res = mocker.Mock()
+    mock_run_res.status = "successful"
+    mocker.patch("ansible_runner.run", return_value=mock_run_res)
+
+    mock_thread = mocker.Mock()
+    mock_async_res = mocker.Mock()
+    mock_async_res.status = "successful"
+    mock_async_res.stdout.read.return_value = (
+        'ORCHESTRATOR_TIMESTAMPS::{"start": 100.0, "end": 200.0}'
+    )
+    mock_ar_run_async = mocker.patch(
+        "ansible_runner.run_async", return_value=(mock_thread, mock_async_res)
+    )
+
+    mocker.patch("orchestrator.actions.test.runner.collect_metrics")
+
+    # Filter only react!
+    runner = OrchestratorTestRunner(
+        config_path=None,
+        config_dict={"test_type": "capacity_k6", "auto_approve": True},
+        output_dir=tmp_path / "result",
+        subjects_filter="react",
+    )
+
+    runner.run_all()
+
+    # Check that ansible_runner was only called for ssr-react
+    mock_ar_run_async.assert_called_once()
+    call_kwargs = mock_ar_run_async.call_args[1]
+    assert call_kwargs["extravars"]["server_type"] == "ssr-react"
