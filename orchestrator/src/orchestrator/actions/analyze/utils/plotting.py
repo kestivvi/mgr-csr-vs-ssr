@@ -82,6 +82,14 @@ def clean_tech_names_df(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def order_techs_by_avg_rank(scorecard_ranks_df: pd.DataFrame) -> pd.DataFrame:
+    # scorecard_ranks_df: rows = metrics, columns = technologies.
+    # Sort columns by ascending mean rank (lower = better overall).
+    avg_ranks = scorecard_ranks_df.mean(axis=0).sort_values()
+    ordered_techs = avg_ranks.index.tolist()
+    return scorecard_ranks_df.reindex(index=scorecard_ranks_df.index, columns=ordered_techs)
+
+
 def create_scorecard_heatmap(
     analyzer: PerformanceAnalyzer, scorecard_ranks_df: pd.DataFrame
 ) -> Optional[Path]:
@@ -91,10 +99,8 @@ def create_scorecard_heatmap(
         return None
 
     plt.figure(figsize=(20, 10))
-    avg_ranks = scorecard_ranks_df.mean(axis=1).sort_values()
-    ordered_techs = avg_ranks.index.tolist()
-    ordered_metrics = scorecard_ranks_df.index
-    ranks_ordered = scorecard_ranks_df.reindex(index=ordered_metrics, columns=ordered_techs)
+    ranks_ordered = order_techs_by_avg_rank(scorecard_ranks_df)
+    ordered_techs = list(ranks_ordered.columns)
 
     # Get display names mapping
     temp_df = pd.DataFrame({Column.SERVER_TYPE: ordered_techs})

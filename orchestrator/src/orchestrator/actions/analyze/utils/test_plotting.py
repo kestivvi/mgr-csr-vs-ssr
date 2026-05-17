@@ -3,7 +3,10 @@ from typing import Any, List
 import pandas as pd
 from pytest_mock import MockerFixture
 
-from orchestrator.actions.analyze.utils.plotting import get_ordered_tech_list
+from orchestrator.actions.analyze.utils.plotting import (
+    get_ordered_tech_list,
+    order_techs_by_avg_rank,
+)
 from orchestrator.shared.research import Column
 
 
@@ -88,3 +91,31 @@ def test_sorting_logic_uses_structured_metadata(mocker: MockerFixture) -> None:
 
     expected = ["ssr-solid-start-bun", "ssr-solid-start-node", "csr-react", "ssr-nextjs"]
     assert ordered == expected
+
+
+def test_order_techs_by_avg_rank_sorts_columns_and_preserves_values() -> None:
+    # rows = metrics, columns = technologies (post-transpose shape from
+    # compute_scorecard_and_winner). Lower average rank = better.
+    scorecard_ranks_df = pd.DataFrame(
+        {
+            "tech_best": [1.0, 2.0, 1.0],  # avg 1.33
+            "tech_worst": [3.0, 3.0, 3.0],  # avg 3.0
+            "tech_mid": [2.0, 1.0, 2.0],  # avg 1.67
+        },
+        index=["metric_a", "metric_b", "metric_c"],
+    )
+
+    ranks_ordered = order_techs_by_avg_rank(scorecard_ranks_df)
+
+    # Regression guard for axis=1 bug: under that bug, reindex selects
+    # metric names as columns, producing an all-NaN frame.
+    assert not ranks_ordered.isna().all().all()
+    # Values must be preserved (not NaN) after reindex.
+    assert ranks_ordered.notna().all().all()
+    # Columns ordered by ascending mean rank.
+    assert list(ranks_ordered.columns) == ["tech_best", "tech_mid", "tech_worst"]
+    # Row order (metrics) preserved.
+    assert list(ranks_ordered.index) == ["metric_a", "metric_b", "metric_c"]
+    # Cell values match the source.
+    assert ranks_ordered.loc["metric_a", "tech_best"] == 1.0
+    assert ranks_ordered.loc["metric_b", "tech_mid"] == 1.0
