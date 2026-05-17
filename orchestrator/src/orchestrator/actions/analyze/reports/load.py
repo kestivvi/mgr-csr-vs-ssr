@@ -9,6 +9,7 @@ from orchestrator.shared.research import Column
 
 from ..config import METRIC_CONFIG
 from ..utils.plotting import (
+    create_bar_comparison_plot,
     create_comparison_plot,
     create_scorecard_heatmap,
     create_timeseries_plot,
@@ -18,6 +19,29 @@ from ..utils.stats import calculate_confidence_interval
 
 if TYPE_CHECKING:
     from ..engine import PerformanceAnalyzer
+
+RESOURCE_BAR_PLOTS = {
+    "cpu": {
+        "filename": "load_cpu_comparison.png",
+        "title": "Zużycie CPU podczas testu obciążeniowego (%)",
+        "xlabel": "Zużycie CPU (%)",
+    },
+    "memory": {
+        "filename": "load_ram_comparison.png",
+        "title": "Zużycie pamięci podczas testu obciążeniowego (MB)",
+        "xlabel": "Zużycie pamięci (MB)",
+    },
+    "p99": {
+        "filename": "load_p99_comparison.png",
+        "title": "Średnie opóźnienie p99 podczas testu obciążeniowego (ms)",
+        "xlabel": "Opóźnienie p99 (ms)",
+    },
+    "network_tx": {
+        "filename": "load_throughput_comparison.png",
+        "title": "Średnia przepustowość wyjściowa podczas testu obciążeniowego (MB/s)",
+        "xlabel": "Przepustowość wyjściowa (MB/s)",
+    },
+}
 
 
 def run_load_analysis(analyzer: PerformanceAnalyzer) -> None:
@@ -151,6 +175,20 @@ def generate_load_plots(
     # Heatmap needs the ranks
     create_scorecard_heatmap(analyzer, scorecard_ranks_df)
 
+    # Capacity-style resource utilisation bar charts (mean per Repetition)
+    for metric, cfg in RESOURCE_BAR_PLOTS.items():
+        m_df = summary_df[summary_df[Column.METRIC] == metric]
+        if m_df.empty:
+            continue
+        create_bar_comparison_plot(
+            analyzer,
+            m_df,
+            "mean",
+            cfg["title"],
+            cfg["xlabel"],
+            cfg["filename"],
+        )
+
     for stat_col, metrics in METRIC_CONFIG.items():
         for metric, config in metrics.items():
             m_df = summary_df[summary_df[Column.METRIC] == metric]
@@ -174,6 +212,7 @@ def generate_load_report(
 ) -> str:
     report = [f"# Performance Analysis Report for `{analyzer.input_dir.name}`"]
     report.append(render_executive_summary_md(analyzer, executive_summary))
+    report.append(render_resource_comparison_md(analyzer))
     report.append("\n## Detailed Analysis")
     report.append(render_ranking_tables_md(ranking_results))
     report.append(render_visual_overview_md(analyzer))
@@ -188,6 +227,15 @@ def render_executive_summary_md(analyzer: PerformanceAnalyzer, executive_summary
     if path.exists():
         md.append("\n### Performance Scorecard")
         md.append("![Performance Scorecard](./plots/performance_scorecard.png)")
+    return "\n".join(md)
+
+
+def render_resource_comparison_md(analyzer: PerformanceAnalyzer) -> str:
+    md = ["\n### Porównanie zużycia zasobów"]
+    for cfg in RESOURCE_BAR_PLOTS.values():
+        filename = cfg["filename"]
+        if (analyzer.plots_dir / filename).exists():
+            md.append(f"![{cfg['title']}](./plots/{filename})")
     return "\n".join(md)
 
 

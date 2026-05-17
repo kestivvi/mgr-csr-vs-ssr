@@ -8,12 +8,12 @@
 [![k6](https://img.shields.io/badge/k6-load%20testing-7D64FF?logo=k6&logoColor=white)](https://k6.io/)
 [![AWS](https://img.shields.io/badge/AWS-Graviton%20%28ARM64%29-FF9900?logo=amazonaws&logoColor=white)](https://aws.amazon.com/ec2/graviton/)
 
-The MGR Orchestrator automates the full empirical research lifecycle: provisioning isolated AWS environments, deploying 30+ web application **Subjects**, generating reproducible load with k6, and reducing the captured Prometheus time-series into publication-ready tables and plots.
+The MGR Orchestrator automates the full empirical research lifecycle: provisioning isolated AWS environments, deploying web application **Subjects**, generating reproducible load with k6, and reducing the captured Prometheus time-series into publication-ready tables and plots.
 
 ## Highlights
 
 - **Single CLI (`mgr`)** — drives infrastructure, experiments, and analysis from one Typer-based entrypoint.
-- **30+ benchmark Subjects** — React, Vue, Svelte, Solid, Angular, Lit, Qwik, Next.js, Nuxt, Astro, SvelteKit, SolidStart, TanStack Start, Fresh, Analog… across Node.js, Bun, Deno, Nginx, and Apache.
+- **Benchmark Subjects** — React, Vue, Svelte, Solid, Angular, Lit, Qwik, Next.js, Nuxt, Astro, SvelteKit, SolidStart, TanStack Start, Fresh, Analog… across Node.js, Bun, Deno, Nginx, and Apache.
 - **AWS Graviton native** — Terraform-managed `c8g`/`m8g` ARM64 fleet with Ansible-driven server roles.
 - **Strict isolation** — separate EC2 hosts for the System Under Test, the k6 load generators, and the Prometheus/Grafana monitoring stack.
 - **Scientific rigor** — JIT warmup phases, configurable repetitions, schema-validated artifacts, and aggregation utilities for partial reruns.
@@ -167,7 +167,7 @@ mgr-code/
 │   └── infra.example.yaml
 ├── terraform/           # AWS Graviton infrastructure (c8g / m8g)
 ├── ansible/             # Roles & playbooks for SUT, load generator, monitoring host
-├── subjects/            # 30+ benchmark Subjects (csr-* / ssr-*)
+├── subjects/            # Benchmark Subjects (csr-* / ssr-*)
 ├── k6/                  # k6 scripts used by the load generator
 ├── docs/                # Methodology notes (inventory, infra rationale, wrk usage)
 └── results/             # Materialized Artifacts (git-ignored)

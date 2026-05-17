@@ -150,6 +150,94 @@ def create_scorecard_heatmap(
     return path
 
 
+def create_bar_comparison_plot(
+    analyzer: PerformanceAnalyzer,
+    plot_df: pd.DataFrame,
+    value_col: str,
+    title: str,
+    xlabel: str,
+    filename: str,
+) -> Optional[Path]:
+    """Horizontal bar chart comparing one value across technologies.
+
+    `plot_df` holds one row per (technology, Repetition) with `value_col` plus
+    `SERVER_TYPE`, `GROUP`, `REPETITION_NUMBER`. Bars show the mean across
+    Repetitions with an sd error bar; individual Repetitions appear as a strip.
+    """
+    if plot_df.empty or value_col not in plot_df.columns:
+        return None
+
+    plot_df = clean_tech_names_df(plot_df)
+    full_order = get_ordered_tech_list(analyzer, plot_df)
+    order_map = plot_df.set_index(Column.SERVER_TYPE)["display_name"].to_dict()
+    order = [order_map[t] for t in full_order if t in order_map]
+
+    plt.figure(figsize=(12, 10))
+    ax = plt.gca()
+
+    sns.barplot(
+        data=plot_df,
+        y="display_name",
+        x=value_col,
+        hue=Column.GROUP,
+        order=order,
+        palette=PLOT_PALETTE,
+        dodge=False,
+        errorbar="sd",
+        capsize=0.1,
+        alpha=0.8,
+        ax=ax,
+    )
+    sns.stripplot(
+        data=plot_df,
+        y="display_name",
+        x=value_col,
+        color="#333333",
+        order=order,
+        size=4,
+        alpha=0.6,
+        dodge=False,
+        jitter=True,
+        ax=ax,
+    )
+
+    means = plot_df.groupby("display_name")[value_col].mean()
+    stds = plot_df.groupby("display_name")[value_col].std().fillna(0)
+    for i, name in enumerate(order):
+        m, s = means[name], stds[name]
+        group_data = plot_df[plot_df["display_name"] == name][value_col]
+        extent = max(m + s, group_data.max())
+        label_text = f"{m:.1f} (±{s:.2f})" if s > 0 else f"{m:.1f}"
+        ax.annotate(
+            label_text,
+            (extent, i),
+            ha="left",
+            va="center",
+            xytext=(8, 0),
+            textcoords="offset points",
+            fontsize=9,
+        )
+    plt.legend(title="Grupa", loc="lower right")
+
+    plt.title(title)
+    plt.xlabel(xlabel)
+    plt.ylabel("")
+
+    for label in ax.get_yticklabels():
+        name = label.get_text()
+        match = plot_df[plot_df["display_name"] == name]
+        if not match.empty:
+            group = match[Column.GROUP].iloc[0]
+            label.set_color(PLOT_PALETTE.get(group, "black"))
+            label.set_fontweight("bold")
+
+    plt.tight_layout()
+    path = Path(analyzer.plots_dir) / filename
+    plt.savefig(path)
+    plt.close()
+    return path
+
+
 def create_comparison_plot(
     analyzer: PerformanceAnalyzer,
     df: pd.DataFrame,

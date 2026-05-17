@@ -10,7 +10,11 @@ from matplotlib.patches import Patch
 from orchestrator.shared.research import Column, MetricName
 
 from ..config import PLOT_PALETTE
-from ..utils.plotting import get_ordered_tech_list
+from ..utils.plotting import (
+    clean_tech_names_df,
+    create_bar_comparison_plot,
+    get_ordered_tech_list,
+)
 from ..utils.reporting import write_report
 
 if TYPE_CHECKING:
@@ -114,187 +118,118 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, raw_results: pd.DataF
     if raw_results.empty:
         return
 
-    # Work on a copy for plotting
-    plot_df = raw_results.copy()
-    # Note: 'group' is already added by the ExperimentLoader
-    plot_df["display_name"] = plot_df[Column.SERVER_TYPE].str.replace(
-        r"^(csr|ssr)-", "", regex=True
-    )
+    # Work on a copy for plotting. 'group' is already added by the ExperimentLoader.
+    plot_df = clean_tech_names_df(raw_results.copy())
 
-    # Handle duplicate names by adding group suffix
-    name_counts = plot_df.groupby("display_name")[Column.GROUP].nunique()
-    duplicate_names = name_counts[name_counts > 1].index
-    plot_df.loc[plot_df["display_name"].isin(duplicate_names), "display_name"] += (
-        " (" + plot_df[Column.GROUP] + ")"
-    )
-
-    comparisons = {
-        "sustained_rps": "capacity_rps_comparison.png",
-        "cpu_at_sustained": "capacity_cpu_at_sustained_usage.png",
-        "ram_at_sustained": "capacity_ram_at_sustained_usage.png",
-    }
     titles = {
         "sustained_rps": "Maksymalna utrzymana przepustowość (utrzymany RPS)",
         "cpu_at_sustained": "Zużycie CPU przy utrzymanej przepustowości (%)",
         "ram_at_sustained": "Zużycie pamięci przy utrzymanej przepustowości (MB)",
     }
 
-    for col, filename in comparisons.items():
-        if col not in plot_df.columns:
-            continue
+    # Grouped bar chart for RPS (Peak vs Sustained)
+    if "sustained_rps" in plot_df.columns:
         plt.figure(figsize=(12, 10))
         ax = plt.gca()
+        rps_df = plot_df.melt(
+            id_vars=["display_name", Column.GROUP, Column.REPETITION_NUMBER],
+            value_vars=["sustained_rps", "peak_rps"],
+            var_name="metric_type",
+            value_name="rps",
+        )
+        rps_df["metric_type"] = rps_df["metric_type"].map(
+            {"peak_rps": "Szczytowy", "sustained_rps": "Utrzymany"}
+        )
 
-        if col == "sustained_rps":
-            # Grouped bar chart for RPS (Peak vs Sustained)
-            rps_df = plot_df.melt(
-                id_vars=["display_name", Column.GROUP, Column.REPETITION_NUMBER],
-                value_vars=["sustained_rps", "peak_rps"],
-                var_name="metric_type",
-                value_name="rps",
-            )
-            rps_df["metric_type"] = rps_df["metric_type"].map(
-                {"peak_rps": "Szczytowy", "sustained_rps": "Utrzymany"}
-            )
+        # Use global family-based order
+        full_order = get_ordered_tech_list(analyzer, plot_df)
+        order_map = plot_df.set_index(Column.SERVER_TYPE)["display_name"].to_dict()
+        order = [order_map[t] for t in full_order if t in order_map]
 
-            # Use global family-based order
-            full_order = get_ordered_tech_list(analyzer, plot_df)
-            order_map = plot_df.set_index(Column.SERVER_TYPE)["display_name"].to_dict()
-            order = [order_map[t] for t in full_order if t in order_map]
+        sns.barplot(
+            data=rps_df,
+            y="display_name",
+            x="rps",
+            hue="metric_type",
+            hue_order=["Szczytowy", "Utrzymany"],
+            order=order,
+            palette={"Szczytowy": "#4C72B0", "Utrzymany": "#A0C4FF"},
+            capsize=0.1,
+            alpha=0.8,
+            ax=ax,
+        )
+        sns.stripplot(
+            data=rps_df,
+            y="display_name",
+            x="rps",
+            hue="metric_type",
+            hue_order=["Szczytowy", "Utrzymany"],
+            palette={"Szczytowy": "#222222", "Utrzymany": "#222222"},
+            order=order,
+            size=3,
+            alpha=0.4,
+            dodge=True,
+            jitter=True,
+            legend=False,
+            ax=ax,
+        )
 
-            sns.barplot(
-                data=rps_df,
-                y="display_name",
-                x="rps",
-                hue="metric_type",
-                hue_order=["Szczytowy", "Utrzymany"],
-                order=order,
-                palette={"Szczytowy": "#4C72B0", "Utrzymany": "#A0C4FF"},
-                capsize=0.1,
-                alpha=0.8,
-                ax=ax,
-            )
-            sns.stripplot(
-                data=rps_df,
-                y="display_name",
-                x="rps",
-                hue="metric_type",
-                hue_order=["Szczytowy", "Utrzymany"],
-                palette={"Szczytowy": "#222222", "Utrzymany": "#222222"},
-                order=order,
-                size=3,
-                alpha=0.4,
-                dodge=True,
-                jitter=True,
-                legend=False,
-                ax=ax,
-            )
+        # Add value labels for both bars in the group
+        for i, name in enumerate(order):
+            for j, _m_type in enumerate(["Szczytowy", "Utrzymany"]):
+                m_key = "peak_rps" if j == 0 else "sustained_rps"
+                subset = plot_df[plot_df["display_name"] == name][m_key]
+                m = subset.mean()
+                s = subset.std() if len(subset) > 1 else 0
 
-            # Add value labels for both bars in the group
-            for i, name in enumerate(order):
-                for j, _m_type in enumerate(["Szczytowy", "Utrzymany"]):
-                    m_key = "peak_rps" if j == 0 else "sustained_rps"
-                    subset = plot_df[plot_df["display_name"] == name][m_key]
-                    m = subset.mean()
-                    s = subset.std() if len(subset) > 1 else 0
+                # Offset y position for grouped bars (default width is 0.8, so offset is 0.2)
+                y_pos = i - 0.2 if j == 0 else i + 0.2
+                extent = max(m + s, subset.max())
 
-                    # Offset y position for grouped bars (default width is 0.8, so offset is 0.2)
-                    y_pos = i - 0.2 if j == 0 else i + 0.2
-                    extent = max(m + s, subset.max())
-
-                    label_text = f"{m:.0f} (±{s:.1f})"
-                    ax.annotate(
-                        label_text,
-                        (extent, y_pos),
-                        ha="left",
-                        va="center",
-                        xytext=(8, 0),
-                        textcoords="offset points",
-                        fontsize=8,
-                        color="#222222",
-                    )
-            # Manual coloring for SSR (Red) and CSR (Blue)
-            n_techs = len(order)
-            for i, patch in enumerate(ax.patches):
-                if i >= 2 * n_techs:
-                    break
-                tech_idx = i % n_techs
-                is_sustained = i >= n_techs
-                tech_name = order[tech_idx]
-                group = plot_df[plot_df["display_name"] == tech_name][Column.GROUP].iloc[0].lower()
-
-                if group == "ssr":
-                    color = "#d62728" if not is_sustained else "#ff9f9b"
-                else:
-                    color = "#1f77b4" if not is_sustained else "#a1c9f4"
-                patch.set_facecolor(color)
-                patch.set_edgecolor("white")
-
-            # Custom legend for the complex color scheme
-            legend_elements = [
-                Patch(facecolor="#d62728", label="SSR - Szczytowy"),
-                Patch(facecolor="#ff9f9b", label="SSR - Utrzymany"),
-                Patch(facecolor="#1f77b4", label="CSR - Szczytowy"),
-                Patch(facecolor="#a1c9f4", label="CSR - Utrzymany"),
-            ]
-            plt.legend(
-                handles=legend_elements,
-                title="Technologia i typ RPS",
-                loc="lower right",
-                fontsize=8,
-            )
-        else:
-            # Standard bar chart for CPU/RAM - use global family-based order
-            full_order = get_ordered_tech_list(analyzer, plot_df)
-            order_map = plot_df.set_index(Column.SERVER_TYPE)["display_name"].to_dict()
-            order = [order_map[t] for t in full_order if t in order_map]
-            sns.barplot(
-                data=plot_df,
-                y="display_name",
-                x=col,
-                hue=Column.GROUP,
-                order=order,
-                palette=PLOT_PALETTE,
-                dodge=False,
-                errorbar="sd",
-                capsize=0.1,
-                alpha=0.8,
-                ax=ax,
-            )
-            sns.stripplot(
-                data=plot_df,
-                y="display_name",
-                x=col,
-                color="#333333",
-                order=order,
-                size=4,
-                alpha=0.6,
-                dodge=False,
-                jitter=True,
-                ax=ax,
-            )
-
-            # Add labels for single bars
-            means = plot_df.groupby("display_name")[col].mean()
-            stds = plot_df.groupby("display_name")[col].std().fillna(0)
-            for i, name in enumerate(order):
-                m, s = means[name], stds[name]
-                group_data = plot_df[plot_df["display_name"] == name][col]
-                extent = max(m + s, group_data.max())
-                label_text = f"{m:.1f} (±{s:.2f})" if s > 0 else f"{m:.1f}"
+                label_text = f"{m:.0f} (±{s:.1f})"
                 ax.annotate(
                     label_text,
-                    (extent, i),
+                    (extent, y_pos),
                     ha="left",
                     va="center",
                     xytext=(8, 0),
                     textcoords="offset points",
-                    fontsize=9,
+                    fontsize=8,
+                    color="#222222",
                 )
-            plt.legend(title="Grupa", loc="lower right")
+        # Manual coloring for SSR (Red) and CSR (Blue)
+        n_techs = len(order)
+        for i, patch in enumerate(ax.patches):
+            if i >= 2 * n_techs:
+                break
+            tech_idx = i % n_techs
+            is_sustained = i >= n_techs
+            tech_name = order[tech_idx]
+            group = plot_df[plot_df["display_name"] == tech_name][Column.GROUP].iloc[0].lower()
 
-        plt.title(titles[col])
-        plt.xlabel(titles[col].split("(")[-1].replace(")", ""))
+            if group == "ssr":
+                color = "#d62728" if not is_sustained else "#ff9f9b"
+            else:
+                color = "#1f77b4" if not is_sustained else "#a1c9f4"
+            patch.set_facecolor(color)
+            patch.set_edgecolor("white")
+
+        # Custom legend for the complex color scheme
+        legend_elements = [
+            Patch(facecolor="#d62728", label="SSR - Szczytowy"),
+            Patch(facecolor="#ff9f9b", label="SSR - Utrzymany"),
+            Patch(facecolor="#1f77b4", label="CSR - Szczytowy"),
+            Patch(facecolor="#a1c9f4", label="CSR - Utrzymany"),
+        ]
+        plt.legend(
+            handles=legend_elements,
+            title="Technologia i typ RPS",
+            loc="lower right",
+            fontsize=8,
+        )
+
+        plt.title(titles["sustained_rps"])
+        plt.xlabel(titles["sustained_rps"].split("(")[-1].replace(")", ""))
         plt.ylabel("")
 
         # Color y-axis labels by group
@@ -307,8 +242,19 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, raw_results: pd.DataF
                 label.set_fontweight("bold")
 
         plt.tight_layout()
-        plt.savefig(analyzer.plots_dir / filename)
+        plt.savefig(analyzer.plots_dir / "capacity_rps_comparison.png")
         plt.close()
+
+    # Single-bar CPU/RAM comparisons (style shared with load analysis)
+    bar_comparisons = {
+        "cpu_at_sustained": "capacity_cpu_at_sustained_usage.png",
+        "ram_at_sustained": "capacity_ram_at_sustained_usage.png",
+    }
+    for col, filename in bar_comparisons.items():
+        if col not in plot_df.columns:
+            continue
+        xlabel = titles[col].split("(")[-1].replace(")", "")
+        create_bar_comparison_plot(analyzer, plot_df, col, titles[col], xlabel, filename)
 
 
 def generate_capacity_report(analyzer: PerformanceAnalyzer, raw_results: pd.DataFrame) -> str:

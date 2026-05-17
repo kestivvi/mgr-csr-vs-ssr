@@ -97,6 +97,80 @@ def mock_aggregated_study_dir(tmp_path: Path) -> Path:
     return study_dir
 
 
+@pytest.fixture
+def mock_load_study_dir(tmp_path: Path) -> Path:
+    """Creates a temporary aggregated Load Test study directory."""
+    study_dir = tmp_path / "load_study"
+    study_dir.mkdir()
+    (study_dir / "metrics").mkdir()
+    (study_dir / "tool_results").mkdir()
+    (study_dir / "logs").mkdir()
+
+    base_ts = datetime.datetime(2026, 5, 17, 12, 0, 0)
+
+    # 2 Applications, 2 Repetitions each. Load Test holds a fixed rate.
+    specs = {
+        "ssr-nextjs-node": [(0.50, 200 * 1024 * 1024), (0.55, 210 * 1024 * 1024)],
+        "csr-vanilla-nginx": [(0.08, 20 * 1024 * 1024), (0.09, 21 * 1024 * 1024)],
+    }
+    for tech, reps in specs.items():
+        for rep_idx, (cpu, mem) in enumerate(reps, start=1):
+            rows = ["timestamp,cpu,memory"]
+            for idx in range(40):
+                ts = (base_ts + datetime.timedelta(seconds=idx)).isoformat()
+                rows.append(f"{ts},{cpu + idx * 0.001},{mem + idx * 1024 * 1024}")
+            fname = f"{rep_idx:02d}_{tech.replace('-', '_')}.csv"
+            with open(study_dir / "metrics" / fname, "w") as f:
+                f.write("\n".join(rows))
+
+    meta = {
+        "test_type": "load",
+        "parameters": {
+            "test_type": "load",
+            "rate": 1000,
+            "warmup_duration": "10s",
+        },
+        "subjects": {
+            "ssr-nextjs-node": {
+                "family": "react",
+                "meta_framework": "nextjs",
+                "strategy": "ssr",
+                "runtime": "node",
+            },
+            "csr-vanilla-nginx": {
+                "family": "vanilla",
+                "meta_framework": None,
+                "strategy": "csr",
+                "runtime": "nginx",
+            },
+        },
+    }
+    with open(study_dir / "metadata.yaml", "w") as f:
+        yaml.dump(meta, f)
+
+    return study_dir
+
+
+def test_performance_analyzer_load_generates_resource_bar_plots(
+    mock_load_study_dir: Path,
+) -> None:
+    """`mgr analyze load` produces capacity-style CPU/RAM utilisation bar charts."""
+    analyzer = PerformanceAnalyzer(
+        input_dir=mock_load_study_dir,
+        report_type="load",
+        force=True,
+    )
+    analyzer.run()
+
+    assert (analyzer.plots_dir / "load_cpu_comparison.png").exists()
+    assert (analyzer.plots_dir / "load_ram_comparison.png").exists()
+
+    report_content = analyzer.report_path.read_text()
+    assert "### Porównanie zużycia zasobów" in report_content
+    assert "load_cpu_comparison.png" in report_content
+    assert "load_ram_comparison.png" in report_content
+
+
 def test_performance_analyzer_capacity_k6_report_generation(
     mock_aggregated_study_dir: Path,
 ) -> None:
