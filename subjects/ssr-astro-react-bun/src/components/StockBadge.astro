@@ -1,0 +1,9 @@
+---
+interface Props {
+  inStock: boolean;
+}
+const { inStock } = Astro.props;
+---
+{inStock
+  ? <span class="badge badge-in">IN</span>
+  : <span class="badge badge-out">OUT</span>}
