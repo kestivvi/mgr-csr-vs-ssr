@@ -40,7 +40,7 @@ const CONFIG = {
 };
 
 // --- Init-Context Constants (avoid property lookups in default fn) ---
-const IS_DYNAMIC = CONFIG.TEST_PATH === 'dynamic';
+const IS_DYNAMIC = CONFIG.TEST_PATH !== 'static';
 const SKIP_ASSETS = CONFIG.SKIP_ASSETS;
 const BACKOFF_TIMEOUT = CONFIG.BACKOFF_TIMEOUT;
 const BACKOFF_5XX = CONFIG.BACKOFF_5XX;
@@ -131,7 +131,7 @@ export const options = {
 
 // --- Pre-allocated Request Objects (Init Context) ---
 const STATIC_URL = baseUrl + '/';
-const DYNAMIC_URL_BASE = baseUrl + '/dynamic/';
+const DYNAMIC_URL_BASE = baseUrl + '/' + CONFIG.TEST_PATH + '/';
 
 // --- URL Pool for Dynamic Paths (shared across all VUs) ---
 // Power-of-two size so the hot path can use bitmask (& POOL_MASK) instead

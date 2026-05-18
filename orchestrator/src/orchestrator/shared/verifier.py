@@ -1,6 +1,6 @@
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from orchestrator.shared.infra.base import BaseAdapter
@@ -15,6 +15,8 @@ class HealthCheck:
     check_content: bool = False
     verify_gzip: bool = False
     headers_only: bool = False
+    body_contains: list[str] = field(default_factory=list)
+    body_count: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
@@ -25,6 +27,13 @@ class HealthProfile:
     checks: list[HealthCheck]
 
 
+# Markers locked by mgr-code/subjects/_infra/dynamic-app/SPEC.md (issue 001).
+_DYNAMIC_APP_ID = 42
+_DYNAMIC_APP_H1 = f"Items for #{_DYNAMIC_APP_ID}"
+_DYNAMIC_APP_ROW_MARKER = 'class="row"'
+_DYNAMIC_APP_ROW_COUNT = 100
+
+
 # Standard Profiles for the MGR Research Project
 SSR_PROFILE = HealthProfile(
     name="SSR",
@@ -32,6 +41,11 @@ SSR_PROFILE = HealthProfile(
         HealthCheck("/", check_content=True, verify_gzip=True),
         HealthCheck("/favicon.ico", headers_only=True),
         HealthCheck("/dynamic/verify", check_content=True, verify_gzip=True),
+        HealthCheck(
+            f"/dynamic-app/{_DYNAMIC_APP_ID}",
+            body_contains=[_DYNAMIC_APP_H1],
+            body_count={_DYNAMIC_APP_ROW_MARKER: _DYNAMIC_APP_ROW_COUNT},
+        ),
     ],
 )
 
@@ -41,6 +55,7 @@ CSR_PROFILE = HealthProfile(
         HealthCheck("/", verify_gzip=True),
         HealthCheck("/favicon.ico", headers_only=True),
         HealthCheck("/dynamic/verify", verify_gzip=True),
+        HealthCheck(f"/dynamic-app/{_DYNAMIC_APP_ID}"),
     ],
 )
 
@@ -137,15 +152,33 @@ class SubjectVerifier(BaseAdapter):
 
             # 1. Validate Status Code (200 OK)
             if "http/1.1 200" not in output_lower and "http/2 200" not in output_lower:
+                self._log(f"  FAIL {url}: non-200 response")
                 return False
 
             # 2. Validate Content (if required)
             if check.check_content and "hello world" not in output_lower:
+                self._log(f"  FAIL {url}: 'hello world' marker missing")
                 return False
 
             # 3. Validate Gzip Header (if required)
             if use_gzip and "content-encoding: gzip" not in output_lower:
+                self._log(f"  FAIL {url}: gzip Content-Encoding missing")
                 return False
+
+            # 4. Validate required body substrings (case-insensitive)
+            for needle in check.body_contains:
+                if needle.lower() not in output_lower:
+                    self._log(f"  FAIL {url}: body missing substring {needle!r}")
+                    return False
+
+            # 5. Validate exact-count body substrings (case-insensitive)
+            for needle, expected in check.body_count.items():
+                actual = output_lower.count(needle.lower())
+                if actual != expected:
+                    self._log(
+                        f"  FAIL {url}: substring {needle!r} count={actual}, expected {expected}"
+                    )
+                    return False
 
             return True
 
