@@ -1,0 +1,24 @@
+# Test Scenario: _hello (A in the three-Scenario taxonomy).
+#
+# URL prefix: /dynamic/{id} — the minimal baseline page.
+# Assets:     skip_assets=true — baseline scenario excludes static assets to
+#             keep continuity with the prior campaign and serve as a sanity
+#             check for the rendering pipeline.
+#
+# Comparison axes:
+#   vs _app         → isolates page-complexity effect at constant assets-off.
+#   vs _app_assets  → full-picture comparison (page complexity + assets).
+
+test_type: load
+num_repetitions: 10
+inter_repetition_delay: 1m
+
+load_options:
+  rps: 50
+  warmup: 60s
+  duration: 60s
+  after: 15s
+  vus: 300
+  path_type: dynamic
+  skip_assets: true
+  timeout: 0.4s

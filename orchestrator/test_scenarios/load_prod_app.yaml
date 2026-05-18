@@ -1,0 +1,24 @@
+# Test Scenario: _app (B in the three-Scenario taxonomy).
+#
+# URL prefix: /dynamic-app/{id} — the realistic procedurally-generated 100-row page.
+# Assets:     skip_assets=true — static assets are excluded from the measurement
+#             because real browsers cache them aggressively in production and they
+#             do not represent recurring server load.
+#
+# Comparison axes:
+#   vs _hello       → isolates page-complexity effect at constant assets-off.
+#   vs _app_assets  → isolates asset-fetching effect at constant page.
+
+test_type: load
+num_repetitions: 10
+inter_repetition_delay: 1m
+
+load_options:
+  rps: 50  # TODO: re-derive from _app Capacity Test results before running this Scenario.
+  warmup: 60s
+  duration: 60s
+  after: 15s
+  vus: 300
+  path_type: dynamic-app
+  skip_assets: true
+  timeout: 0.4s
