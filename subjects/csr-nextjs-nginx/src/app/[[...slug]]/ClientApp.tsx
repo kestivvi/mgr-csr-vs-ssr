@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
+import DynamicApp from './DynamicApp';
 
 export default function ClientApp() {
   const [count, setCount] = useState(0);
@@ -41,6 +42,11 @@ export default function ClientApp() {
         </div>
       </main>
     );
+  }
+
+  // Dynamic App Route: /dynamic-app/[id]
+  if (slug[0] === 'dynamic-app' && slug[1]) {
+    return <DynamicApp id={slug[1]} />;
   }
 
   // Fallback for SPA (404)

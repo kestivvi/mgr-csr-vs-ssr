@@ -1,6 +1,7 @@
 import { createSignal, type Component } from 'solid-js';
 import { Router, Route } from '@solidjs/router';
 import Dynamic from './pages/Dynamic';
+import DynamicApp from './pages/DynamicApp';
 
 const Home: Component = () => {
   const [count, setCount] = createSignal(0);
@@ -20,6 +21,7 @@ const App: Component = () => {
     <Router>
       <Route path="/" component={Home} />
       <Route path="/dynamic/:name" component={Dynamic} />
+      <Route path="/dynamic-app/:id" component={DynamicApp} />
     </Router>
   );
 };

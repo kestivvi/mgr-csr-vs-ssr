@@ -19,4 +19,11 @@ router.setRoutes([
       await import('./pages/dynamic-page');
     },
   },
+  {
+    path: '/dynamic-app/:id',
+    component: 'dynamic-app-page',
+    action: async () => {
+      await import('./pages/dynamic-app-page');
+    },
+  },
 ]);
