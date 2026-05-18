@@ -65,7 +65,7 @@ cp infra.example.yaml infra.yaml
 $EDITOR infra.yaml   # set aws_region, key_name, my_ip
 
 # 3. Verify Subjects locally (free, runs in Docker)
-mgr verify --subjects csr-react-nginx,ssr-nextjs-node
+mgr verify --apps csr-react-nginx,ssr-nextjs-node
 ```
 
 > [!IMPORTANT]
@@ -88,7 +88,7 @@ mgr preview     Run a single Subject locally for manual inspection
 
 ```bash
 # Bring up only the Subjects you need (cost-conscious default)
-mgr setup infra.yaml --subjects csr-react-nginx,ssr-nextjs-node
+mgr setup infra.yaml --apps csr-react-nginx,ssr-nextjs-node
 
 # Tear everything down when you're done
 mgr destroy

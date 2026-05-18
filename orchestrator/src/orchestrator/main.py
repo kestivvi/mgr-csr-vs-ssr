@@ -43,11 +43,11 @@ def setup(
             help="Skip confirmation prompts (useful for CI/CD)",
         ),
     ] = False,
-    subjects: Annotated[
+    apps: Annotated[
         Optional[str],
         typer.Option(
-            "--subjects",
-            help="Comma-separated list of subject IDs to deploy (e.g. csr-angular,ssr-next).",
+            "--apps",
+            help="Comma-separated list of app IDs to deploy (e.g. csr-angular,ssr-next).",
         ),
     ] = None,
     exclude: Annotated[
@@ -71,33 +71,33 @@ def setup(
 
     from orchestrator.actions.setup import provider as setup_provider
 
-    subject_list = subjects.split(",") if subjects else None
+    app_list = apps.split(",") if apps else None
     exclude_list = exclude.split(",") if exclude else None
     setup_provider.run_setup(
         infra_path=infra_path,
         force=force,
         verbose=verbose,
-        subjects=subject_list,
+        subjects=app_list,
         exclude=exclude_list,
     )
 
 
-subjects_app = typer.Typer(
+test_app = typer.Typer(
     help="[bold blue]Test[/bold blue]: Run performance experiments (k6/wrk).",
     rich_markup_mode="rich",
 )
-app.add_typer(subjects_app, name="test")
+app.add_typer(test_app, name="test")
 
 
-@subjects_app.command(name="load")
+@test_app.command(name="load")
 def test_load(
-    subjects: Annotated[
+    apps: Annotated[
         str | None,
         typer.Option(
-            "--subjects",
-            "--subject",
-            "-s",
-            help="Filter subjects by ID (partial matches, comma-separated).",
+            "--apps",
+            "--app",
+            "-a",
+            help="Filter apps by ID (partial matches, comma-separated).",
             rich_help_panel="Scope",
         ),
     ] = None,
@@ -192,7 +192,7 @@ def test_load(
 
     test_cli.run(
         mode="load",
-        subjects=subjects,
+        subjects=apps,
         num_repetitions=num_repetitions,
         inter_repetition_delay=inter_repetition_delay,
         duration=duration,
@@ -205,15 +205,15 @@ def test_load(
     )
 
 
-@subjects_app.command(name="capacity")
+@test_app.command(name="capacity")
 def test_capacity(
-    subjects: Annotated[
+    apps: Annotated[
         str | None,
         typer.Option(
-            "--subjects",
-            "--subject",
-            "-s",
-            help="Filter subjects by ID (partial matches, comma-separated).",
+            "--apps",
+            "--app",
+            "-a",
+            help="Filter apps by ID (partial matches, comma-separated).",
             rich_help_panel="Scope",
         ),
     ] = None,
@@ -324,7 +324,7 @@ def test_capacity(
 
     test_cli.run(
         mode="capacity",
-        subjects=subjects,
+        subjects=apps,
         num_repetitions=num_repetitions,
         inter_repetition_delay=inter_repetition_delay,
         peak_rate=peak_rate,
@@ -339,7 +339,7 @@ def test_capacity(
     )
 
 
-@subjects_app.command(name="file")
+@test_app.command(name="file")
 def test_file(
     path: Annotated[str, typer.Argument(help="Path to custom experiment configuration YAML file.")],
     num_repetitions: Annotated[
@@ -418,15 +418,15 @@ def test_file(
     )
 
 
-@subjects_app.command(name="wrk")
+@test_app.command(name="wrk")
 def test_wrk(
-    subjects: Annotated[
+    apps: Annotated[
         str | None,
         typer.Option(
-            "--subjects",
-            "--subject",
-            "-s",
-            help="Filter subjects by ID (partial matches, comma-separated).",
+            "--apps",
+            "--app",
+            "-a",
+            help="Filter apps by ID (partial matches, comma-separated).",
         ),
     ] = None,
     num_repetitions: Annotated[
@@ -442,12 +442,10 @@ def test_wrk(
     """Run local [cyan]capacity benchmarks[/cyan] using wrk."""
     from orchestrator.actions.test import cli as test_cli
 
-    test_cli.run_local_wrk(
-        subject_filter=subjects, num_repetitions=num_repetitions, verbose=verbose
-    )
+    test_cli.run_local_wrk(subject_filter=apps, num_repetitions=num_repetitions, verbose=verbose)
 
 
-@subjects_app.command(name="stop")
+@test_app.command(name="stop")
 def test_stop() -> None:
     """[bold red]Emergency Stop[/bold red]: Kill all running k6 containers on all generators."""
     from orchestrator.actions.test.runner import TestRunner
@@ -502,11 +500,11 @@ def destroy(
 @app.command()
 def campaign(
     path: Annotated[Path, typer.Argument(help="Path to campaign experiment configuration YAML")],
-    subjects: Annotated[
+    apps: Annotated[
         str | None,
         typer.Option(
-            "--subjects",
-            help="Comma-separated list of subjects to include (overrides YAML)",
+            "--apps",
+            help="Comma-separated list of apps to include (overrides YAML)",
         ),
     ] = None,
     resume: Annotated[
@@ -527,7 +525,7 @@ def campaign(
     """
     from orchestrator.actions.campaign import cli as campaign_provider
 
-    campaign_provider.run(path=path, subjects=subjects, resume=resume, infra=infra, verbose=verbose)
+    campaign_provider.run(path=path, apps=apps, resume=resume, infra=infra, verbose=verbose)
 
 
 @app.command()
@@ -565,14 +563,14 @@ def aggregate(
 
 @app.command()
 def verify(
-    subjects: Annotated[
+    apps: Annotated[
         str | None,
         typer.Option(
-            "--subjects",
-            "--subject",
-            "-s",
+            "--apps",
+            "--app",
+            "-a",
             help=(
-                "Filter subjects by ID. Supports [bold]partial matches[/bold] and "
+                "Filter apps by ID. Supports [bold]partial matches[/bold] and "
                 "[bold]comma-separated lists[/bold] (e.g., 'nextjs,react')."
             ),
         ),
@@ -586,7 +584,7 @@ def verify(
     """
     from orchestrator.actions.verify import cli as verify_cli
 
-    verify_cli.run(subject_filter=subjects, verbose=verbose)
+    verify_cli.run(subject_filter=apps, verbose=verbose)
 
 
 @app.command()

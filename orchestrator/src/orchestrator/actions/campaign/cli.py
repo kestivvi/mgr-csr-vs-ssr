@@ -8,11 +8,11 @@ from orchestrator.actions.campaign.provider import run_campaign
 
 def run(
     path: Annotated[Path, typer.Argument(help="Path to campaign experiment configuration YAML")],
-    subjects: Annotated[
+    apps: Annotated[
         Optional[str],
         typer.Option(
-            "--subjects",
-            help="Comma-separated list of subjects to include (overrides YAML)",
+            "--apps",
+            help="Comma-separated list of apps to include (overrides YAML)",
         ),
     ] = None,
     resume: Annotated[
@@ -30,6 +30,4 @@ def run(
     """
     Run a sequential [bold magenta]Campaign[/bold magenta] across multiple subjects.
     """
-    run_campaign(
-        path=path, subject_filter=subjects, resume=resume, infra_path=infra, verbose=verbose
-    )
+    run_campaign(path=path, subject_filter=apps, resume=resume, infra_path=infra, verbose=verbose)
