@@ -56,9 +56,9 @@ class LocalEnvironment(Environment):
 
     docker: DockerAdapter
 
-    def __init__(self, subject_path: Path):
-        # Local env is subject-specific
-        self.docker = DockerAdapter(subject_path)
+    def __init__(self, app_path: Path):
+        # Local env is application-specific
+        self.docker = DockerAdapter(app_path)
 
     def setup(self, config: dict[str, Any], verbose: bool = False) -> None:
         self.docker.build(verbose=verbose)

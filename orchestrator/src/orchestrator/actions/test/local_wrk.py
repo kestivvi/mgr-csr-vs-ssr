@@ -7,7 +7,7 @@ from typing import Any
 from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
-from orchestrator.config import RESULTS_DIR, SUBJECTS_DIR
+from orchestrator.config import APPLICATIONS_DIR, RESULTS_DIR
 from orchestrator.shared.infra import BaseAdapter, InfrastructureError, LocalEnvironment
 
 console = Console()
@@ -21,10 +21,10 @@ def parse_wrk_output(output: str) -> float:
     return 0.0
 
 
-def wait_for_subject_ready(
+def wait_for_app_ready(
     env: LocalEnvironment, log_path: Path, progress: Progress | None = None
 ) -> bool:
-    """Waits for the subject to be reachable via HTTPS."""
+    """Waits for the application to be reachable via HTTPS."""
     max_retries = 15
     delay = 2
 
@@ -48,7 +48,7 @@ def wait_for_subject_ready(
 
 
 def run_capacity_local_wrk(
-    subject_filter: str | None = None, num_repetitions: int = 1, verbose: bool = False
+    app_filter: str | None = None, num_repetitions: int = 1, verbose: bool = False
 ) -> None:
     """Orchestrates local capacity testing using wrk."""
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
@@ -59,24 +59,24 @@ def run_capacity_local_wrk(
     console.print(f"[yellow]Logs will be stored in: {run_log_dir}[/yellow]")
     console.print(f"[yellow]Number of test runs: {num_repetitions}[/yellow]")
 
-    # 1. Find subjects
-    subjects = sorted(
+    # 1. Find applications
+    apps = sorted(
         [
             d
-            for d in SUBJECTS_DIR.iterdir()
+            for d in APPLICATIONS_DIR.iterdir()
             if d.is_dir() and not d.name.startswith("_") and (d / "Dockerfile").exists()
         ]
     )
-    if subject_filter:
-        filters = [f.strip() for f in subject_filter.split(",")]
-        subjects = [s for s in subjects if any(f in s.name for f in filters)]
+    if app_filter:
+        filters = [f.strip() for f in app_filter.split(",")]
+        apps = [s for s in apps if any(f in s.name for f in filters)]
 
-    if not subjects:
-        console.print("[bold red]No subjects found to benchmark![/bold red]")
+    if not apps:
+        console.print("[bold red]No applications found to benchmark![/bold red]")
         return
 
-    console.print(f"[bold blue]Found {len(subjects)} subjects to benchmark:[/bold blue]")
-    for s in subjects:
+    console.print(f"[bold blue]Found {len(apps)} applications to benchmark:[/bold blue]")
+    for s in apps:
         console.print(f" - {s.name}")
 
     results = []
@@ -91,45 +91,43 @@ def run_capacity_local_wrk(
             console=console,
             disable=verbose,
         ) as progress:
-            task = progress.add_task("[cyan]Benchmarking subjects...", total=len(subjects))
+            task = progress.add_task("[cyan]Benchmarking applications...", total=len(apps))
 
-            for subject_path in subjects:
-                subject_id = subject_path.name
-                env = LocalEnvironment(subject_path)
-                wrk_adapter = BaseAdapter(subject_path)
+            for app_path in apps:
+                app_id = app_path.name
+                env = LocalEnvironment(app_path)
+                wrk_adapter = BaseAdapter(app_path)
 
-                subject_result: dict[str, Any] = {
-                    "Subject": subject_id,
+                app_result: dict[str, Any] = {
+                    "Application": app_id,
                     "Status": "FAIL",
                     "RPS_Avg": 0.0,
                 }
 
-                build_log = run_log_dir / f"{subject_id}-build.txt"
-                run_log = run_log_dir / f"{subject_id}-run.txt"
-                benchmark_log = run_log_dir / f"{subject_id}-wrk.txt"
+                build_log = run_log_dir / f"{app_id}-build.txt"
+                run_log = run_log_dir / f"{app_id}-run.txt"
+                benchmark_log = run_log_dir / f"{app_id}-wrk.txt"
 
                 try:
                     # Build
-                    progress.update(
-                        task, description=f"[cyan]Building [bold]{subject_id}[/bold]..."
-                    )
+                    progress.update(task, description=f"[cyan]Building [bold]{app_id}[/bold]...")
                     try:
                         env.docker.build(log_path=build_log, verbose=verbose)
 
                         # Up
                         progress.update(
-                            task, description=f"[cyan]Starting [bold]{subject_id}[/bold]..."
+                            task, description=f"[cyan]Starting [bold]{app_id}[/bold]..."
                         )
                         env.docker.up(log_path=run_log, verbose=verbose)
 
                         # Wait for ready
-                        if wait_for_subject_ready(env, run_log, progress):
+                        if wait_for_app_ready(env, run_log, progress):
                             rps_values = []
 
                             # Warmup
                             progress.update(
                                 task,
-                                description=f"[cyan]Warmup (10s) [bold]{subject_id}[/bold]...",
+                                description=f"[cyan]Warmup (10s) [bold]{app_id}[/bold]...",
                             )
                             wrk_adapter._run(
                                 ["wrk", "-t2", "-c100", "-d10s", "https://localhost"],
@@ -143,11 +141,11 @@ def run_capacity_local_wrk(
                                     task,
                                     description=(
                                         f"[cyan]Test Run {i}/{num_repetitions} (10s) "
-                                        f"[bold]{subject_id}[/bold]..."
+                                        f"[bold]{app_id}[/bold]..."
                                     ),
                                 )
 
-                                run_tmp_log = run_log_dir / f"{subject_id}-wrk-run-{i}.txt"
+                                run_tmp_log = run_log_dir / f"{app_id}-wrk-run-{i}.txt"
                                 wrk_adapter._run(
                                     ["wrk", "-t2", "-c100", "-d10s", "https://localhost"],
                                     log_path=run_tmp_log,
@@ -163,18 +161,18 @@ def run_capacity_local_wrk(
 
                             if rps_values:
                                 avg_rps = sum(rps_values) / len(rps_values)
-                                subject_result["RPS_Avg"] = avg_rps
-                                subject_result["Status"] = "PASS"
+                                app_result["RPS_Avg"] = avg_rps
+                                app_result["Status"] = "PASS"
                                 progress.console.print(
-                                    f"[bold green]✓ {subject_id}: {avg_rps:.2f} req/s "
+                                    f"[bold green]✓ {app_id}: {avg_rps:.2f} req/s "
                                     f"(avg of {num_repetitions})[/bold green]"
                                 )
                         else:
                             progress.console.print(
-                                f"[bold red]✗ {subject_id} failed to become ready.[/bold red]"
+                                f"[bold red]✗ {app_id} failed to become ready.[/bold red]"
                             )
                     except InfrastructureError as e:
-                        progress.console.print(f"[bold red]✗ {subject_id} failed: {e}[/bold red]")
+                        progress.console.print(f"[bold red]✗ {app_id} failed: {e}[/bold red]")
                 finally:
                     # Always try to Down
                     try:
@@ -182,7 +180,7 @@ def run_capacity_local_wrk(
                     except InfrastructureError:
                         pass
 
-                results.append(subject_result)
+                results.append(app_result)
                 progress.advance(task)
 
     except KeyboardInterrupt:
@@ -199,7 +197,11 @@ def run_capacity_local_wrk(
         display_results = []
         for r in results:
             display_results.append(
-                {"Subject": r["Subject"], "Status": r["Status"], "RPS Avg": f"{r['RPS_Avg']:.2f}"}
+                {
+                    "Application": r["Application"],
+                    "Status": r["Status"],
+                    "RPS Avg": f"{r['RPS_Avg']:.2f}",
+                }
             )
 
         summary_table = tabulate(display_results, headers="keys", tablefmt="github")
@@ -207,7 +209,7 @@ def run_capacity_local_wrk(
         with open(results_file, "w") as f:
             f.write(f"# Local Capacity Benchmark Results (wrk) - {timestamp}\n\n")
             f.write("Parameters: `-t2 -c100 -d10s`\n")
-            f.write(f"Runs per subject: {num_repetitions}\n\n")
+            f.write(f"Runs per application: {num_repetitions}\n\n")
             f.write(summary_table)
             f.write("\n")
 

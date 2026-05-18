@@ -1,6 +1,6 @@
 ---
-- name: Ping subject servers
-  hosts: role_subject_servers
+- name: Ping application servers
+  hosts: role_application_servers
   gather_facts: false
   tasks:
     - name: Ping host

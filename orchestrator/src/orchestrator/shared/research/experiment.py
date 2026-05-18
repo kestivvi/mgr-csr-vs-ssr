@@ -33,11 +33,11 @@ class Experiment:
         return str(self.metadata.get("test_type", "unknown"))
 
     @property
-    def subject_metadata(self) -> dict[str, dict[str, Any]]:
-        """Returns the structured metadata for all subjects in this experiment."""
+    def application_metadata(self) -> dict[str, dict[str, Any]]:
+        """Returns the structured metadata for all applications in this experiment."""
         from typing import cast
 
-        return cast(dict[str, dict[str, Any]], self.metadata.get("subjects", {}))
+        return cast(dict[str, dict[str, Any]], self.metadata.get("applications", {}))
 
 
 class ExperimentLoader:
@@ -62,8 +62,8 @@ class ExperimentLoader:
         metadata = artifact.metadata
 
         # 2. Structured Metadata Guard (Fail-Fast)
-        if "subjects" not in metadata:
-            raise ValueError("Missing structured subject metadata in artifact.")
+        if "applications" not in metadata:
+            raise ValueError("Missing structured application metadata in artifact.")
 
         # 3. Load Metrics (Resource utilization)
         metrics_df = self._load_metrics(artifact)

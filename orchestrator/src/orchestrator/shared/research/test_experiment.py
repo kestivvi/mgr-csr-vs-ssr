@@ -8,22 +8,18 @@ from orchestrator.shared.research.experiment import ExperimentLoader
 
 @pytest.fixture
 def mock_artifact(tmp_path: Path) -> ResearchArtifact:
-    """Creates a mock artifact directory with a metadata.yaml including subject data."""
+    """Creates a mock artifact directory with a metadata.yaml including application data."""
     meta_path = tmp_path / "metadata.yaml"
-    # Note: We are using metadata.yaml as per current implementation,
-    # but the PRD mentions subject.json in the app folder.
-    # The ExperimentLoader should ideally have access to the subject manifest
-    # that was captured during 'mgr test' and stored in the artifact's metadata.
     import yaml
 
-    subject_data = {
+    application_data = {
         "family": "solid",
         "meta_framework": "solid-start",
         "strategy": "ssr",
         "runtime": "bun",
     }
 
-    metadata = {"test_type": "capacity_k6", "subjects": {"mock-subject": subject_data}}
+    metadata = {"test_type": "capacity_k6", "applications": {"mock-application": application_data}}
 
     with open(meta_path, "w") as f:
         yaml.dump(metadata, f)
@@ -31,21 +27,23 @@ def mock_artifact(tmp_path: Path) -> ResearchArtifact:
     return ResearchArtifact(tmp_path)
 
 
-def test_experiment_loader_captures_structured_subject_metadata(
+def test_experiment_loader_captures_structured_application_metadata(
     mock_artifact: ResearchArtifact,
 ) -> None:
     loader = ExperimentLoader()
     experiment = loader.load(mock_artifact)
 
-    assert "subjects" in experiment.metadata
-    assert experiment.metadata["subjects"]["mock-subject"]["family"] == "solid"
-    assert experiment.metadata["subjects"]["mock-subject"]["meta_framework"] == "solid-start"
-    assert experiment.metadata["subjects"]["mock-subject"]["strategy"] == "ssr"
-    assert experiment.metadata["subjects"]["mock-subject"]["runtime"] == "bun"
+    assert "applications" in experiment.metadata
+    assert experiment.metadata["applications"]["mock-application"]["family"] == "solid"
+    assert (
+        experiment.metadata["applications"]["mock-application"]["meta_framework"] == "solid-start"
+    )
+    assert experiment.metadata["applications"]["mock-application"]["strategy"] == "ssr"
+    assert experiment.metadata["applications"]["mock-application"]["runtime"] == "bun"
 
 
 def test_experiment_loader_legacy_fallback_fails_fast(tmp_path: Path) -> None:
-    """If subject metadata is missing, it should fail (as per our Fail-Fast agreement)."""
+    """If application metadata is missing, it should fail (as per our Fail-Fast agreement)."""
     meta_path = tmp_path / "metadata.yaml"
     import yaml
 
@@ -55,5 +53,5 @@ def test_experiment_loader_legacy_fallback_fails_fast(tmp_path: Path) -> None:
     artifact = ResearchArtifact(tmp_path)
     loader = ExperimentLoader()
 
-    with pytest.raises(ValueError, match="Missing structured subject metadata"):
+    with pytest.raises(ValueError, match="Missing structured application metadata"):
         loader.load(artifact)

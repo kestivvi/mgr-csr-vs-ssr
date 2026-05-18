@@ -1,6 +1,6 @@
 resource "local_file" "ansible_inventory" {
   content = templatefile("${path.module}/templates/inventory.yml.tftpl", {
-    subject_servers = { for k, v in aws_instance.subject_server : k => {
+    application_servers = { for k, v in aws_instance.application_server : k => {
       tags        = v.tags
       public_ip   = v.public_ip
       private_ip  = v.private_ip

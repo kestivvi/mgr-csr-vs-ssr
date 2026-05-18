@@ -1,6 +1,6 @@
 {%- set targets = [] %}
 {# Dynamically add all App Servers #}
-{%- for host in groups['role_subject_servers'] %}
+{%- for host in groups['role_application_servers'] %}
   {%- set scenario_upper = hostvars[host]['scenario_type'] | upper %}
   {%- set _ = targets.append({'targets': [hostvars[host]['private_ip'] ~ ':' ~ (node_exporter_port | default(9100))], 'labels': {'server': scenario_upper, 'job': 'node_exporter'}}) %}
   {%- set _ = targets.append({'targets': [hostvars[host]['private_ip'] ~ ':' ~ (nginx_exporter_port | default(9113))], 'labels': {'server': scenario_upper, 'job': 'nginx_log_exporter'}}) %}

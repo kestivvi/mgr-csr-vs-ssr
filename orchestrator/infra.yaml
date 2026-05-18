@@ -4,15 +4,15 @@ key_name: MGR-M
 my_ip: 46.205.203.156/32
 
 # Instance Types
-subject_server_instance_type: c8g.medium
+application_server_instance_type: c8g.medium
 load_generator_instance_type: c8g.2xlarge
 monitoring_host_instance_type: t4g.small
 
-# subject_server_instance_type: t4g.micro
+# application_server_instance_type: t4g.micro
 # load_generator_instance_type: t4g.micro
 # monitoring_host_instance_type: t4g.micro
 
-# Subjects to deploy
-# Note: This block is now auto-populated by the orchestrator at runtime via Subject Autodiscovery.
+# Applications to deploy
+# Note: This block is now auto-populated by the orchestrator at runtime via Application Autodiscovery.
 # You only need to add entries here if you want to override defaults (e.g. description or specific settings).
 technologies: {}

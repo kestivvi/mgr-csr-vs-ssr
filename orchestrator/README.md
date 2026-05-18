@@ -39,7 +39,7 @@ capacity_wrk_options:
 ```
 
 > [!IMPORTANT]
-> The orchestrator auto-discovers provisioned subject servers from the Terraform inventory. Do not specify hostnames or IPs in experiment files.
+> The orchestrator auto-discovers provisioned application servers from the Terraform inventory. Do not specify hostnames or IPs in experiment files.
 
 ### Field reference
 

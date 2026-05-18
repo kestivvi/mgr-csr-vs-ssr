@@ -8,20 +8,20 @@ import yaml
 from orchestrator.actions.test.runner import TestRunner as OrchestratorTestRunner
 
 
-def test_runner_captures_subject_manifests_in_metadata(tmp_path: Path, mocker: Any) -> None:
+def test_runner_captures_application_manifests_in_metadata(tmp_path: Path, mocker: Any) -> None:
     # 1. Setup mock environment files (Filesystem Boundary)
-    subjects_dir = tmp_path / "subjects"
-    subjects_dir.mkdir()
+    apps_dir = tmp_path / "applications"
+    apps_dir.mkdir()
 
-    subject1_dir = subjects_dir / "ssr-solid"
-    subject1_dir.mkdir()
+    app1_dir = apps_dir / "ssr-solid"
+    app1_dir.mkdir()
     manifest = {
         "family": "solid",
         "meta_framework": "solid-start",
         "strategy": "ssr",
         "runtime": "node",
     }
-    with open(subject1_dir / "subject.json", "w") as f:
+    with open(app1_dir / "application.json", "w") as f:
         json.dump(manifest, f)
 
     inventory_yaml = tmp_path / "inventory.yaml"
@@ -36,7 +36,7 @@ def test_runner_captures_subject_manifests_in_metadata(tmp_path: Path, mocker: A
                         }
                     }
                 },
-                "subject_server_ssr-solid": {
+                "application_server_ssr-solid": {
                     "hosts": {
                         "server1": {
                             "private_ip": "1.2.3.4",
@@ -51,7 +51,7 @@ def test_runner_captures_subject_manifests_in_metadata(tmp_path: Path, mocker: A
 
     # 2. Patch system boundary constants in runner module
     mocker.patch("orchestrator.actions.test.runner.ANSIBLE_INVENTORY", inventory_yaml)
-    mocker.patch("orchestrator.actions.test.runner.SUBJECTS_DIR", subjects_dir)
+    mocker.patch("orchestrator.actions.test.runner.APPLICATIONS_DIR", apps_dir)
     mocker.patch("orchestrator.actions.test.runner.RESULTS_DIR", tmp_path / "results")
     mocker.patch("orchestrator.actions.test.runner.ANSIBLE_DIR", tmp_path / "ansible")
 
@@ -103,24 +103,24 @@ def test_runner_captures_subject_manifests_in_metadata(tmp_path: Path, mocker: A
         output_dir=tmp_path / "result",
     )
 
-    # Verify final compiled metadata on the filesystem contains parsed subject manifest
+    # Verify final compiled metadata on the filesystem contains parsed application manifest
     meta_path = tmp_path / "result" / "metadata.yaml"
     assert meta_path.exists()
     with open(meta_path, "r") as f:
         meta = yaml.safe_load(f)
 
     assert meta["test_type"] == "capacity_k6"
-    assert "subjects" in meta
-    assert meta["subjects"]["ssr-solid"] == manifest
+    assert "applications" in meta
+    assert meta["applications"]["ssr-solid"] == manifest
 
 
 def test_runner_raises_value_error_if_manifest_missing(tmp_path: Path, mocker: Any) -> None:
-    # 1. Setup mock environment files without subject.json manifest
-    subjects_dir = tmp_path / "subjects"
-    subjects_dir.mkdir()
+    # 1. Setup mock environment files without application.json manifest
+    apps_dir = tmp_path / "applications"
+    apps_dir.mkdir()
 
-    subject1_dir = subjects_dir / "ssr-solid"
-    subject1_dir.mkdir()
+    app1_dir = apps_dir / "ssr-solid"
+    app1_dir.mkdir()
     # manifest is missing!
 
     inventory_yaml = tmp_path / "inventory.yaml"
@@ -135,7 +135,7 @@ def test_runner_raises_value_error_if_manifest_missing(tmp_path: Path, mocker: A
                         }
                     }
                 },
-                "subject_server_ssr-solid": {
+                "application_server_ssr-solid": {
                     "hosts": {
                         "server1": {
                             "private_ip": "1.2.3.4",
@@ -149,7 +149,7 @@ def test_runner_raises_value_error_if_manifest_missing(tmp_path: Path, mocker: A
         yaml.dump(inventory_data, f)
 
     mocker.patch("orchestrator.actions.test.runner.ANSIBLE_INVENTORY", inventory_yaml)
-    mocker.patch("orchestrator.actions.test.runner.SUBJECTS_DIR", subjects_dir)
+    mocker.patch("orchestrator.actions.test.runner.APPLICATIONS_DIR", apps_dir)
 
     runner = OrchestratorTestRunner(
         config_path=None,
@@ -157,25 +157,25 @@ def test_runner_raises_value_error_if_manifest_missing(tmp_path: Path, mocker: A
         output_dir=tmp_path / "result",
     )
 
-    with pytest.raises(ValueError, match="Missing subject.json in ssr-solid"):
+    with pytest.raises(ValueError, match="Missing application.json in ssr-solid"):
         runner.run_all()
 
 
-def test_runner_filters_subjects(tmp_path: Path, mocker: Any) -> None:
-    # 1. Setup mock environment files with multiple subjects
-    subjects_dir = tmp_path / "subjects"
-    subjects_dir.mkdir()
+def test_runner_filters_applications(tmp_path: Path, mocker: Any) -> None:
+    # 1. Setup mock environment files with multiple applications
+    apps_dir = tmp_path / "applications"
+    apps_dir.mkdir()
 
-    # Subject 1 (solid)
-    s1_dir = subjects_dir / "ssr-solid"
-    s1_dir.mkdir()
-    with open(s1_dir / "subject.json", "w") as f:
+    # Application 1 (solid)
+    app1_dir = apps_dir / "ssr-solid"
+    app1_dir.mkdir()
+    with open(app1_dir / "application.json", "w") as f:
         json.dump({"strategy": "ssr", "runtime": "node"}, f)
 
-    # Subject 2 (react)
-    s2_dir = subjects_dir / "ssr-react"
-    s2_dir.mkdir()
-    with open(s2_dir / "subject.json", "w") as f:
+    # Application 2 (react)
+    app2_dir = apps_dir / "ssr-react"
+    app2_dir.mkdir()
+    with open(app2_dir / "application.json", "w") as f:
         json.dump({"strategy": "ssr", "runtime": "node"}, f)
 
     inventory_yaml = tmp_path / "inventory.yaml"
@@ -190,14 +190,14 @@ def test_runner_filters_subjects(tmp_path: Path, mocker: Any) -> None:
                         }
                     }
                 },
-                "subject_server_ssr-solid": {
+                "application_server_ssr-solid": {
                     "hosts": {
                         "server1": {
                             "private_ip": "1.2.3.4",
                         }
                     }
                 },
-                "subject_server_ssr-react": {
+                "application_server_ssr-react": {
                     "hosts": {
                         "server2": {
                             "private_ip": "1.2.3.5",
@@ -211,7 +211,7 @@ def test_runner_filters_subjects(tmp_path: Path, mocker: Any) -> None:
         yaml.dump(inventory_data, f)
 
     mocker.patch("orchestrator.actions.test.runner.ANSIBLE_INVENTORY", inventory_yaml)
-    mocker.patch("orchestrator.actions.test.runner.SUBJECTS_DIR", subjects_dir)
+    mocker.patch("orchestrator.actions.test.runner.APPLICATIONS_DIR", apps_dir)
     mocker.patch("orchestrator.actions.test.runner.RESULTS_DIR", tmp_path / "results")
     mocker.patch("orchestrator.actions.test.runner.ANSIBLE_DIR", tmp_path / "ansible")
 
@@ -237,7 +237,7 @@ def test_runner_filters_subjects(tmp_path: Path, mocker: Any) -> None:
         config_path=None,
         config_dict={"test_type": "capacity_k6", "auto_approve": True},
         output_dir=tmp_path / "result",
-        subjects_filter="react",
+        apps_filter="react",
     )
 
     runner.run_all()

@@ -10,14 +10,14 @@ variable "ssh_port" {
   default     = 22
 }
 
-variable "subject_port" {
-  description = "Subject web port (HTTP)"
+variable "application_port" {
+  description = "Application web port (HTTP)"
   type        = number
   default     = 80
 }
 
-variable "subject_port_https" {
-  description = "Subject HTTPS port"
+variable "application_port_https" {
+  description = "Application HTTPS port"
   type        = number
   default     = 443
 }

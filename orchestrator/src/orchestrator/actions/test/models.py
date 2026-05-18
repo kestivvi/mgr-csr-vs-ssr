@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 class ScenarioMetadata(TypedDict):
     name: str
-    subject_server_ip: str
+    application_server_ip: str
     load_generator_group: str
     monitoring_host_public_ip: str
     monitoring_host_private_ip: str

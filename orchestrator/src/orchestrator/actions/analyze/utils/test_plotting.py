@@ -28,8 +28,8 @@ class MockAnalyzer:
 
 def test_sorting_logic_uses_structured_metadata(mocker: MockerFixture) -> None:
     # Setup mock data with explicit metadata
-    # We simulate an experiment where subjects have structured metadata
-    subjects_metadata = {
+    # We simulate an experiment where applications have structured metadata
+    apps_metadata = {
         "csr-react": {
             "family": "react",
             "meta_framework": None,
@@ -56,14 +56,14 @@ def test_sorting_logic_uses_structured_metadata(mocker: MockerFixture) -> None:
         },
     }
 
-    # In the real system, this metadata will be in experiment.metadata["subjects"]
+    # In the real system, this metadata will be in experiment.metadata["applications"]
     # or we might need a better way to look it up.
-    # For now, let's assume we update the Experiment object to have a subjects lookup.
+    # For now, let's assume we update the Experiment object to have an applications lookup.
 
     mock_experiment = mocker.Mock()
     # We'll need to define how the experiment stores this.
-    # Let's say experiment.subject_metadata is a dict mapping tech_id -> metadata
-    mock_experiment.subject_metadata = subjects_metadata
+    # Let's say experiment.application_metadata is a dict mapping tech_id -> metadata
+    mock_experiment.application_metadata = apps_metadata
 
     analyzer = MockAnalyzer(
         families=[["vanilla"], ["solid"], ["react"]],
@@ -132,7 +132,7 @@ def _bar_plot_analyzer(tmp_path: Path, mocker: MockerFixture) -> MockAnalyzer:
     plots_dir = tmp_path / "plots"
     plots_dir.mkdir()
     mock_experiment = mocker.Mock()
-    mock_experiment.subject_metadata = {
+    mock_experiment.application_metadata = {
         "csr-vanilla-nginx": {
             "family": "vanilla",
             "meta_framework": None,

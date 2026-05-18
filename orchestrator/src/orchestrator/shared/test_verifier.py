@@ -6,9 +6,9 @@ import pytest
 from orchestrator.shared.verifier import (
     CSR_PROFILE,
     SSR_PROFILE,
+    ApplicationVerifier,
     HealthCheck,
     HealthProfile,
-    SubjectVerifier,
 )
 
 
@@ -24,7 +24,7 @@ def _ssr_dynamic_app_body(id_: int = 42, row_count: int = 100) -> str:
     )
 
 
-class _FakeVerifier(SubjectVerifier):
+class _FakeVerifier(ApplicationVerifier):
     """Verifier with curl mocked by a URL→output mapping."""
 
     def __init__(self, responses: dict[str, str]) -> None:

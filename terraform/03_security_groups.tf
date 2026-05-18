@@ -30,22 +30,22 @@ resource "aws_security_group_rule" "allow_ssh_from_my_ip" {
 }
 
 
-# Grupa dla serwerów podmiotowych (subjects)
-resource "aws_security_group" "subject_server" {
-  name        = "${var.project_name}-subject-server-sg"
-  description = "Security group for Subject Servers (CSR/SSR)"
+# Grupa dla serwerów aplikacyjnych (applications)
+resource "aws_security_group" "application_server" {
+  name        = "${var.project_name}-application-server-sg"
+  description = "Security group for Application Servers (CSR/SSR)"
   vpc_id      = aws_vpc.main.id
 
   tags = {
-    Name = "${var.project_name}-subject-server-sg"
+    Name = "${var.project_name}-application-server-sg"
     Role = "security"
   }
 }
 
 # trivy:ignore:AVD-AWS-0104[OK_for_thesis] Egress is open to allow OS updates and software installation.
-resource "aws_security_group_rule" "subject_server_egress_all" {
+resource "aws_security_group_rule" "application_server_egress_all" {
   type              = "egress"
-  security_group_id = aws_security_group.subject_server.id
+  security_group_id = aws_security_group.application_server.id
   from_port         = 0
   to_port           = 0
   protocol          = "-1"
@@ -54,49 +54,49 @@ resource "aws_security_group_rule" "subject_server_egress_all" {
   description       = "Allow all outbound traffic"
 }
 
-resource "aws_security_group_rule" "subject_server_ingress_web_from_lg" {
+resource "aws_security_group_rule" "application_server_ingress_web_from_lg" {
   type                     = "ingress"
-  security_group_id        = aws_security_group.subject_server.id
-  from_port                = var.subject_port
-  to_port                  = var.subject_port
+  security_group_id        = aws_security_group.application_server.id
+  from_port                = var.application_port
+  to_port                  = var.application_port
   protocol                 = "tcp"
   source_security_group_id = aws_security_group.load_generator.id
   description              = "Allow web traffic from load generator"
 }
 
-resource "aws_security_group_rule" "subject_server_ingress_web_from_my_ip" {
+resource "aws_security_group_rule" "application_server_ingress_web_from_my_ip" {
   type              = "ingress"
-  security_group_id = aws_security_group.subject_server.id
-  from_port         = var.subject_port
-  to_port           = var.subject_port
+  security_group_id = aws_security_group.application_server.id
+  from_port         = var.application_port
+  to_port           = var.application_port
   protocol          = "tcp"
   cidr_blocks       = [var.my_ip]
   description       = "Allow web traffic from my IP for testing"
 }
 
-resource "aws_security_group_rule" "subject_server_ingress_https_from_lg" {
+resource "aws_security_group_rule" "application_server_ingress_https_from_lg" {
   type                     = "ingress"
-  security_group_id        = aws_security_group.subject_server.id
-  from_port                = var.subject_port_https
-  to_port                  = var.subject_port_https
+  security_group_id        = aws_security_group.application_server.id
+  from_port                = var.application_port_https
+  to_port                  = var.application_port_https
   protocol                 = "tcp"
   source_security_group_id = aws_security_group.load_generator.id
   description              = "Allow HTTPS traffic from load generator"
 }
 
-resource "aws_security_group_rule" "subject_server_ingress_https_from_my_ip" {
+resource "aws_security_group_rule" "application_server_ingress_https_from_my_ip" {
   type              = "ingress"
-  security_group_id = aws_security_group.subject_server.id
-  from_port         = var.subject_port_https
-  to_port           = var.subject_port_https
+  security_group_id = aws_security_group.application_server.id
+  from_port         = var.application_port_https
+  to_port           = var.application_port_https
   protocol          = "tcp"
   cidr_blocks       = [var.my_ip]
   description       = "Allow HTTPS traffic from my IP for testing"
 }
 
-resource "aws_security_group_rule" "subject_server_ingress_node_exporter" {
+resource "aws_security_group_rule" "application_server_ingress_node_exporter" {
   type                     = "ingress"
-  security_group_id        = aws_security_group.subject_server.id
+  security_group_id        = aws_security_group.application_server.id
   from_port                = var.node_exporter_port
   to_port                  = var.node_exporter_port
   protocol                 = "tcp"
@@ -104,9 +104,9 @@ resource "aws_security_group_rule" "subject_server_ingress_node_exporter" {
   description              = "Allow Prometheus to scrape node_exporter"
 }
 
-resource "aws_security_group_rule" "subject_server_ingress_nginx_exporter" {
+resource "aws_security_group_rule" "application_server_ingress_nginx_exporter" {
   type                     = "ingress"
-  security_group_id        = aws_security_group.subject_server.id
+  security_group_id        = aws_security_group.application_server.id
   from_port                = var.nginx_exporter_port
   to_port                  = var.nginx_exporter_port
   protocol                 = "tcp"
@@ -114,9 +114,9 @@ resource "aws_security_group_rule" "subject_server_ingress_nginx_exporter" {
   description              = "Allow Prometheus to scrape nginx_log_exporter"
 }
 
-resource "aws_security_group_rule" "subject_server_ingress_cadvisor" {
+resource "aws_security_group_rule" "application_server_ingress_cadvisor" {
   type                     = "ingress"
-  security_group_id        = aws_security_group.subject_server.id
+  security_group_id        = aws_security_group.application_server.id
   from_port                = var.cadvisor_port
   to_port                  = var.cadvisor_port
   protocol                 = "tcp"

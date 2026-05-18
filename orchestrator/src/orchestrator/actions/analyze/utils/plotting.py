@@ -29,8 +29,8 @@ def get_ordered_tech_list(analyzer: PerformanceAnalyzer, df: pd.DataFrame) -> Li
         tech_lower = tech.lower()
 
         # Lookup manifest from structured metadata
-        subjects = analyzer.experiment.subject_metadata if analyzer.experiment else {}
-        manifest = subjects.get(tech_lower, {})
+        applications = analyzer.experiment.application_metadata if analyzer.experiment else {}
+        manifest = applications.get(tech_lower, {})
 
         # 1. Family Priority (from config.yaml)
         family = manifest.get("family", "unknown")

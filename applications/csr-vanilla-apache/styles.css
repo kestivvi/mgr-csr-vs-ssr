@@ -1,0 +1,102 @@
+/* Minimal styling following KISS principle */
+body {
+    font-family: system-ui, -apple-system, sans-serif;
+    margin: 0;
+    padding: 0;
+    background: #f4f4f9;
+    color: #333;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    text-align: center;
+}
+
+#app {
+    background: white;
+    padding: 3rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: #222;
+}
+
+p {
+    font-size: 1.2rem;
+    color: #666;
+    margin-bottom: 1.5rem;
+}
+
+button {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 0.8rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+}
+
+button:hover {
+    background: #0056b3;
+}
+
+button:active {
+    transform: scale(0.98);
+}
+
+/* /dynamic-app/:id — see mgr-code/applications/_infra/dynamic-app/SPEC.md §7 */
+.dynamic-app {
+    width: min(1000px, calc(100vw - 2rem));
+    margin: 0 auto;
+    padding: 1rem;
+    font-family: system-ui, sans-serif;
+    text-align: left;
+}
+
+.dynamic-app h1 {
+    font-size: 1.5rem;
+    margin: 0 0 0.5rem 0;
+    color: #222;
+}
+
+.dynamic-app .summary {
+    color: #555;
+    margin: 0 0 1rem 0;
+    font-size: 0.95rem;
+}
+
+.dynamic-app .row {
+    display: flex;
+    gap: 1rem;
+    padding: 0.35rem 0;
+    border-bottom: 1px solid #eee;
+    align-items: center;
+    font-size: 0.9rem;
+}
+
+.dynamic-app .cell { flex: 1; }
+.dynamic-app .cell-id { flex: 0 0 3rem; color: #888; }
+.dynamic-app .cell-name { flex: 2; }
+.dynamic-app .cell-category { flex: 1; color: #666; }
+.dynamic-app .cell-price { flex: 0 0 6rem; text-align: right; }
+
+.dynamic-app .badge {
+    display: inline-block;
+    padding: 0.1rem 0.45rem;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    min-width: 2rem;
+    text-align: center;
+}
+
+.dynamic-app .badge-in { background: #d4edda; color: #155724; }
+.dynamic-app .badge-out { background: #f8d7da; color: #721c24; }

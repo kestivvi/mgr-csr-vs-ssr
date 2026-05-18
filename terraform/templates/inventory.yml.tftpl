@@ -2,10 +2,10 @@
 all:
   children:
     # 1. DEFINE PARENT GROUPS AND THEIR CHILDREN
-    role_subject_servers:
+    role_application_servers:
       children:
 %{ for key, tech in technologies ~}
-        subject_server_${key}: {}
+        application_server_${key}: {}
 %{ endfor ~}
     role_load_generators:
       children:
@@ -14,11 +14,11 @@ all:
 %{ endfor ~}
 
     # 2. DEFINE THE CONTENTS OF THE CHILD GROUPS
-%{ for key, server in subject_servers ~}
-    subject_server_${key}:
+%{ for key, server in application_servers ~}
+    application_server_${key}:
       vars:
         scenario_type: "${key}"
-        subject_dir: "${technologies[key].subject_dir}"
+        application_dir: "${technologies[key].application_dir}"
       hosts:
         ${server.tags.Name}:
           ansible_host: ${server.public_ip}

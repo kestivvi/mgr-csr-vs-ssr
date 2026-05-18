@@ -50,7 +50,7 @@ class ResearchArtifact:
             return yaml.safe_load(f) or {}
 
     def get_repetitions(
-        self, include_subjects: set[str] | None = None, exclude_subjects: set[str] | None = None
+        self, include_apps: set[str] | None = None, exclude_apps: set[str] | None = None
     ) -> list[ResearchRun]:
         """
         Discovers and pairs all runs within the artifact.
@@ -66,7 +66,7 @@ class ResearchArtifact:
                 if (
                     repetition_id is not None
                     and tech is not None
-                    and self._should_include(tech, include_subjects, exclude_subjects)
+                    and self._should_include(tech, include_apps, exclude_apps)
                 ):
                     key = (repetition_id, tech)
                     runs_map[key] = ResearchRun(
@@ -81,7 +81,7 @@ class ResearchArtifact:
                 if (
                     repetition_id is not None
                     and tech is not None
-                    and self._should_include(tech, include_subjects, exclude_subjects)
+                    and self._should_include(tech, include_apps, exclude_apps)
                 ):
                     key = (repetition_id, tech)
                     if key not in runs_map:
@@ -96,7 +96,7 @@ class ResearchArtifact:
                 if (
                     repetition_id is not None
                     and tech is not None
-                    and self._should_include(tech, include_subjects, exclude_subjects)
+                    and self._should_include(tech, include_apps, exclude_apps)
                 ):
                     key = (repetition_id, tech)
                     if key not in runs_map:

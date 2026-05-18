@@ -18,7 +18,7 @@ variable "my_ip" {
   default     = "46.205.195.40/32" # https://www.whatismyip.com/ or allow all IPs with 0.0.0.0/0
 }
 
-variable "subject_server_instance_type" {
+variable "application_server_instance_type" {
   description = "Instance type for all application servers (e.g., 2 vCPUs)."
   type        = string
   default     = "t4g.micro"
@@ -39,34 +39,17 @@ variable "monitoring_host_instance_type" {
 }
 
 variable "technologies" {
-  description = "A map of technologies (subjects) to provision. The key is the subject ID (e.g., 'csr-vanilla')."
+  description = "A map of technologies (applications) to provision. The key is the application ID (e.g., 'csr-vanilla')."
   type = map(object({
-    description = string
-    purpose     = string
-    subject_dir = string
+    description     = string
+    purpose         = string
+    application_dir = string
   }))
   default = {
     "CSR-Vanilla" = {
-      description = "Subject Server (CSR-Vanilla)"
-      purpose     = "Hosts Client-Side Rendered subject"
-      subject_dir = "subjects/csr-vanilla-nginx"
+      description     = "Application Server (CSR-Vanilla)"
+      purpose         = "Hosts Client-Side Rendered application"
+      application_dir = "applications/csr-vanilla-nginx"
     }
   }
 }
-
-# 350 10
-# 700 20
-# 1400 30
-# 2100 40
-# 2800 50
-# 3500 60
-# 4200 70
-# 4900 80
-# 5600 90
-# 6300 100
-# 7000 110
-# 7700 120
-# 8400 130
-# 9100 140
-# 9800 150
-# 10500 160

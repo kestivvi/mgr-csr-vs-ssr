@@ -23,8 +23,8 @@ from orchestrator.actions.test.models import (
 from orchestrator.config import (
     ANSIBLE_DIR,
     ANSIBLE_INVENTORY,
+    APPLICATIONS_DIR,
     RESULTS_DIR,
-    SUBJECTS_DIR,
 )
 from orchestrator.shared.ansible import get_ansible_env
 
@@ -92,7 +92,7 @@ class TestRunner:
         overrides: dict[str, Any] | None = None,
         config_dict: dict[str, Any] | None = None,
         output_dir: Path | None = None,
-        subjects_filter: str | None = None,
+        apps_filter: str | None = None,
     ) -> None:
         raw_config: dict[str, Any] = {}
         if config_path and config_path.exists():
@@ -137,7 +137,7 @@ class TestRunner:
         self.logs_dir = self.results_base_dir / "logs"
         self.logs_dir.mkdir(parents=True, exist_ok=True)
 
-        self.subjects_filter = subjects_filter
+        self.apps_filter = apps_filter
 
         self.manager = Manager()
         self.shutdown_event = self.manager.Event()
@@ -175,7 +175,7 @@ class TestRunner:
 
         extra_vars: dict[str, Any] = {
             "target_host_group": scenario["load_generator_group"],
-            "target_url": f"https://{scenario['subject_server_ip']}",
+            "target_url": f"https://{scenario['application_server_ip']}",
             "server_type": scenario_name,
             "prometheus_url": f"http://{scenario['monitoring_host_private_ip']}:9090",
         }
@@ -310,7 +310,6 @@ class TestRunner:
 
     def run_all(self) -> None:
         # 1. Parse Inventory
-        # (Assuming parse_inventory logic is moved here or shared)
         scenarios = self._parse_inventory()
         try:
             self._print_summary(scenarios)
@@ -404,15 +403,15 @@ class TestRunner:
                     )
                     time.sleep(delay_sec)
 
-            # 3. Capture Subject Manifests
-            subjects_meta = {}
+            # 3. Capture Application Manifests
+            apps_meta = {}
 
             for scenario in scenarios:
                 app_name = scenario["name"]
-                manifest_path = SUBJECTS_DIR / app_name / "subject.json"
+                manifest_path = APPLICATIONS_DIR / app_name / "application.json"
                 if manifest_path.exists():
                     with open(manifest_path, "r") as f:
-                        subjects_meta[app_name] = json.load(f)
+                        apps_meta[app_name] = json.load(f)
                 else:
                     # This should have been caught by _parse_inventory, but as a secondary guard:
                     console.print(f"[bold red]Warning: Missing manifest for {app_name}[/bold red]")
@@ -425,7 +424,7 @@ class TestRunner:
                     ).isoformat(),
                     "test_type": self.test_type,
                     "parameters": self.config.model_dump(exclude_none=True),
-                    "subjects": subjects_meta,
+                    "applications": apps_meta,
                     "calculated_durations_sec": {
                         "measurement": end_ts - start_ts,
                     },
@@ -608,27 +607,28 @@ class TestRunner:
         mon = list(all_hosts.get("role_monitoring_host", {}).get("hosts", {}).values())[0]
 
         for group, content in all_hosts.items():
-            if group.startswith("subject_server_"):
-                name = group.replace("subject_server_", "")
+            if group.startswith("application_server_"):
+                name = group.replace("application_server_", "")
 
-                # Filter by subject ID if specified
-                if self.subjects_filter:
-                    allowed = [s.strip().lower() for s in self.subjects_filter.split(",")]
+                # Filter by application ID if specified
+                if self.apps_filter:
+                    allowed = [s.strip().lower() for s in self.apps_filter.split(",")]
                     if not any(s in name.lower() for s in allowed):
                         continue
 
-                subject_ip = list(content.get("hosts", {}).values())[0].get("private_ip")
+                app_ip = list(content.get("hosts", {}).values())[0].get("private_ip")
 
                 # Manifest Integrity Guard (Fail-Fast)
-                if not (SUBJECTS_DIR / name / "subject.json").exists():
+                if not (APPLICATIONS_DIR / name / "application.json").exists():
                     raise ValueError(
-                        f"Missing subject.json in {name}. All subjects must have a manifest."
+                        f"Missing application.json in {name}. "
+                        "All applications must have a manifest."
                     )
 
                 scenarios.append(
                     {
                         "name": name,
-                        "subject_server_ip": subject_ip,
+                        "application_server_ip": app_ip,
                         "load_generator_group": f"role_load_generator_{name}",
                         "monitoring_host_public_ip": mon["public_ip"],
                         "monitoring_host_private_ip": mon["private_ip"],

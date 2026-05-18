@@ -112,17 +112,17 @@ def test_research_artifact_get_repetitions(mock_artifact_dir: Path) -> None:
 
 
 def test_research_artifact_filtering(mock_artifact_dir: Path) -> None:
-    """Verifies that subject inclusion and exclusion filtering works correctly."""
+    """Verifies that application inclusion and exclusion filtering works correctly."""
     artifact = ResearchArtifact(mock_artifact_dir)
 
     # 1. Include only nextjs
-    runs_inc = artifact.get_repetitions(include_subjects={"ssr-nextjs-node"})
+    runs_inc = artifact.get_repetitions(include_apps={"ssr-nextjs-node"})
     assert len(runs_inc) == 2
     for r in runs_inc:
         assert r.server_type == "ssr-nextjs-node"
 
     # 2. Exclude nextjs
-    runs_exc = artifact.get_repetitions(exclude_subjects={"ssr-nextjs-node"})
+    runs_exc = artifact.get_repetitions(exclude_apps={"ssr-nextjs-node"})
     assert len(runs_exc) == 1
     assert runs_exc[0].server_type == "csr-vanilla-nginx"
 

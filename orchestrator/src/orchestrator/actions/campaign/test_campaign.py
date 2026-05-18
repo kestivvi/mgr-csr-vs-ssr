@@ -16,7 +16,7 @@ def mock_campaign_files(tmp_path: Path) -> tuple[Path, Path]:
         "experiment": {
             "test_type": "capacity_k6",
             "num_repetitions": 2,
-            "subjects": ["ssr-nextjs-node", "csr-vanilla-nginx"],
+            "applications": ["ssr-nextjs-node", "csr-vanilla-nginx"],
             "capacity_k6_options": {
                 "peak_rate": 1000,
                 "max_vus": 100,
@@ -42,7 +42,10 @@ def mock_campaign_files(tmp_path: Path) -> tuple[Path, Path]:
 def test_run_campaign_orchestrates_full_flow(
     mocker: MockerFixture, mock_campaign_files: tuple[Path, Path]
 ) -> None:
-    """Verifies that run_campaign provisions, tests, and tears down each subject sequentially."""
+    """
+    Verifies that run_campaign provisions, tests, and tears down
+    each application sequentially.
+    """
     campaign_yaml, infra_yaml = mock_campaign_files
 
     # 1. Mock CloudEnvironment setup/teardown
@@ -59,26 +62,26 @@ def test_run_campaign_orchestrates_full_flow(
         verbose=True,
     )
 
-    # 3. Assert setup was called for each subject in config
+    # 3. Assert setup was called for each application in config
     assert mock_env_instance.setup.call_count == 2
-    # Verify first call setup subject
+    # Verify first call setup application
     setup_call_1 = mock_env_instance.setup.call_args_list[0][0][0]
     assert "ssr-nextjs-node" in setup_call_1["technologies"]
-    # Verify second call setup subject
+    # Verify second call setup application
     setup_call_2 = mock_env_instance.setup.call_args_list[1][0][0]
     assert "csr-vanilla-nginx" in setup_call_2["technologies"]
 
-    # 4. Assert TestRunner run_all was called for warmup and experiment (2 subjects * 2 runs)
+    # 4. Assert TestRunner run_all was called for warmup and experiment (2 applications * 2 runs)
     assert mock_runner_class.return_value.run_all.call_count == 4
 
     # 5. Assert final teardown was called once in finally block
     assert mock_env_instance.teardown.call_count == 1
 
 
-def test_run_campaign_subject_filtering(
+def test_run_campaign_application_filtering(
     mocker: MockerFixture, mock_campaign_files: tuple[Path, Path]
 ) -> None:
-    """Verifies that run_campaign filters and runs only requested subjects."""
+    """Verifies that run_campaign filters and runs only requested applications."""
     campaign_yaml, infra_yaml = mock_campaign_files
 
     mock_env_class = mocker.patch("orchestrator.actions.campaign.provider.CloudEnvironment")
@@ -88,7 +91,7 @@ def test_run_campaign_subject_filtering(
     run_campaign(
         path=campaign_yaml,
         infra_path=infra_yaml,
-        subject_filter="nginx",
+        app_filter="nginx",
         verbose=True,
     )
 
@@ -99,10 +102,13 @@ def test_run_campaign_subject_filtering(
     assert "ssr-nextjs-node" not in setup_call["technologies"]
 
 
-def test_run_campaign_resume_skips_completed(
+def test_run_campaign_resume_skips_completed_applications(
     mocker: MockerFixture, tmp_path: Path, mock_campaign_files: tuple[Path, Path]
 ) -> None:
-    """Verifies that run_campaign resumes from campaign_state.json and skips completed subjects."""
+    """
+    Verifies that run_campaign resumes from campaign_state.json and
+    skips completed applications.
+    """
     campaign_yaml, infra_yaml = mock_campaign_files
 
     # Setup pre-existing campaign directory
@@ -112,8 +118,8 @@ def test_run_campaign_resume_skips_completed(
 
     # Pre-complete ssr-nextjs-node
     state = {
-        "completed_subjects": ["ssr-nextjs-node"],
-        "failed_subjects": [],
+        "completed_applications": ["ssr-nextjs-node"],
+        "failed_applications": [],
     }
     with open(state_file, "w") as f:
         json.dump(state, f)

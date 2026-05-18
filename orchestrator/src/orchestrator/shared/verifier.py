@@ -21,13 +21,13 @@ class HealthCheck:
 
 @dataclass
 class HealthProfile:
-    """A collection of health checks defining 'healthy' for a category of subjects."""
+    """A collection of health checks defining 'healthy' for a category of applications."""
 
     name: str
     checks: list[HealthCheck]
 
 
-# Markers locked by mgr-code/subjects/_infra/dynamic-app/SPEC.md (issue 001).
+# Markers locked by mgr-code/applications/_infra/dynamic-app/SPEC.md (issue 001).
 _DYNAMIC_APP_ID = 42
 _DYNAMIC_APP_H1 = f"Items for #{_DYNAMIC_APP_ID}"
 _DYNAMIC_APP_ROW_MARKER = 'class="row"'
@@ -60,9 +60,9 @@ CSR_PROFILE = HealthProfile(
 )
 
 
-class SubjectVerifier(BaseAdapter):
+class ApplicationVerifier(BaseAdapter):
     """
-    A deep module for verifying subject health.
+    A deep module for verifying application health.
     Leverages BaseAdapter for unified process execution and logging.
     """
 
@@ -85,10 +85,10 @@ class SubjectVerifier(BaseAdapter):
         log_path: Path | None = None,
     ) -> bool:
         """
-        Polls the subject until all health checks in the profile pass.
+        Polls the application until all health checks in the profile pass.
 
         Args:
-            base_url: The root URL of the subject (e.g. http://localhost:80).
+            base_url: The root URL of the application (e.g. http://localhost:80).
             profile: The HealthProfile (SSR/CSR) to validate against.
             retries: Maximum number of attempts.
             delay: Seconds to wait between attempts.

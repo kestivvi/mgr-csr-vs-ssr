@@ -2,15 +2,15 @@ from datetime import datetime
 
 from rich.console import Console
 
-from orchestrator.config import SUBJECTS_DIR, VERIFY_LOGS_BASE_DIR
+from orchestrator.config import APPLICATIONS_DIR, VERIFY_LOGS_BASE_DIR
 from orchestrator.shared.infra import InfrastructureError, LocalEnvironment
-from orchestrator.shared.verifier import CSR_PROFILE, SSR_PROFILE, SubjectVerifier
+from orchestrator.shared.verifier import CSR_PROFILE, SSR_PROFILE, ApplicationVerifier
 
 console = Console()
 
 
-def run_verify(subject_filter: str | None = None, verbose: bool = False) -> None:
-    """Orchestrates the verification of subjects using deep adapters."""
+def run_verify(app_filter: str | None = None, verbose: bool = False) -> None:
+    """Orchestrates the verification of applications using deep adapters."""
     # 1. Prepare log directory
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
     run_log_dir = VERIFY_LOGS_BASE_DIR / timestamp
@@ -19,31 +19,32 @@ def run_verify(subject_filter: str | None = None, verbose: bool = False) -> None
     console.print(f"[bold green]Starting verification run: {timestamp}[/bold green]")
     console.print(f"[yellow]Logs will be stored in: {run_log_dir}[/yellow]")
 
-    # 2. Find subjects
-    subjects = sorted(
+    # 2. Find applications
+    apps = sorted(
         [
             d
-            for d in SUBJECTS_DIR.iterdir()
+            for d in APPLICATIONS_DIR.iterdir()
             if d.is_dir() and not d.name.startswith("_") and (d / "Dockerfile").exists()
         ]
     )
-    if subject_filter:
-        filters = [f.strip() for f in subject_filter.split(",")]
-        subjects = [s for s in subjects if any(f in s.name for f in filters)]
+    if app_filter:
+        filters = [f.strip() for f in app_filter.split(",")]
+        apps = [s for s in apps if any(f in s.name for f in filters)]
 
-    if not subjects:
-        console.print("[bold red]No subjects found to verify![/bold red]")
+    if not apps:
+        console.print("[bold red]No applications found to verify![/bold red]")
         return
 
     # 3. Manifest Integrity Guard (Fail-Fast)
-    for subject_path in subjects:
-        if not (subject_path / "subject.json").exists():
+    for app_path in apps:
+        if not (app_path / "application.json").exists():
             raise ValueError(
-                f"Missing subject.json in {subject_path.name}. All subjects must have a manifest."
+                f"Missing application.json in {app_path.name}. "
+                "All applications must have a manifest."
             )
 
-    console.print(f"[bold blue]Found {len(subjects)} subjects to verify:[/bold blue]")
-    for s in subjects:
+    console.print(f"[bold blue]Found {len(apps)} applications to verify:[/bold blue]")
+    for s in apps:
         console.print(f" - {s.name}")
 
     results = []
@@ -60,21 +61,21 @@ def run_verify(subject_filter: str | None = None, verbose: bool = False) -> None
             console=console,
             disable=verbose,
         ) as progress:
-            task = progress.add_task("[cyan]Verifying subjects...", total=len(subjects))
+            task = progress.add_task("[cyan]Verifying applications...", total=len(apps))
 
-            for subject_path in subjects:
-                subject_id = subject_path.name
-                env = LocalEnvironment(subject_path)
+            for app_path in apps:
+                app_id = app_path.name
+                env = LocalEnvironment(app_path)
 
                 # Determine health profile
-                profile = SSR_PROFILE if subject_id.startswith("ssr-") else CSR_PROFILE
+                profile = SSR_PROFILE if app_id.startswith("ssr-") else CSR_PROFILE
 
-                build_log = run_log_dir / f"{subject_id}-build.txt"
-                run_log = run_log_dir / f"{subject_id}-run.txt"
-                test_log = run_log_dir / f"{subject_id}-test.txt"
+                build_log = run_log_dir / f"{app_id}-build.txt"
+                run_log = run_log_dir / f"{app_id}-run.txt"
+                test_log = run_log_dir / f"{app_id}-test.txt"
 
-                subject_result = {
-                    "Subject": subject_id,
+                app_result = {
+                    "Application": app_id,
                     "Build": "SKIP",
                     "Run": "SKIP",
                     "Test": "SKIP",
@@ -83,36 +84,34 @@ def run_verify(subject_filter: str | None = None, verbose: bool = False) -> None
 
                 try:
                     # Build
-                    progress.update(
-                        task, description=f"[cyan]Building [bold]{subject_id}[/bold]..."
-                    )
+                    progress.update(task, description=f"[cyan]Building [bold]{app_id}[/bold]...")
                     try:
                         env.docker.build(log_path=build_log, verbose=verbose)
-                        subject_result["Build"] = "PASS"
+                        app_result["Build"] = "PASS"
                     except InfrastructureError:
-                        subject_result["Build"] = "FAIL"
+                        app_result["Build"] = "FAIL"
 
-                    if subject_result["Build"] == "PASS":
+                    if app_result["Build"] == "PASS":
                         # Up
                         progress.update(
-                            task, description=f"[cyan]Starting [bold]{subject_id}[/bold]..."
+                            task, description=f"[cyan]Starting [bold]{app_id}[/bold]..."
                         )
                         try:
                             env.docker.up(log_path=run_log, verbose=verbose)
-                            subject_result["Run"] = "PASS"
+                            app_result["Run"] = "PASS"
                         except InfrastructureError:
-                            subject_result["Run"] = "FAIL"
+                            app_result["Run"] = "FAIL"
 
-                        if subject_result["Run"] == "PASS":
+                        if app_result["Run"] == "PASS":
                             # Test
                             progress.update(
                                 task,
-                                description=f"[cyan]Testing [bold]{subject_id}[/bold]...",
+                                description=f"[cyan]Testing [bold]{app_id}[/bold]...",
                             )
 
                             # Use the new deep Verifier
-                            verifier = SubjectVerifier(
-                                workdir=subject_path,
+                            verifier = ApplicationVerifier(
+                                workdir=app_path,
                                 on_output=lambda msg: progress.console.print(f"  [dim]{msg}[/dim]"),
                             )
 
@@ -125,7 +124,7 @@ def run_verify(subject_filter: str | None = None, verbose: bool = False) -> None
                                     success = False
                                     break
 
-                            subject_result["Test"] = "PASS" if success else "FAIL"
+                            app_result["Test"] = "PASS" if success else "FAIL"
 
                             # Append container logs to run log
                             try:
@@ -134,7 +133,7 @@ def run_verify(subject_filter: str | None = None, verbose: bool = False) -> None
                                 pass
                 finally:
                     # Always try to Down if we attempted Build/Up
-                    if subject_result["Build"] != "SKIP":
+                    if app_result["Build"] != "SKIP":
                         try:
                             env.teardown(verbose=verbose)
                         except InfrastructureError:
@@ -142,21 +141,21 @@ def run_verify(subject_filter: str | None = None, verbose: bool = False) -> None
 
                 # Overall Status
                 if (
-                    subject_result["Build"] == "PASS"
-                    and subject_result["Run"] == "PASS"
-                    and subject_result["Test"] == "PASS"
+                    app_result["Build"] == "PASS"
+                    and app_result["Run"] == "PASS"
+                    and app_result["Test"] == "PASS"
                 ):
-                    subject_result["Status"] = "PASS"
+                    app_result["Status"] = "PASS"
                     progress.console.print(
-                        f"[bold green]\u2713 {subject_id} passed verification.[/bold green]"
+                        f"[bold green]\u2713 {app_id} passed verification.[/bold green]"
                     )
                 else:
-                    subject_result["Status"] = "FAIL"
+                    app_result["Status"] = "FAIL"
                     progress.console.print(
-                        f"[bold red]\u2717 {subject_id} failed verification.[/bold red]"
+                        f"[bold red]\u2717 {app_id} failed verification.[/bold red]"
                     )
 
-                results.append(subject_result)
+                results.append(app_result)
                 progress.advance(task)
     except KeyboardInterrupt:
         console.print("\n[bold red]Verification interrupted by user. Cleaning up...[/bold red]")

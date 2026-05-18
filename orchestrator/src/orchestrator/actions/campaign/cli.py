@@ -28,6 +28,6 @@ def run(
     ] = False,
 ) -> None:
     """
-    Run a sequential [bold magenta]Campaign[/bold magenta] across multiple subjects.
+    Run a sequential [bold magenta]Campaign[/bold magenta] across multiple applications.
     """
-    run_campaign(path=path, subject_filter=apps, resume=resume, infra_path=infra, verbose=verbose)
+    run_campaign(path=path, app_filter=apps, resume=resume, infra_path=infra, verbose=verbose)

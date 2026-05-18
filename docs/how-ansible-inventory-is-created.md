@@ -31,12 +31,12 @@ The actual file generation is handled by a `local_file` resource in:
 ```hcl
 resource "local_file" "ansible_inventory" {
   content = templatefile("${path.module}/templates/inventory.yml.tftpl", {
-    subject_servers   = aws_instance.subject_server
-    load_generators   = aws_instance.load_generator
-    monitoring_server = aws_instance.monitoring_server
-    ssh_user          = "ec2-user"
-    private_key_path  = "~/.ssh/MGR-M.pem"
-    technologies      = var.technologies
+    application_servers = aws_instance.application_server
+    load_generators     = aws_instance.load_generator
+    monitoring_server   = aws_instance.monitoring_server
+    ssh_user            = "ec2-user"
+    private_key_path    = "~/.ssh/MGR-M.pem"
+    technologies        = var.technologies
   })
   filename = "${path.module}/../ansible/inventory/inventory.yml"
 }
@@ -51,37 +51,37 @@ The generated file is saved to:
 
 ## Inventory Structure
 
-The inventory is organized into functional groups to allow precise targeting of roles and subjects:
+The inventory is organized into functional groups to allow precise targeting of roles and applications:
 
 | Group Name | Purpose |
 | :--- | :--- |
-| `role_subject_servers` | Parent group containing all subject server sub-groups. |
-| `subject_server_{id}` | Specific group for a framework (e.g., `subject_server_fastify`). Contains the host and variables like `subject_dir`. |
+| `role_application_servers` | Parent group containing all application server sub-groups. |
+| `application_server_{id}` | Specific group for a framework (e.g., `application_server_fastify`). Contains the host and variables like `application_dir`. |
 | `role_load_generators` | Parent group for all load generator sub-groups. |
-| `role_load_generator_{id}`| Specific group for the load generator attacking a corresponding subject server. |
+| `role_load_generator_{id}`| Specific group for the load generator attacking a corresponding application server. |
 | `role_monitoring_server` | Group containing the Prometheus/Grafana monitoring host. |
 
 ### Host Variables
 Each host in the inventory is enriched with metadata extracted from AWS:
 - `ansible_host`: The public IP (used for SSH connectivity).
-- `private_ip`: Used for internal communication between Load Generators and Subject Servers.
+- `private_ip`: Used for internal communication between Load Generators and Application Servers.
 - `public_ip`: For external access.
 - `scenario_type`: Identifies the framework being tested.
 
 ## Consumption
 
 ### 1. Ansible
-Playbooks use these groups to target specific tiers. For example, `site.yml` applies roles based on `role_subject_servers` or `role_monitoring_server`.
+Playbooks use these groups to target specific tiers. For example, `site.yml` applies roles based on `role_application_servers` or `role_monitoring_server`.
 
 ### 2. Orchestrator (`mgr`)
 The Python orchestrator parses `inventory.yml` at the start of an experiment to:
-- Discover which subjects are currently active (based on which `subject_server_` groups exist).
-- Map subject servers to their corresponding load generator groups.
-- Retrieve the private IPs of the subject servers to pass them to the load testing tools (k6/wrk).
+- Discover which applications are currently active (based on which `application_server_` groups exist).
+- Map application servers to their corresponding load generator groups.
+- Retrieve the private IPs of the application servers to pass them to the load testing tools (k6/wrk).
 
 ## Troubleshooting
 
 If `ansible/inventory/inventory.yml` is missing or contains incorrect IPs:
 1. Ensure you have run `terraform apply`.
-2. Check that the `technologies` variable in Terraform includes the subjects you expect.
+2. Check that the `technologies` variable in Terraform includes the applications you expect.
 3. Verify that the EC2 instances were successfully created and have assigned IPs.

@@ -7,7 +7,7 @@ from pathlib import Path
 from rich.console import Console
 from rich.prompt import Prompt
 
-from orchestrator.config import SUBJECTS_DIR
+from orchestrator.config import APPLICATIONS_DIR
 from orchestrator.shared.infra import InfrastructureError, LocalEnvironment
 
 console = Console()
@@ -33,67 +33,65 @@ def _find_available_port(preferred_port: int = 3000) -> int:
     raise RuntimeError(f"No available ports found between {preferred_port} and 9000")
 
 
-def _discover_subjects() -> list[Path]:
-    """Discover all available subjects with Dockerfiles."""
-    subjects = sorted(
+def _discover_apps() -> list[Path]:
+    """Discover all available applications with Dockerfiles."""
+    apps = sorted(
         [
             d
-            for d in SUBJECTS_DIR.iterdir()
+            for d in APPLICATIONS_DIR.iterdir()
             if d.is_dir() and not d.name.startswith("_") and (d / "Dockerfile").exists()
         ]
     )
-    return subjects
+    return apps
 
 
-def _select_subject(subjects: list[Path], filter_str: str | None = None) -> Path:
-    """Select a subject interactively or by filter."""
+def _select_app(apps: list[Path], filter_str: str | None = None) -> Path:
+    """Select an application interactively or by filter."""
     if filter_str:
         filters = [f.strip().lower() for f in filter_str.split(",")]
-        filtered = [s for s in subjects if any(f in s.name.lower() for f in filters)]
+        filtered = [s for s in apps if any(f in s.name.lower() for f in filters)]
         if len(filtered) == 1:
             return filtered[0]
         elif len(filtered) > 1:
-            console.print(f"\n[yellow]Multiple subjects match '{filter_str}':[/yellow]")
-            for i, subject in enumerate(filtered, 1):
-                console.print(f"  {i}. {subject.name}")
+            console.print(f"\n[yellow]Multiple applications match '{filter_str}':[/yellow]")
+            for i, app in enumerate(filtered, 1):
+                console.print(f"  {i}. {app.name}")
             choice = Prompt.ask(
-                "Select subject", choices=[str(i) for i in range(1, len(filtered) + 1)]
+                "Select application", choices=[str(i) for i in range(1, len(filtered) + 1)]
             )
             return filtered[int(choice) - 1]
         else:
-            console.print(f"[red]No subjects match '{filter_str}'[/red]")
+            console.print(f"[red]No applications match '{filter_str}'[/red]")
             sys.exit(1)
 
     # Interactive selection
-    console.print("\n[bold cyan]Available subjects:[/bold cyan]")
+    console.print("\n[bold cyan]Available applications:[/bold cyan]")
 
-    ssr_subjects = [s for s in subjects if s.name.startswith("ssr-")]
-    csr_subjects = [s for s in subjects if s.name.startswith("csr-")]
+    ssr_apps = [s for s in apps if s.name.startswith("ssr-")]
+    csr_apps = [s for s in apps if s.name.startswith("csr-")]
 
     index = 1
-    subject_map: dict[int, Path] = {}
+    app_map: dict[int, Path] = {}
 
-    if ssr_subjects:
+    if ssr_apps:
         console.print("\n[bold]Server-Side Rendering (SSR):[/bold]")
-        for s in ssr_subjects:
+        for s in ssr_apps:
             console.print(f"  {index:2d}. {s.name}")
-            subject_map[index] = s
+            app_map[index] = s
             index += 1
 
-    if csr_subjects:
+    if csr_apps:
         console.print("\n[bold]Client-Side Rendering (CSR):[/bold]")
-        for s in csr_subjects:
+        for s in csr_apps:
             console.print(f"  {index:2d}. {s.name}")
-            subject_map[index] = s
+            app_map[index] = s
             index += 1
 
-    choice = Prompt.ask("\nSelect subject number", choices=[str(i) for i in subject_map.keys()])
-    return subject_map[int(choice)]
+    choice = Prompt.ask("\nSelect application number", choices=[str(i) for i in app_map.keys()])
+    return app_map[int(choice)]
 
 
-def _stream_logs_interactive(
-    subject_path: Path, compose_file: Path, env_vars: dict[str, str]
-) -> None:
+def _stream_logs_interactive(app_path: Path, compose_file: Path, env_vars: dict[str, str]) -> None:
     """Stream docker-compose logs interactively until Ctrl+C."""
     try:
         cmd = ["docker-compose", "-f", str(compose_file), "logs", "-f"]
@@ -116,19 +114,19 @@ def _stream_logs_interactive(
         console.print("\n[yellow]Stopping logs stream...[/yellow]")
 
 
-def preview_subject(
-    subject_filter: str | None = None, port: int | None = None, verbose: bool = False
+def preview_app(
+    app_filter: str | None = None, port: int | None = None, verbose: bool = False
 ) -> None:
-    """Preview a selected subject locally using docker-compose."""
-    # Discover subjects
-    subjects = _discover_subjects()
-    if not subjects:
-        console.print("[bold red]No subjects found![/bold red]")
+    """Preview a selected application locally using docker-compose."""
+    # Discover applications
+    apps = _discover_apps()
+    if not apps:
+        console.print("[bold red]No applications found![/bold red]")
         sys.exit(1)
 
-    # Select subject
-    selected_subject = _select_subject(subjects, subject_filter)
-    subject_id = selected_subject.name
+    # Select application
+    selected_app = _select_app(apps, app_filter)
+    app_id = selected_app.name
 
     # Determine port
     if port is None:
@@ -139,10 +137,10 @@ def preview_subject(
         console.print(f"[yellow]Port {port} is in use. Using {available} instead.[/yellow]")
         port = available
 
-    console.print(f"\n[bold green]Starting {subject_id}...[/bold green]")
+    console.print(f"\n[bold green]Starting {app_id}...[/bold green]")
 
     try:
-        env = LocalEnvironment(selected_subject)
+        env = LocalEnvironment(selected_app)
 
         # Customize port in env
         env_vars = env.docker._get_env()
@@ -176,27 +174,29 @@ def preview_subject(
                 capture_output=True,
             )
         except subprocess.CalledProcessError as e:
-            console.print(f"[bold red]Failed to start subject:[/bold red] {e.stderr.decode()}")
+            console.print(f"[bold red]Failed to start application:[/bold red] {e.stderr.decode()}")
             sys.exit(1)
 
         # Show access info
-        console.print("\n[bold green]✓ Subject started successfully![/bold green]")
-        console.print(f"[cyan]Access the subject at:[/cyan] [bold]http://localhost:{port}[/bold]")
-        container_suffix = "runner" if subject_id.startswith("ssr-") else "webserver"
-        container_name = f"mgr-{env.docker.subject_id}-{container_suffix}"
+        console.print("\n[bold green]✓ Application started successfully![/bold green]")
+        console.print(
+            f"[cyan]Access the application at:[/cyan] [bold]http://localhost:{port}[/bold]"
+        )
+        container_suffix = "runner" if app_id.startswith("ssr-") else "webserver"
+        container_name = f"mgr-{env.docker.app_id}-{container_suffix}"
         console.print(f"[gray]Container:[/gray] {container_name}")
         console.print("[gray]Press Ctrl+C to stop and clean up...[/gray]\n")
 
         # Stream logs
-        _stream_logs_interactive(selected_subject, env.docker.compose_file, env_vars)
+        _stream_logs_interactive(selected_app, env.docker.compose_file, env_vars)
 
     except KeyboardInterrupt:
-        console.print("\n[yellow]Stopping subject...[/yellow]")
+        console.print("\n[yellow]Stopping application...[/yellow]")
     finally:
         # Cleanup: stop and remove containers
         console.print("[cyan]Cleaning up containers...[/cyan]")
         try:
-            env = LocalEnvironment(selected_subject)
+            env = LocalEnvironment(selected_app)
             env_vars = env.docker._get_env()
             env_vars["HOST_PORT"] = str(port)
 

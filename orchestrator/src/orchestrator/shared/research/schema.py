@@ -18,14 +18,14 @@ class Column:
 
 
 # Standard taxonomy for the Master's Thesis
-# Mapping of Research Subject names to logical analysis groups
+# Mapping of Research Application names to logical analysis groups
 def get_default_groups() -> dict[str, list[str]]:
     """
     Returns the standard taxonomy for the Master's Thesis.
     Derived dynamically from the discovered apps.
     """
-    from orchestrator.config import SUBJECTS_DIR
-    from orchestrator.shared.research.subject import SubjectRegistry
+    from orchestrator.config import APPLICATIONS_DIR
+    from orchestrator.shared.research.application import ApplicationRegistry
 
-    registry = SubjectRegistry(SUBJECTS_DIR)
+    registry = ApplicationRegistry(APPLICATIONS_DIR)
     return registry.get_default_groups()

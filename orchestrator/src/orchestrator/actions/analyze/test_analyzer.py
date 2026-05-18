@@ -76,7 +76,7 @@ def mock_aggregated_study_dir(tmp_path: Path) -> Path:
                 "sustain": "1m",
             },
         },
-        "subjects": {
+        "applications": {
             "ssr-nextjs-node": {
                 "family": "react",
                 "meta_framework": "nextjs",
@@ -130,7 +130,7 @@ def mock_load_study_dir(tmp_path: Path) -> Path:
             "rate": 1000,
             "warmup_duration": "10s",
         },
-        "subjects": {
+        "applications": {
             "ssr-nextjs-node": {
                 "family": "react",
                 "meta_framework": "nextjs",

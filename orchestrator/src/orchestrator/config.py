@@ -14,9 +14,9 @@ ANSIBLE_PROJECT = ANSIBLE_DIR / "project"
 INFRA_YAML = ROOT_DIR / "orchestrator" / "infra.yaml"
 INFRA_EXAMPLE_YAML = ROOT_DIR / "orchestrator" / "infra.example.yaml"
 
-# Subject paths
-SUBJECTS_DIR = ROOT_DIR / "subjects"
-COMPOSE_DIR = SUBJECTS_DIR / "_infra" / "compose"
+# Application paths
+APPLICATIONS_DIR = ROOT_DIR / "applications"
+COMPOSE_DIR = APPLICATIONS_DIR / "_infra" / "compose"
 
 # Universal Master Files (Docker Compose templates)
 COMPOSE_CSR_NGINX = COMPOSE_DIR / "csr-nginx.yml"

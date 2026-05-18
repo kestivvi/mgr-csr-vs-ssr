@@ -111,10 +111,13 @@ def test_aggregator_merges_compatible_runs(
     assert lin_b["mapped_repetitions"] == {1: 3}
 
 
-def test_aggregator_filtering_subjects(
+def test_aggregator_filtering_applications(
     tmp_path: Path, sample_study_directories: tuple[Path, Path]
 ) -> None:
-    """Verifies that DataAggregator filters subjects when [include,!exclude] syntax is supplied."""
+    """
+    Verifies that DataAggregator filters applications
+    when [include,!exclude] syntax is supplied.
+    """
     art_a, art_b = sample_study_directories
     out_dir = tmp_path / "aggregated_filtered"
 

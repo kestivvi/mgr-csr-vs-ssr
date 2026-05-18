@@ -54,7 +54,7 @@ def setup(
         Optional[str],
         typer.Option(
             "--exclude",
-            help="Comma-separated list of subject IDs to EXCLUDE (e.g. ssr-nuxt).",
+            help="Comma-separated list of app IDs to EXCLUDE (e.g. ssr-nuxt).",
         ),
     ] = None,
 ) -> None:
@@ -77,7 +77,7 @@ def setup(
         infra_path=infra_path,
         force=force,
         verbose=verbose,
-        subjects=app_list,
+        apps=app_list,
         exclude=exclude_list,
     )
 
@@ -192,7 +192,7 @@ def test_load(
 
     test_cli.run(
         mode="load",
-        subjects=apps,
+        apps=apps,
         num_repetitions=num_repetitions,
         inter_repetition_delay=inter_repetition_delay,
         duration=duration,
@@ -324,7 +324,7 @@ def test_capacity(
 
     test_cli.run(
         mode="capacity",
-        subjects=apps,
+        apps=apps,
         num_repetitions=num_repetitions,
         inter_repetition_delay=inter_repetition_delay,
         peak_rate=peak_rate,
@@ -432,7 +432,7 @@ def test_wrk(
     num_repetitions: Annotated[
         int,
         typer.Option(
-            "--repetitions", "-n", help="Number of repetitions per subject", show_default=True
+            "--repetitions", "-n", help="Number of repetitions per application", show_default=True
         ),
     ] = 1,
     verbose: Annotated[
@@ -442,7 +442,7 @@ def test_wrk(
     """Run local [cyan]capacity benchmarks[/cyan] using wrk."""
     from orchestrator.actions.test import cli as test_cli
 
-    test_cli.run_local_wrk(subject_filter=apps, num_repetitions=num_repetitions, verbose=verbose)
+    test_cli.run_local_wrk(app_filter=apps, num_repetitions=num_repetitions, verbose=verbose)
 
 
 @test_app.command(name="stop")
@@ -532,7 +532,7 @@ def campaign(
 def aggregate(
     sources: Annotated[
         list[str],
-        typer.Argument(help="Source directories with filters, e.g. 'path[subject1,subject2]'"),
+        typer.Argument(help="Source directories with filters, e.g. 'path[app1,app2]'"),
     ],
     output: Annotated[
         Path | None,
@@ -584,16 +584,16 @@ def verify(
     """
     from orchestrator.actions.verify import cli as verify_cli
 
-    verify_cli.run(subject_filter=apps, verbose=verbose)
+    verify_cli.run(app_filter=apps, verbose=verbose)
 
 
 @app.command()
 def preview(
-    subject: Annotated[
+    app_id: Annotated[
         str | None,
         typer.Argument(
             help=(
-                "Subject ID or filter. If provided, previews that subject directly. "
+                "Application ID or filter. If provided, previews that application directly. "
                 "Otherwise shows interactive selection menu."
             ),
         ),
@@ -611,13 +611,14 @@ def preview(
     ] = False,
 ) -> None:
     """
-    [bold blue]Preview[/bold blue]: Start a selected subject locally for manual testing in browser.
+    [bold blue]Preview[/bold blue]: Start a selected application locally
+    for manual testing in browser.
 
-    Interactive selection if no subject specified. Streams logs and cleans up on Ctrl+C.
+    Interactive selection if no application specified. Streams logs and cleans up on Ctrl+C.
     """
     from orchestrator.actions.preview import cli as preview_cli
 
-    preview_cli.run(subject_filter=subject, port=port, verbose=verbose)
+    preview_cli.run(app_filter=app_id, port=port, verbose=verbose)
 
 
 if __name__ == "__main__":

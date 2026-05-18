@@ -2,7 +2,7 @@
 # The analyzer transforms aggregated data into statistical reports and plots.
 
 # 'families' defines the order of framework ecosystems from most to least performant.
-# Each entry is a list of keywords; a subject matching ANY keyword belongs to that family.
+# Each entry is a list of keywords; an application matching ANY keyword belongs to that family.
 # Strategy: CSR/SSR hybrid families first, SSR-only families at the end.
 families:
   - [vanilla]

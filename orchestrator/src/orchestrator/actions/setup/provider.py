@@ -12,14 +12,14 @@ console = Console()
 
 def load_infra_config(
     path: Path | None = None,
-    subjects: list[str] | None = None,
+    apps: list[str] | None = None,
     exclude: list[str] | None = None,
 ) -> dict[str, Any]:
     """
-    Loads infrastructure configuration and injects discovered subjects.
+    Loads infrastructure configuration and injects discovered applications.
     """
-    from orchestrator.config import SUBJECTS_DIR
-    from orchestrator.shared.research.subject import SubjectRegistry
+    from orchestrator.config import APPLICATIONS_DIR
+    from orchestrator.shared.research.application import ApplicationRegistry
 
     target_path = path or INFRA_YAML
 
@@ -38,23 +38,23 @@ def load_infra_config(
     if not config:
         config = {}
 
-    # --- Subject Autodiscovery ---
-    registry = SubjectRegistry(SUBJECTS_DIR)
+    # --- Application Autodiscovery ---
+    registry = ApplicationRegistry(APPLICATIONS_DIR)
     discovered_techs = {}
-    for s in registry.all():
-        # Filter if subjects list is provided (Inclusion)
-        if subjects and s.id not in subjects:
+    for app in registry.all():
+        # Filter if apps list is provided (Inclusion)
+        if apps and app.id not in apps:
             continue
 
         # Filter if exclude list is provided (Exclusion)
-        if exclude and s.id in exclude:
+        if exclude and app.id in exclude:
             continue
 
-        discovered_techs[s.id] = {
-            "description": s.display_name,
-            "purpose": f"Hosts {s.family.capitalize()} {s.strategy.upper()} subject",
-            "subject_dir": f"subjects/{s.id}",
-            "metadata": s.to_dict(),
+        discovered_techs[app.id] = {
+            "description": app.display_name,
+            "purpose": f"Hosts {app.family.capitalize()} {app.strategy.upper()} application",
+            "application_dir": f"applications/{app.id}",
+            "metadata": app.to_dict(),
         }
 
     # Merge: Manual entries in infra.yaml can still override/augment discovered ones
@@ -66,8 +66,8 @@ def load_infra_config(
 
     # Final filtering pass to ensure consistency
     final_techs = config["technologies"]
-    if subjects:
-        final_techs = {k: v for k, v in final_techs.items() if k in subjects}
+    if apps:
+        final_techs = {k: v for k, v in final_techs.items() if k in apps}
     if exclude:
         final_techs = {k: v for k, v in final_techs.items() if k not in exclude}
 
@@ -80,14 +80,14 @@ def run_setup(
     infra_path: Path | None = None,
     force: bool = False,
     verbose: bool = False,
-    subjects: list[str] | None = None,
+    apps: list[str] | None = None,
     exclude: list[str] | None = None,
 ) -> None:
     """Orchestrates the infrastructure setup using deep adapters."""
 
     try:
         # 0. Load Configuration
-        config = load_infra_config(infra_path, subjects=subjects, exclude=exclude)
+        config = load_infra_config(infra_path, apps=apps, exclude=exclude)
         env = CloudEnvironment()
 
         if force:
