@@ -13,6 +13,8 @@ from ..config import PLOT_PALETTE
 from ..utils.plotting import (
     clean_tech_names_df,
     create_bar_comparison_plot,
+    draw_family_margin_labels,
+    get_family_labels,
     get_ordered_tech_list,
 )
 from ..utils.reporting import write_report
@@ -144,7 +146,9 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, raw_results: pd.DataF
         # Use global family-based order
         full_order = get_ordered_tech_list(analyzer, plot_df)
         order_map = plot_df.set_index(Column.SERVER_TYPE)["display_name"].to_dict()
-        order = [order_map[t] for t in full_order if t in order_map]
+        ordered_techs = [t for t in full_order if t in order_map]
+        order = [order_map[t] for t in ordered_techs]
+        family_labels = get_family_labels(analyzer, ordered_techs)
 
         sns.barplot(
             data=rps_df,
@@ -240,6 +244,8 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, raw_results: pd.DataF
                 group = match[Column.GROUP].iloc[0]
                 label.set_color(PLOT_PALETTE.get(group, "black"))
                 label.set_fontweight("bold")
+
+        draw_family_margin_labels(ax, family_labels)
 
         plt.tight_layout()
         plt.savefig(analyzer.plots_dir / "capacity_rps_comparison.png")

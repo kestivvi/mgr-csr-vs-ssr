@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from matplotlib.axes import Axes
 
 from ..config import PLOT_PALETTE
 
@@ -150,6 +151,57 @@ def create_scorecard_heatmap(
     return path
 
 
+def get_family_labels(analyzer: PerformanceAnalyzer, ordered_techs: List[str]) -> List[str]:
+    """Return the family name for each tech (in order). Used for margin labelling."""
+    applications = analyzer.experiment.application_metadata if analyzer.experiment else {}
+    return [str(applications.get(t.lower(), {}).get("family", "unknown")) for t in ordered_techs]
+
+
+def draw_family_margin_labels(ax: Axes, family_labels: List[str]) -> None:
+    """Draw family group brackets/labels in the left margin of a horizontal bar plot.
+
+    `family_labels[i]` is the family of the i-th bar (top-to-bottom). Consecutive
+    bars sharing a family form a group; one centered label + bracket per group.
+    """
+    if not family_labels or len(set(family_labels)) < 2:
+        return
+
+    groups: List[tuple[str, int, int]] = []
+    start = 0
+    for i in range(1, len(family_labels) + 1):
+        if i == len(family_labels) or family_labels[i] != family_labels[start]:
+            groups.append((family_labels[start], start, i - 1))
+            start = i
+
+    trans = ax.get_yaxis_transform()
+    x_bracket = -0.31
+    x_label = -0.33
+    for name, top, bottom in groups:
+        center = (top + bottom) / 2
+        ax.annotate(
+            "",
+            xy=(x_bracket, top - 0.4),
+            xytext=(x_bracket, bottom + 0.4),
+            xycoords=trans,
+            textcoords=trans,
+            arrowprops={"arrowstyle": "-", "color": "#555555", "linewidth": 1.2},
+            annotation_clip=False,
+        )
+        ax.text(
+            x_label,
+            center,
+            name,
+            transform=trans,
+            ha="right",
+            va="center",
+            fontsize=10,
+            fontweight="bold",
+            color="#333333",
+            rotation=90,
+            clip_on=False,
+        )
+
+
 def create_bar_comparison_plot(
     analyzer: PerformanceAnalyzer,
     plot_df: pd.DataFrame,
@@ -170,7 +222,10 @@ def create_bar_comparison_plot(
     plot_df = clean_tech_names_df(plot_df)
     full_order = get_ordered_tech_list(analyzer, plot_df)
     order_map = plot_df.set_index(Column.SERVER_TYPE)["display_name"].to_dict()
-    order = [order_map[t] for t in full_order if t in order_map]
+    ordered_techs = [t for t in full_order if t in order_map]
+    order = [order_map[t] for t in ordered_techs]
+
+    family_labels = get_family_labels(analyzer, ordered_techs)
 
     plt.figure(figsize=(12, 10))
     ax = plt.gca()
@@ -230,6 +285,8 @@ def create_bar_comparison_plot(
             group = match[Column.GROUP].iloc[0]
             label.set_color(PLOT_PALETTE.get(group, "black"))
             label.set_fontweight("bold")
+
+    draw_family_margin_labels(ax, family_labels)
 
     plt.tight_layout()
     path = Path(analyzer.plots_dir) / filename
