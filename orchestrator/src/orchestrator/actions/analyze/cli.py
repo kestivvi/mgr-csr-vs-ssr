@@ -7,7 +7,14 @@ def run(
     report_type: str = "load",
     champions: list[str] | None = None,
     force: bool = False,
+    skip_first_sample: bool = False,
 ) -> None:
     input_path = resolve_path(results_dir)
-    analyzer = PerformanceAnalyzer(input_path, report_type, champions, force=force)
+    analyzer = PerformanceAnalyzer(
+        input_path,
+        report_type,
+        champions,
+        force=force,
+        skip_first_sample=skip_first_sample,
+    )
     analyzer.run()

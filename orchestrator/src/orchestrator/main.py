@@ -470,6 +470,14 @@ def analyze(
             "--force", help="Force analysis of inconsistent data (Research Contract violation)"
         ),
     ] = False,
+    skip_first_sample: Annotated[
+        bool,
+        typer.Option(
+            "--skip-first-sample",
+            help="Drop the first repetition per (group, server_type) before analysis "
+            "(load report only). Useful when the first sample is a warm-up outlier.",
+        ),
+    ] = False,
 ) -> None:
     """
     [bold magenta]Analyze[/bold magenta]: Generate statistical reports and plots from results.
@@ -478,7 +486,11 @@ def analyze(
     from orchestrator.actions.analyze import cli as analyze_cli
 
     analyze_cli.run(
-        results_dir=results_dir, report_type=report_type, champions=champions, force=force
+        results_dir=results_dir,
+        report_type=report_type,
+        champions=champions,
+        force=force,
+        skip_first_sample=skip_first_sample,
     )
 
 

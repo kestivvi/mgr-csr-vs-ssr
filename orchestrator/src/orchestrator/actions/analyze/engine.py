@@ -23,11 +23,13 @@ class PerformanceAnalyzer:
         report_type: str,
         champions: Optional[List[str]] = None,
         force: bool = False,
+        skip_first_sample: bool = False,
     ):
         self.input_dir = input_dir
         self.report_type = report_type
         self.champions_list = champions or []
         self.force = force
+        self.skip_first_sample = skip_first_sample
 
         # Create timestamped output directory
         ts = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")

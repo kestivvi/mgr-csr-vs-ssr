@@ -48,6 +48,21 @@ def run_load_analysis(analyzer: PerformanceAnalyzer) -> None:
     if not analyzer.experiment or analyzer.experiment.metrics.empty:
         return
     metrics_df = analyzer.experiment.metrics
+
+    if getattr(analyzer, "skip_first_sample", False):
+        min_rep = metrics_df.groupby([Column.GROUP, Column.SERVER_TYPE])[
+            Column.REPETITION_NUMBER
+        ].transform("min")
+        before = len(metrics_df)
+        metrics_df = metrics_df[metrics_df[Column.REPETITION_NUMBER] != min_rep]
+        from rich.console import Console
+
+        Console().print(
+            f"[yellow]--skip-first-sample: dropped {before - len(metrics_df)} rows "
+            f"(first repetition per group/server_type).[/yellow]"
+        )
+        if metrics_df.empty:
+            return
     # Prepare session state for rankings
     ranking_results: Dict[str, pd.DataFrame] = {}
 
