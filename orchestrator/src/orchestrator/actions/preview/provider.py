@@ -4,8 +4,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+import questionary
 from rich.console import Console
-from rich.prompt import Prompt
+from rich.panel import Panel
 
 from orchestrator.config import APPLICATIONS_DIR
 from orchestrator.shared.infra import InfrastructureError, LocalEnvironment
@@ -52,46 +53,32 @@ def _select_app(apps: list[Path], filter_str: str | None = None) -> Path:
         filtered = [s for s in apps if any(f in s.name.lower() for f in filters)]
         if len(filtered) == 1:
             return filtered[0]
-        elif len(filtered) > 1:
-            console.print(f"\n[yellow]Multiple applications match '{filter_str}':[/yellow]")
-            for i, app in enumerate(filtered, 1):
-                console.print(f"  {i}. {app.name}")
-            choice = Prompt.ask(
-                "Select application", choices=[str(i) for i in range(1, len(filtered) + 1)]
-            )
-            return filtered[int(choice) - 1]
-        else:
+        elif len(filtered) == 0:
             console.print(f"[red]No applications match '{filter_str}'[/red]")
             sys.exit(1)
-
-    # Interactive selection
-    console.print("\n[bold cyan]Available applications:[/bold cyan]")
+        # Multiple matches — narrow list fed into selector below
+        apps = filtered
 
     ssr_apps = [s for s in apps if s.name.startswith("ssr-")]
     csr_apps = [s for s in apps if s.name.startswith("csr-")]
 
-    index = 1
-    app_map: dict[int, Path] = {}
-
+    choices: list[questionary.Choice] = []
     if ssr_apps:
-        console.print("\n[bold]Server-Side Rendering (SSR):[/bold]")
-        for s in ssr_apps:
-            console.print(f"  {index:2d}. {s.name}")
-            app_map[index] = s
-            index += 1
-
+        choices.append(questionary.Choice(title="── SSR ──", value=None, disabled=""))
+        choices.extend(questionary.Choice(title=s.name, value=s) for s in ssr_apps)
     if csr_apps:
-        console.print("\n[bold]Client-Side Rendering (CSR):[/bold]")
-        for s in csr_apps:
-            console.print(f"  {index:2d}. {s.name}")
-            app_map[index] = s
-            index += 1
+        choices.append(questionary.Choice(title="── CSR ──", value=None, disabled=""))
+        choices.extend(questionary.Choice(title=s.name, value=s) for s in csr_apps)
 
-    choice = Prompt.ask("\nSelect application number", choices=[str(i) for i in app_map.keys()])
-    return app_map[int(choice)]
+    selected = questionary.select("Select application:", choices=choices).ask()
+
+    if selected is None:
+        sys.exit(0)
+
+    return selected  # type: ignore[no-any-return]
 
 
-def _stream_logs_interactive(app_path: Path, compose_file: Path, env_vars: dict[str, str]) -> None:
+def _stream_logs_interactive(compose_file: Path, env_vars: dict[str, str]) -> None:
     """Stream docker-compose logs interactively until Ctrl+C."""
     try:
         cmd = ["docker-compose", "-f", str(compose_file), "logs", "-f"]
@@ -134,7 +121,14 @@ def preview_app(
 
     if not _is_port_available(port):
         available = _find_available_port(port)
-        console.print(f"[yellow]Port {port} is in use. Using {available} instead.[/yellow]")
+        console.print(
+            Panel(
+                f"Port [bold]{port}[/bold] is already in use.\n"
+                f"Binding to [bold green]{available}[/bold green] instead.",
+                title="[yellow]Port conflict[/yellow]",
+                border_style="yellow",
+            )
+        )
         port = available
 
     console.print(f"\n[bold green]Starting {app_id}...[/bold green]")
@@ -148,47 +142,60 @@ def preview_app(
         # We keep APP_PORT at default (3000) because it's used for internal backend connection
 
         # Build
-        console.print("[cyan]Building image...[/cyan]")
-        try:
-            env.docker.build(verbose=verbose)
-        except InfrastructureError as e:
-            console.print(f"[bold red]Build failed:[/bold red] {e}")
-            sys.exit(1)
+        if verbose:
+            console.print("[cyan]Building image...[/cyan]")
+            try:
+                env.docker.build(verbose=True)
+            except InfrastructureError as e:
+                console.print(f"[bold red]Build failed:[/bold red] {e}")
+                sys.exit(1)
+        else:
+            with console.status("[cyan]Building image...[/cyan]", spinner="dots"):
+                try:
+                    env.docker.build(verbose=False)
+                except InfrastructureError as e:
+                    console.print(f"[bold red]Build failed:[/bold red] {e}")
+                    sys.exit(1)
 
         # Start containers
-        console.print("[cyan]Starting containers...[/cyan]")
-        try:
-            # Run docker-compose with custom port
-            cmd = [
-                "docker-compose",
-                "-f",
-                str(env.docker.compose_file),
-                "up",
-                "-d",
-                "--force-recreate",
-            ]
-            subprocess.run(
-                cmd,
-                env={**os.environ, **env_vars},
-                check=True,
-                capture_output=True,
-            )
-        except subprocess.CalledProcessError as e:
-            console.print(f"[bold red]Failed to start application:[/bold red] {e.stderr.decode()}")
-            sys.exit(1)
+        with console.status("[cyan]Starting containers...[/cyan]", spinner="dots"):
+            try:
+                # Run docker-compose with custom port
+                cmd = [
+                    "docker-compose",
+                    "-f",
+                    str(env.docker.compose_file),
+                    "up",
+                    "-d",
+                    "--force-recreate",
+                ]
+                subprocess.run(
+                    cmd,
+                    env={**os.environ, **env_vars},
+                    check=True,
+                    capture_output=True,
+                )
+            except subprocess.CalledProcessError as e:
+                console.print(
+                    f"[bold red]Failed to start application:[/bold red] {e.stderr.decode()}"
+                )
+                sys.exit(1)
 
         # Show access info
-        console.print("\n[bold green]✓ Application started successfully![/bold green]")
-        console.print(
-            f"[cyan]Access the application at:[/cyan] [bold]http://localhost:{port}[/bold]"
-        )
         container_suffix = "runner" if app_id.startswith("ssr-") else "webserver"
         container_name = f"mgr-{env.docker.app_id}-{container_suffix}"
-        console.print(f"[gray]Container:[/gray] {container_name}")
-        console.print("[gray]Press Ctrl+C to stop and clean up...[/gray]\n")
+        console.print(
+            Panel(
+                f"[bold]http://localhost:{port}[/bold]\n"
+                f"[dim]Container: {container_name}[/dim]\n\n"
+                "[dim]Press Ctrl+C to stop and clean up.[/dim]",
+                title="[bold green]✓ Running[/bold green]",
+                border_style="green",
+            )
+        )
 
         # Stream logs
-        _stream_logs_interactive(selected_app, env.docker.compose_file, env_vars)
+        _stream_logs_interactive(env.docker.compose_file, env_vars)
 
     except KeyboardInterrupt:
         console.print("\n[yellow]Stopping application...[/yellow]")
@@ -196,14 +203,12 @@ def preview_app(
         # Cleanup: stop and remove containers
         console.print("[cyan]Cleaning up containers...[/cyan]")
         try:
-            env = LocalEnvironment(selected_app)
-            env_vars = env.docker._get_env()
-            env_vars["HOST_PORT"] = str(port)
-
+            cleanup_env_vars = env.docker._get_env()
+            cleanup_env_vars["HOST_PORT"] = str(port)
             cmd = ["docker-compose", "-f", str(env.docker.compose_file), "down"]
             subprocess.run(
                 cmd,
-                env={**os.environ, **env_vars},
+                env={**os.environ, **cleanup_env_vars},
                 capture_output=True,
             )
             console.print("[bold green]✓ Cleanup complete[/bold green]")

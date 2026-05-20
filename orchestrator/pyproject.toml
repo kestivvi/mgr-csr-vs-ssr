@@ -17,6 +17,7 @@ dependencies = [
     "tabulate",
     "pytest",
     "pytest-mock",
+    "questionary",
 ]
 
 [project.scripts]
