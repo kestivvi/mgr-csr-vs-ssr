@@ -272,7 +272,7 @@ def create_bar_comparison_plot(
             textcoords="offset points",
             fontsize=9,
         )
-    plt.legend(title="Grupa", loc="lower right")
+    plt.legend(title="Grupa", loc="upper right")
 
     plt.title(title)
     plt.xlabel(xlabel)
