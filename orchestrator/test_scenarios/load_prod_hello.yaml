@@ -15,8 +15,8 @@ inter_repetition_delay: 1m
 
 load_options:
   rps: 50
-  warmup: 60s
-  duration: 60s
+  warmup: 2m
+  duration: 5m
   after: 15s
   vus: 300
   path_type: dynamic

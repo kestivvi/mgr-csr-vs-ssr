@@ -13,13 +13,13 @@ num_repetitions: 1
 inter_repetition_delay: 1m
 
 capacity_k6_options:
-  peak_rate: 5000
-  ramp_up: 10m
-  peak_rate_2: 42000
-  ramp_up_2: 10m
+  peak_rate: 2000
+  ramp_up: 5m
+  peak_rate_2: 12000
+  ramp_up_2: 5m
   sustain: 1m
   ramp_down: 1m
-  start_rate: 50
+  start_rate: 10
   warmup: 120s
   max_vus: 400
   path_type: dynamic-app

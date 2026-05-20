@@ -13,9 +13,9 @@ num_repetitions: 10
 inter_repetition_delay: 1m
 
 load_options:
-  rps: 50  # TODO: re-derive from _app_assets Capacity Test results before running this Scenario.
-  warmup: 60s
-  duration: 60s
+  rps: 50
+  warmup: 2m
+  duration: 5m
   after: 15s
   vus: 300
   path_type: dynamic-app
