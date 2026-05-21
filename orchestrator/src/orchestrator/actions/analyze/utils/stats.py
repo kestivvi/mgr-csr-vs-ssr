@@ -1,8 +1,42 @@
-from typing import Tuple
+from dataclasses import dataclass
+from typing import Sequence, Tuple
 
 import numpy as np
 import pandas as pd
 from scipy import stats
+
+
+@dataclass(frozen=True)
+class GroupStats:
+    n: int
+    median: float
+    mean: float
+    std: float
+    min: float
+    max: float
+    p25: float
+    p75: float
+    iqr: float
+
+
+def compute_group_stats(values: Sequence[float]) -> GroupStats:
+    arr = np.asarray(values, dtype=float)
+    n = int(arr.size)
+    if n == 0:
+        raise ValueError("compute_group_stats requires at least one value")
+    p25 = float(np.percentile(arr, 25))
+    p75 = float(np.percentile(arr, 75))
+    return GroupStats(
+        n=n,
+        median=float(np.median(arr)),
+        mean=float(np.mean(arr)),
+        std=float(np.std(arr, ddof=1)) if n >= 2 else float("nan"),
+        min=float(np.min(arr)),
+        max=float(np.max(arr)),
+        p25=p25,
+        p75=p75,
+        iqr=p75 - p25,
+    )
 
 
 def calculate_confidence_interval(data: pd.Series) -> Tuple[float, float]:

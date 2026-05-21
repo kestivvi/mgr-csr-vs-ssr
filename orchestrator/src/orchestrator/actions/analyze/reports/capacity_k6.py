@@ -10,6 +10,7 @@ from matplotlib.patches import Patch
 from orchestrator.shared.research import Column, MetricName
 
 from ..config import PLOT_PALETTE
+from ..utils.group_summary import MetricSpec, render_group_summary_section
 from ..utils.plotting import (
     clean_tech_names_df,
     create_bar_comparison_plot,
@@ -301,11 +302,46 @@ def generate_capacity_report(analyzer: PerformanceAnalyzer, raw_results: pd.Data
             }
         )
 
+    group_summary_md = render_capacity_group_summary_md(raw_results)
+
     report = [
         f"# Capacity Report for `{analyzer.input_dir.name}`",
-        "\n### Podsumowanie wyników zagregowanych",
-        pd.DataFrame(rows).to_markdown(index=False),
-        "\n*Wartości w nawiasach oznaczają odchylenie standardowe "
-        "(standard deviation) z wielu prób.*",
     ]
+    if group_summary_md:
+        report.append("\n" + group_summary_md)
+    report.extend(
+        [
+            "\n### Podsumowanie wyników zagregowanych",
+            pd.DataFrame(rows).to_markdown(index=False),
+            "\n*Wartości w nawiasach oznaczają odchylenie standardowe "
+            "(standard deviation) z wielu prób.*",
+        ]
+    )
     return "\n".join(report)
+
+
+def render_capacity_group_summary_md(raw_results: pd.DataFrame) -> str:
+    # Per-app mean across runs, then group stats.
+    per_tech = raw_results.groupby([Column.GROUP, Column.SERVER_TYPE])[
+        ["sustained_rps", "peak_rps"]
+    ].mean()
+
+    specs: list[tuple[str, str, str, int, str]] = [
+        ("sustained_rps", "Utrzymany RPS", "RPS", 0, "CSR"),
+        ("peak_rps", "Szczytowy RPS", "RPS", 0, "CSR"),
+    ]
+    per_app_values: dict[str, dict[str, list[float]]] = {}
+    metric_specs: list[MetricSpec] = []
+    for col, name, unit, decimals, higher_is in specs:
+        groups: dict[str, list[float]] = {}
+        for (group, _tech), value in per_tech[col].items():
+            groups.setdefault(str(group), []).append(float(value))
+        if "CSR" not in groups or "SSR" not in groups:
+            continue
+        per_app_values[name] = groups
+        metric_specs.append(
+            MetricSpec(name=name, unit=unit, decimals=decimals, higher_is=higher_is)  # type: ignore[arg-type]
+        )
+    if not metric_specs:
+        return ""
+    return render_group_summary_section(per_app_values, metric_specs)

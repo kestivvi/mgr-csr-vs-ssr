@@ -10,6 +10,7 @@ import seaborn as sns
 from orchestrator.shared.research import Column, MetricName
 
 from ..config import PLOT_PALETTE
+from ..utils.group_summary import MetricSpec, render_group_summary_section
 from ..utils.plotting import get_ordered_tech_list
 from ..utils.reporting import write_report
 
@@ -44,8 +45,34 @@ def run_capacity_wrk_analysis(analyzer: PerformanceAnalyzer) -> None:
     ]
 
     generate_capacity_wrk_plots(analyzer, wrk_summary)
-    content = f"# Capacity WRK Report (DIRTY TEST)\n\n{wrk_summary.to_markdown()}"
-    write_report(analyzer, content)
+
+    group_summary_md = _render_wrk_group_summary_md(wrk_summary)
+    parts = ["# Capacity WRK Report (DIRTY TEST)"]
+    if group_summary_md:
+        parts.append(group_summary_md)
+    parts.append(wrk_summary.to_markdown())
+    write_report(analyzer, "\n\n".join(parts))
+
+
+def _render_wrk_group_summary_md(wrk_summary: pd.DataFrame) -> str:
+    per_app_values: dict[str, dict[str, list[float]]] = {}
+    metric_specs: list[MetricSpec] = []
+    for col, name, unit, decimals, higher_is in [
+        ("rps_mean", "Utrzymany RPS", "RPS", 0, "CSR"),
+        ("rps_max", "Szczytowy RPS", "RPS", 0, "CSR"),
+    ]:
+        groups: dict[str, list[float]] = {}
+        for group, sub in wrk_summary.groupby(Column.GROUP):
+            groups[str(group)] = [float(v) for v in sub[col].tolist()]
+        if "CSR" not in groups or "SSR" not in groups:
+            continue
+        per_app_values[name] = groups
+        metric_specs.append(
+            MetricSpec(name=name, unit=unit, decimals=decimals, higher_is=higher_is)  # type: ignore[arg-type]
+        )
+    if not metric_specs:
+        return ""
+    return render_group_summary_section(per_app_values, metric_specs)
 
 
 def generate_capacity_wrk_plots(analyzer: PerformanceAnalyzer, wrk_summary: pd.DataFrame) -> None:

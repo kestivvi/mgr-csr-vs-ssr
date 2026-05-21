@@ -8,6 +8,7 @@ import pandas as pd
 from orchestrator.shared.research import Column
 
 from ..config import METRIC_CONFIG
+from ..utils.group_summary import MetricSpec, render_group_summary_section
 from ..utils.plotting import (
     create_bar_comparison_plot,
     create_comparison_plot,
@@ -16,6 +17,14 @@ from ..utils.plotting import (
 )
 from ..utils.reporting import render_metadata_md, write_report
 from ..utils.stats import calculate_confidence_interval
+
+_LOAD_GROUP_SUMMARY_SPECS: tuple[tuple[str, str, str, int], ...] = (
+    # (metric_key in METRIC_CONFIG["mean"], unit, higher_is, decimals)
+    ("cpu", "%", "SSR", 2),
+    ("memory", "MB", "SSR", 2),
+    ("p99", "ms", "SSR", 4),
+    ("network_tx", "MB/s", "SSR", 4),
+)
 
 if TYPE_CHECKING:
     from ..engine import PerformanceAnalyzer
@@ -228,12 +237,38 @@ def generate_load_report(
     report = [f"# Performance Analysis Report for `{analyzer.input_dir.name}`"]
     report.append(render_executive_summary_md(analyzer, executive_summary))
     report.append(render_resource_comparison_md(analyzer))
+    report.append("\n" + render_load_group_summary_md(ranking_results))
     report.append("\n## Detailed Analysis")
     report.append(render_ranking_tables_md(ranking_results))
     report.append(render_visual_overview_md(analyzer))
     report.append(render_temporal_analysis_md(analyzer))
     report.append(render_metadata_md(analyzer))
     return "\n".join(report)
+
+
+def render_load_group_summary_md(ranking_results: Dict[str, pd.DataFrame]) -> str:
+    per_app_values: dict[str, dict[str, list[float]]] = {}
+    metric_specs: list[MetricSpec] = []
+    for metric_key, unit, higher_is, decimals in _LOAD_GROUP_SUMMARY_SPECS:
+        cfg = METRIC_CONFIG["mean"].get(metric_key)
+        if cfg is None:
+            continue
+        name = str(cfg["name"])
+        df = ranking_results.get(name)
+        if df is None or df.empty:
+            continue
+        groups: dict[str, list[float]] = {}
+        for group, sub in df.groupby(Column.GROUP):
+            groups[str(group)] = [float(v) for v in sub["mean"].tolist()]
+        if "CSR" not in groups or "SSR" not in groups:
+            continue
+        per_app_values[name] = groups
+        metric_specs.append(
+            MetricSpec(name=name, unit=unit, decimals=decimals, higher_is=higher_is)  # type: ignore[arg-type]
+        )
+    if not metric_specs:
+        return ""
+    return render_group_summary_section(per_app_values, metric_specs)
 
 
 def render_executive_summary_md(analyzer: PerformanceAnalyzer, executive_summary: str) -> str:
