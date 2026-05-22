@@ -17,6 +17,8 @@ from ..utils.plotting import (
     draw_family_margin_labels,
     get_family_labels,
     get_ordered_tech_list,
+    t_ci_95,
+    t_ci_half_width,
 )
 from ..utils.reporting import write_report
 
@@ -159,6 +161,7 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, raw_results: pd.DataF
             hue_order=["Szczytowy", "Utrzymany"],
             order=order,
             palette={"Szczytowy": "#4C72B0", "Utrzymany": "#A0C4FF"},
+            errorbar=t_ci_95,
             capsize=0.1,
             alpha=0.8,
             ax=ax,
@@ -185,7 +188,7 @@ def generate_capacity_plots(analyzer: PerformanceAnalyzer, raw_results: pd.DataF
                 m_key = "peak_rps" if j == 0 else "sustained_rps"
                 subset = plot_df[plot_df["display_name"] == name][m_key]
                 m = subset.mean()
-                s = subset.std() if len(subset) > 1 else 0
+                s = t_ci_half_width(subset)
 
                 # Offset y position for grouped bars (default width is 0.8, so offset is 0.2)
                 y_pos = i - 0.2 if j == 0 else i + 0.2

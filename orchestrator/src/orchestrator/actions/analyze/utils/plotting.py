@@ -14,8 +14,39 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 from matplotlib.axes import Axes
+from scipy import stats as _scipy_stats
 
 from ..config import PLOT_PALETTE
+
+
+def t_ci_95(values: np.ndarray) -> tuple[float, float]:
+    """Return 95% t-Student confidence interval for the mean of `values`."""
+    arr = np.asarray(values, dtype=float)
+    arr = arr[~np.isnan(arr)]
+    n = arr.size
+    if n == 0:
+        return (float("nan"), float("nan"))
+    mean = float(np.mean(arr))
+    if n < 2:
+        return (mean, mean)
+    se = float(_scipy_stats.sem(arr))
+    if se == 0 or np.isnan(se):
+        return (mean, mean)
+    low, high = _scipy_stats.t.interval(0.95, df=n - 1, loc=mean, scale=se)
+    return (max(0.0, float(low)), float(high))
+
+
+def t_ci_half_width(series: pd.Series) -> float:
+    """Half-width of the 95% t-Student CI for the mean (for label annotations)."""
+    arr = series.dropna().to_numpy()
+    n = arr.size
+    if n < 2:
+        return 0.0
+    se = float(_scipy_stats.sem(arr))
+    if se == 0 or np.isnan(se):
+        return 0.0
+    return float(_scipy_stats.t.ppf(0.975, df=n - 1) * se)
+
 
 # Ensure Gap is transparent
 PLOT_PALETTE["Gap"] = "none"
@@ -238,7 +269,7 @@ def create_bar_comparison_plot(
         order=order,
         palette=PLOT_PALETTE,
         dodge=False,
-        errorbar="sd",
+        errorbar=t_ci_95,
         capsize=0.1,
         alpha=0.8,
         ax=ax,
@@ -257,9 +288,9 @@ def create_bar_comparison_plot(
     )
 
     means = plot_df.groupby("display_name")[value_col].mean()
-    stds = plot_df.groupby("display_name")[value_col].std().fillna(0)
+    ci_halfs = plot_df.groupby("display_name")[value_col].apply(t_ci_half_width)
     for i, name in enumerate(order):
-        m, s = means[name], stds[name]
+        m, s = means[name], ci_halfs[name]
         group_data = plot_df[plot_df["display_name"] == name][value_col]
         extent = max(m + s, group_data.max())
         label_text = f"{m:.1f} (±{s:.2f})" if s > 0 else f"{m:.1f}"

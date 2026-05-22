@@ -72,8 +72,12 @@ def render_group_summary_section(
             lines.append(_row(g, stats_by_group[g], spec.decimals))
 
         hi, lo = spec.higher_is, "SSR" if spec.higher_is == "CSR" else "CSR"
-        ratio = stats_by_group[hi].median / stats_by_group[lo].median
-        diff = stats_by_group[hi].median - stats_by_group[lo].median
+        # Use rounded medians so the displayed ratio and difference are internally
+        # consistent with the medians shown in the table above.
+        hi_med = round(stats_by_group[hi].median, spec.decimals)
+        lo_med = round(stats_by_group[lo].median, spec.decimals)
+        ratio = hi_med / lo_med if lo_med != 0 else float("inf")
+        diff = hi_med - lo_med
         lines.append("")
         lines.append(
             f"_Stosunek {hi}/{lo} (mediana): {ratio:.2f}×; "
