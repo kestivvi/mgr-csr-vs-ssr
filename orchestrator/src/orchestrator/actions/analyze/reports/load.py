@@ -8,7 +8,12 @@ import pandas as pd
 from orchestrator.shared.research import Column
 
 from ..config import METRIC_CONFIG
-from ..utils.group_summary import MetricSpec, render_group_summary_section
+from ..utils.group_summary import (
+    MetricSpec,
+    load_family_map,
+    render_group_summary_section,
+    render_per_family_group_summary_section,
+)
 from ..utils.plotting import (
     create_bar_comparison_plot,
     create_comparison_plot,
@@ -248,6 +253,8 @@ def generate_load_report(
 
 def render_load_group_summary_md(ranking_results: Dict[str, pd.DataFrame]) -> str:
     per_app_values: dict[str, dict[str, list[float]]] = {}
+    per_app_values_by_family: dict[str, dict[str, dict[str, list[float]]]] = {}
+    family_map = load_family_map()
     metric_specs: list[MetricSpec] = []
     for metric_key, unit, higher_is, decimals in _LOAD_GROUP_SUMMARY_SPECS:
         cfg = METRIC_CONFIG["mean"].get(metric_key)
@@ -260,6 +267,12 @@ def render_load_group_summary_md(ranking_results: Dict[str, pd.DataFrame]) -> st
         groups: dict[str, list[float]] = {}
         for group, sub in df.groupby(Column.GROUP):
             groups[str(group)] = [float(v) for v in sub["mean"].tolist()]
+        for _, row in df.iterrows():
+            family = family_map.get(str(row[Column.SERVER_TYPE]))
+            if family:
+                per_app_values_by_family.setdefault(family, {}).setdefault(name, {}).setdefault(
+                    str(row[Column.GROUP]), []
+                ).append(float(row["mean"]))
         if "CSR" not in groups or "SSR" not in groups:
             continue
         per_app_values[name] = groups
@@ -268,7 +281,9 @@ def render_load_group_summary_md(ranking_results: Dict[str, pd.DataFrame]) -> st
         )
     if not metric_specs:
         return ""
-    return render_group_summary_section(per_app_values, metric_specs)
+    overall = render_group_summary_section(per_app_values, metric_specs)
+    per_family = render_per_family_group_summary_section(per_app_values_by_family, metric_specs)
+    return overall + ("\n\n" + per_family if per_family else "")
 
 
 def render_executive_summary_md(analyzer: PerformanceAnalyzer, executive_summary: str) -> str:

@@ -10,7 +10,12 @@ from matplotlib.patches import Patch
 from orchestrator.shared.research import Column, MetricName
 
 from ..config import PLOT_PALETTE
-from ..utils.group_summary import MetricSpec, render_group_summary_section
+from ..utils.group_summary import (
+    MetricSpec,
+    load_family_map,
+    render_group_summary_section,
+    render_per_family_group_summary_section,
+)
 from ..utils.plotting import (
     clean_tech_names_df,
     create_bar_comparison_plot,
@@ -334,11 +339,18 @@ def render_capacity_group_summary_md(raw_results: pd.DataFrame) -> str:
         ("peak_rps", "Szczytowy RPS", "RPS", 0, "CSR"),
     ]
     per_app_values: dict[str, dict[str, list[float]]] = {}
+    per_app_values_by_family: dict[str, dict[str, dict[str, list[float]]]] = {}
+    family_map = load_family_map()
     metric_specs: list[MetricSpec] = []
     for col, name, unit, decimals, higher_is in specs:
         groups: dict[str, list[float]] = {}
-        for (group, _tech), value in per_tech[col].items():
+        for (group, tech), value in per_tech[col].items():
             groups.setdefault(str(group), []).append(float(value))
+            family = family_map.get(str(tech))
+            if family:
+                per_app_values_by_family.setdefault(family, {}).setdefault(name, {}).setdefault(
+                    str(group), []
+                ).append(float(value))
         if "CSR" not in groups or "SSR" not in groups:
             continue
         per_app_values[name] = groups
@@ -347,4 +359,6 @@ def render_capacity_group_summary_md(raw_results: pd.DataFrame) -> str:
         )
     if not metric_specs:
         return ""
-    return render_group_summary_section(per_app_values, metric_specs)
+    overall = render_group_summary_section(per_app_values, metric_specs)
+    per_family = render_per_family_group_summary_section(per_app_values_by_family, metric_specs)
+    return overall + ("\n\n" + per_family if per_family else "")

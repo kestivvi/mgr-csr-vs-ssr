@@ -10,7 +10,12 @@ import seaborn as sns
 from orchestrator.shared.research import Column, MetricName
 
 from ..config import PLOT_PALETTE
-from ..utils.group_summary import MetricSpec, render_group_summary_section
+from ..utils.group_summary import (
+    MetricSpec,
+    load_family_map,
+    render_group_summary_section,
+    render_per_family_group_summary_section,
+)
 from ..utils.plotting import get_ordered_tech_list
 from ..utils.reporting import write_report
 
@@ -56,6 +61,8 @@ def run_capacity_wrk_analysis(analyzer: PerformanceAnalyzer) -> None:
 
 def _render_wrk_group_summary_md(wrk_summary: pd.DataFrame) -> str:
     per_app_values: dict[str, dict[str, list[float]]] = {}
+    per_app_values_by_family: dict[str, dict[str, dict[str, list[float]]]] = {}
+    family_map = load_family_map()
     metric_specs: list[MetricSpec] = []
     for col, name, unit, decimals, higher_is in [
         ("rps_mean", "Utrzymany RPS", "RPS", 0, "CSR"),
@@ -64,6 +71,12 @@ def _render_wrk_group_summary_md(wrk_summary: pd.DataFrame) -> str:
         groups: dict[str, list[float]] = {}
         for group, sub in wrk_summary.groupby(Column.GROUP):
             groups[str(group)] = [float(v) for v in sub[col].tolist()]
+        for _, row in wrk_summary.iterrows():
+            family = family_map.get(str(row[Column.SERVER_TYPE]))
+            if family:
+                per_app_values_by_family.setdefault(family, {}).setdefault(name, {}).setdefault(
+                    str(row[Column.GROUP]), []
+                ).append(float(row[col]))
         if "CSR" not in groups or "SSR" not in groups:
             continue
         per_app_values[name] = groups
@@ -72,7 +85,9 @@ def _render_wrk_group_summary_md(wrk_summary: pd.DataFrame) -> str:
         )
     if not metric_specs:
         return ""
-    return render_group_summary_section(per_app_values, metric_specs)
+    overall = render_group_summary_section(per_app_values, metric_specs)
+    per_family = render_per_family_group_summary_section(per_app_values_by_family, metric_specs)
+    return overall + ("\n\n" + per_family if per_family else "")
 
 
 def generate_capacity_wrk_plots(analyzer: PerformanceAnalyzer, wrk_summary: pd.DataFrame) -> None:
