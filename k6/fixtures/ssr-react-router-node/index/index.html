@@ -1,0 +1,69 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>Hello World</title><meta name="description" content="Hello World page"/><link rel="modulepreload" href="/assets/entry.client-IixFIVia.js"/><link rel="modulepreload" href="/assets/jsx-runtime-ZJSHDm0N.js"/><link rel="modulepreload" href="/assets/root-B1FWBlI9.js"/><link rel="modulepreload" href="/assets/home-Dya1T0nW.js"/><link rel="stylesheet" href="/assets/root-Dge0qVQu.css"/></head><body><main><h1>Hello World</h1><div><p>Count: <!-- -->0</p><button>Increment</button></div></main><script>((storageKey2, restoreKey) => {
+    if (!window.history.state || !window.history.state.key) {
+      let key = Math.random().toString(32).slice(2);
+      window.history.replaceState({ key }, "");
+    }
+    try {
+      let positions = JSON.parse(sessionStorage.getItem(storageKey2) || "{}");
+      let storedY = positions[restoreKey || window.history.state.key];
+      if (typeof storedY === "number") {
+        window.scrollTo(0, storedY);
+      }
+    } catch (error) {
+      console.error(error);
+      sessionStorage.removeItem(storageKey2);
+    }
+  })("react-router-scroll-positions", null)</script><script>window.__reactRouterContext = {"basename":"/","future":{"unstable_optimizeDeps":false,"unstable_passThroughRequests":false,"unstable_subResourceIntegrity":false,"unstable_trailingSlashAwareDataRequests":false,"unstable_previewServerPrerendering":false,"v8_middleware":false,"v8_splitRouteModules":false,"v8_viteEnvironmentApi":false},"routeDiscovery":{"mode":"lazy","manifestPath":"/__manifest"},"ssr":true,"isSpaMode":false};window.__reactRouterContext.stream = new ReadableStream({start(controller){window.__reactRouterContext.streamController = controller;}}).pipeThrough(new TextEncoderStream());</script><script type="module" async="">;
+import * as route0 from "/assets/root-B1FWBlI9.js";
+import * as route1 from "/assets/home-Dya1T0nW.js";
+  window.__reactRouterManifest = {
+  "entry": {
+    "module": "/assets/entry.client-IixFIVia.js",
+    "imports": [
+      "/assets/jsx-runtime-ZJSHDm0N.js"
+    ],
+    "css": []
+  },
+  "routes": {
+    "root": {
+      "id": "root",
+      "path": "",
+      "hasAction": false,
+      "hasLoader": false,
+      "hasClientAction": false,
+      "hasClientLoader": false,
+      "hasClientMiddleware": false,
+      "hasDefaultExport": true,
+      "hasErrorBoundary": true,
+      "module": "/assets/root-B1FWBlI9.js",
+      "imports": [
+        "/assets/jsx-runtime-ZJSHDm0N.js"
+      ],
+      "css": [
+        "/assets/root-Dge0qVQu.css"
+      ]
+    },
+    "routes/home": {
+      "id": "routes/home",
+      "parentId": "root",
+      "index": true,
+      "hasAction": false,
+      "hasLoader": false,
+      "hasClientAction": false,
+      "hasClientLoader": false,
+      "hasClientMiddleware": false,
+      "hasDefaultExport": true,
+      "hasErrorBoundary": false,
+      "module": "/assets/home-Dya1T0nW.js",
+      "imports": [
+        "/assets/jsx-runtime-ZJSHDm0N.js"
+      ],
+      "css": []
+    }
+  },
+  "url": "/assets/manifest-9973d181.js",
+  "version": "9973d181"
+};
+  window.__reactRouterRouteModules = {"root":route0,"routes/home":route1};
+
+import("/assets/entry.client-IixFIVia.js");</script><!--$--><script>window.__reactRouterContext.streamController.enqueue("[{\"_1\":2,\"_3\":-5,\"_4\":-5},\"loaderData\",{},\"actionData\",\"errors\"]\n");</script><!--$--><script>window.__reactRouterContext.streamController.close();</script><!--/$--><!--/$--></body></html>

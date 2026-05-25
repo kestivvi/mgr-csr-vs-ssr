@@ -1,0 +1,1 @@
+import{i as e,n as t,t as n}from"./jsx-runtime-ByY1xr43.js";var r=e(t()),i=n();function a(){let[e,t]=(0,r.useState)(0);return(0,i.jsxs)(`main`,{children:[(0,i.jsx)(`h1`,{children:`Hello World`}),(0,i.jsxs)(`div`,{children:[(0,i.jsxs)(`p`,{children:[`Count: `,e]}),(0,i.jsx)(`button`,{onClick:()=>t(e+1),children:`Increment`})]})]})}export{a as component};

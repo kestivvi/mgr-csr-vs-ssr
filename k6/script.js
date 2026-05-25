@@ -3,6 +3,7 @@ import { sleep } from 'k6';
 import { SharedArray } from 'k6/data';
 import exec from 'k6/execution';
 import { parseHTML } from 'k6/html';
+import { discoverAssets } from './extract.js';
 
 /**
  * --- Block 1: Options & Configuration (Init Context) ---
@@ -161,11 +162,49 @@ const ASSET_PARAMS = {
   tags: { resource_type: 'asset', name: 'static_asset' },
 };
 
+// --- k6 parser adapter: k6/html exposes a Selection (.find, .attr) and
+// per-element handles via .each((i, el) => ...). The Element has DOM-ish
+// methods like getAttribute(), textContent. NO .attr/.text on element.
+// Mirrors the cheerio adapter for tests so discoverAssets is shared.
+const k6ParserAdapter = {
+  parse: (html) => parseHTML(html),
+  each: (doc, selector, fn) => doc.find(selector).each((_i, el) => fn(el)),
+  attr: (el, name) => {
+    if (typeof el.getAttribute === 'function') {
+      const v = el.getAttribute(name);
+      return v == null || v === '' ? null : v;
+    }
+    return null;
+  },
+  attrOf: (doc, selector, name) => {
+    const sel = doc.find(selector);
+    if (typeof sel.attr === 'function') {
+      const v = sel.attr(name);
+      return v == null || v === '' ? null : v;
+    }
+    return null;
+  },
+  text: (el) => {
+    // In k6/html these are methods, not properties; in jsdom/cheerio
+    // adapters they're strings. Handle both.
+    if (typeof el.textContent === 'function') return el.textContent();
+    if (typeof el.innerHTML === 'function') return el.innerHTML();
+    if (typeof el.textContent === 'string') return el.textContent;
+    if (typeof el.innerHTML === 'string') return el.innerHTML;
+    return '';
+  },
+};
+
+const k6Fetcher = (url) => {
+  const r = http.get(url, { responseType: 'text', timeout: '5s' });
+  return { status: r.status, body: r.body };
+};
+
 /**
  * --- Block 3: Setup (Asset Discovery) ---
- * Returns batch tuples already in the [method, url, body, params] shape
- * expected by http.batch(), so VUs can assign them directly without a
- * per-VU .map() allocation.
+ * Delegates to the parser/fetcher-agnostic `discoverAssets` in extract.js
+ * so the same logic is exercised by Vitest fixture tests under Node.
+ * Returns batch tuples in the shape expected by http.batch().
  */
 export function setup() {
   if (SKIP_ASSETS) return { assetBatchReqs: [] };
@@ -176,32 +215,11 @@ export function setup() {
     return { assetBatchReqs: [] };
   }
 
-  const doc = parseHTML(res.body);
-  const assets = new Set();
-
-  doc.find('link[href], script[src], img[src]').each((i, el) => {
-    let path = null;
-    if (el.attributes) {
-      path = el.attributes.href || el.attributes.src;
-    }
-    if (!path && typeof el.getAttribute === 'function') {
-      path = el.getAttribute('href') || el.getAttribute('src');
-    }
-
-    if (path && !path.startsWith('data:') && !path.startsWith('#')) {
-      let fullUrl;
-      if (path.startsWith('http')) {
-        fullUrl = path;
-      } else if (path.startsWith('//')) {
-        fullUrl = (baseUrl.startsWith('https') ? 'https:' : 'http:') + path;
-      } else if (path.startsWith('/')) {
-        const originMatch = baseUrl.match(/^(https?:\/\/[^\/]+)/);
-        fullUrl = (originMatch ? originMatch[1] : baseUrl) + path;
-      } else {
-        fullUrl = baseUrl + (baseUrl.endsWith('/') ? '' : '/') + path;
-      }
-      assets.add(fullUrl);
-    }
+  const assets = discoverAssets({
+    html: res.body,
+    baseUrl: STATIC_URL,
+    parserAdapter: k6ParserAdapter,
+    fetcher: k6Fetcher,
   });
 
   const assetBatchReqs = [];

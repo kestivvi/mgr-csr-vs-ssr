@@ -1,0 +1,1 @@
+import{d as l,A as o,B as e,C as r,l as s,i as a,z as u}from"./CazmdNuW.js";const f=l({__name:"index",setup(i){const t=a(0);return(p,n)=>(u(),o("main",null,[n[1]||(n[1]=e("h1",null,"Hello World",-1)),e("div",null,[e("p",null,"Count: "+r(s(t)),1),e("button",{onClick:n[0]||(n[0]=m=>t.value++)},"Increment")])]))}});export{f as default};

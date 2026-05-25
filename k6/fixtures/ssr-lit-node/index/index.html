@@ -1,0 +1,79 @@
+<!--lit-part YXag0ddmv9o=-->
+    <!DOCTYPE html>
+    <html lang="pl">
+      <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>MGR - Lit SSR</title>
+        <link rel="stylesheet" href="/static/global.css" />
+        <style>
+          /* Inline critical styles to match the body styling of global.css */
+          body {
+            font-family: system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f4f4f9;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            text-align: center;
+          }
+          #root {
+            background: white;
+            padding: 3rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          }
+        </style>
+      </head>
+      <body>
+        <!--lit-part ByhTOpSYN+w=-->
+    <main id="root">
+      <h1>Hello World</h1>
+      <counter-element><template shadowroot="open" shadowrootmode="open"><style>
+  h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      color: #222;
+  }
+
+  p {
+      font-size: 1.2rem;
+      color: #666;
+      margin-bottom: 1.5rem;
+  }
+
+  button {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 0.8rem 1.5rem;
+      font-size: 1rem;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+  }
+
+  button:hover {
+      background: #0056b3;
+  }
+
+  button:active {
+      transform: scale(0.98);
+  }
+</style><!--lit-part he7ACOsfjqE=-->
+      <div>
+        <p>Count: <!--lit-part-->0<!--/lit-part--></p>
+        <!--lit-node 3--><button >Increment</button>
+      </div>
+    <!--/lit-part--></template></counter-element>
+    </main>
+  <!--/lit-part-->
+        <script type="module" src="/static/client.js"></script>
+      </body>
+    </html>
+  <!--/lit-part-->
