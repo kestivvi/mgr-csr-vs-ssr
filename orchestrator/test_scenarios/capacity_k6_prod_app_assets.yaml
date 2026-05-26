@@ -13,9 +13,9 @@ num_repetitions: 1
 inter_repetition_delay: 1m
 
 capacity_k6_options:
-  peak_rate: 2000
+  peak_rate: 800
   ramp_up: 5m
-  peak_rate_2: 12000
+  peak_rate_2: 11000
   ramp_up_2: 5m
   sustain: 1m
   ramp_down: 1m
