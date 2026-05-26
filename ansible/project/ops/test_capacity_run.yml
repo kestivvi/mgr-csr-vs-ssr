@@ -33,6 +33,7 @@
     # --- Standardized variables (MUST MATCH teardown playbook) ---
     local_k6_script_path: "../../../k6/script.js"
     remote_temp_script_path: "/tmp/script.js"
+    remote_temp_extract_path: "/tmp/extract.js"
     container_name: "k6_run_{{ server_type | lower | replace('-', '_') }}"
     remote_state_file: "/tmp/k6_state_{{ server_type | lower | replace('-', '_') }}.json"
 
@@ -65,6 +66,7 @@
               --network host
               --ulimit nofile=250000:250000
               --volume {{ remote_temp_script_path }}:/test/script.js:ro,z
+              --volume {{ remote_temp_extract_path }}:/test/extract.js:ro,z
               -e K6_SCENARIO="capacity_test"
               -e SERVER_TYPE="{{ server_type | upper }}"
               -e TARGET_URL="{{ target_url }}"
