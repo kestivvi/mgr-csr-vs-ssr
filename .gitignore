@@ -6,7 +6,8 @@ venv/
 .ruff_cache/
 .pytest_cache/
 orchestrator/venv/
-orchestrator/src/orchestrator.egg-info/
+*.egg-info/
+orchestrator/infra.yaml
 
 # --- Project Specific ---
 results/

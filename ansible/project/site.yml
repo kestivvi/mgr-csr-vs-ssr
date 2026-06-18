@@ -1,5 +1,5 @@
 ---
-- name: Emergency Disk Cleanup (Fix for full disks)
+- name: Clean temporary build artifacts
   hosts: all
   gather_facts: false
   become: true

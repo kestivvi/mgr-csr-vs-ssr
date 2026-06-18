@@ -14,7 +14,6 @@ app = typer.Typer(
 console = Console()
 
 
-# Placeholder commands for now
 @app.command()
 def setup(
     infra_path: Annotated[

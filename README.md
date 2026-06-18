@@ -1,191 +1,216 @@
-# MGR Orchestrator
+# CSR vs SSR Performance Benchmark
 
-> Performance benchmarking engine for the Master's Thesis *"Comparative Analysis of Server Performance for Web Applications in CSR and SSR Architectures"*.
+> Benchmark codebase for comparing the server-side cost of CSR and SSR web applications.
 
 [![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Terraform](https://img.shields.io/badge/Terraform-1.5%2B-7B42BC?logo=terraform&logoColor=white)](https://www.terraform.io/)
 [![Ansible](https://img.shields.io/badge/Ansible-2.15%2B-EE0000?logo=ansible&logoColor=white)](https://www.ansible.com/)
 [![k6](https://img.shields.io/badge/k6-load%20testing-7D64FF?logo=k6&logoColor=white)](https://k6.io/)
-[![AWS](https://img.shields.io/badge/AWS-Graviton%20%28ARM64%29-FF9900?logo=amazonaws&logoColor=white)](https://aws.amazon.com/ec2/graviton/)
+[![AWS](https://img.shields.io/badge/AWS-Graviton%20ARM64-FF9900?logo=amazonaws&logoColor=white)](https://aws.amazon.com/ec2/graviton/)
 
-The MGR Orchestrator automates the full empirical research lifecycle: provisioning isolated AWS environments, deploying web application **Applications**, generating reproducible load with k6, and reducing the captured Prometheus time-series into publication-ready tables and plots.
+`csr-ssr-performance-benchmark` is the code part of a Master's thesis at Warsaw University of Life Sciences (SGGW/WULS). It supports empirical measurement of how Client-Side Rendering (CSR) and Server-Side Rendering (SSR) architectures behave under load.
 
-## Highlights
+It provisions AWS Graviton infrastructure, deploys standardized benchmark applications, drives traffic with k6 or wrk, collects Prometheus metrics, and generates reports and plots from the collected data.
 
-- **Single CLI (`mgr`)** — drives infrastructure, experiments, and analysis from one Typer-based entrypoint.
-- **Benchmark Applications** — React, Vue, Svelte, Solid, Angular, Lit, Qwik, Next.js, Nuxt, Astro, SvelteKit, SolidStart, TanStack Start, Fresh, Analog… across Node.js, Bun, Deno, Nginx, and Apache.
-- **AWS Graviton native** — Terraform-managed `c8g`/`m8g` ARM64 fleet with Ansible-driven server roles.
-- **Strict isolation** — separate EC2 hosts for the System Under Test, the k6 load generators, and the Prometheus/Grafana monitoring stack.
-- **Scientific rigor** — JIT warmup phases, configurable repetitions, schema-validated artifacts, and aggregation utilities for partial reruns.
-- **Local pre-flight** — `mgr verify` exercises every Application inside Docker before any cloud spend.
+## What it measures
+
+- **Max RPS** from capacity tests
+- **CPU and RAM utilization** during fixed-rate load tests
+- **Latency percentiles** including p90, p95, and p99
+- **Load-generator saturation signals** to validate whether an application, not the generator, became the bottleneck
+
+> [!NOTE]
+> In this project, SSG applications are treated as CSR for server-side cost analysis: request-time server work is static file serving.
+
+## Features
+
+- **Single CLI**: `mgr` drives setup, verification, tests, aggregation, and analysis.
+- **31 benchmark applications**: CSR/SSG and SSR implementations across React, Angular, Vue, Svelte, Solid, Lit, Qwik, Next.js, Nuxt, Astro, SvelteKit, Fresh, Analog, and TanStack Start.
+- **Runtime coverage**: Node.js, Bun, Deno, Nginx, and Apache.
+- **Cloud isolation**: separate EC2 hosts for applications, load generators, and monitoring.
+- **Local verification**: Docker-based smoke tests before running paid cloud experiments.
+- **Analysis outputs**: Markdown reports and PNG plots generated from collected metrics.
 
 ## Architecture
 
+```text
+┌──────────────────┐          ┌──────────────────┐          ┌──────────────────┐
+│ Load Generator   │   k6     │ Application SUT  │ metrics  │ Monitoring Host  │
+│ EC2 / ARM64      │ ───────▶ │ EC2 / ARM64      │ ───────▶ │ Prometheus       │
+└──────────────────┘          └──────────────────┘          │ Grafana          │
+          ▲                            ▲                    └──────────────────┘
+          │                            │                              ▲
+          └────────────── mgr CLI ─────┴──────────────────────────────┘
+                    Python + Terraform + Ansible
 ```
-        ┌──────────────────┐         ┌──────────────────┐         ┌──────────────────┐
-        │ Load Generator   │ ──k6──▶ │ Application (SUT)│ ──────▶ │ Monitoring Host  │
-        │ EC2 (c8g.2xlarge)│         │ EC2 (c8g.medium) │ metrics │ Prometheus +     │
-        └──────────────────┘         └──────────────────┘         │ Grafana          │
-                  ▲                            ▲                  └──────────────────┘
-                  │                            │                            │
-                  └────────── mgr CLI ─────────┴────────────────────────────┘
-                          (Terraform + Ansible + Python)
-```
-
-## Domain Vocabulary
-
-The CLI, the codebase, and the thesis share one vocabulary. Keep these meanings straight when reading code or results.
-
-| Term | Meaning |
-| :--- | :--- |
-| **Application** | One web application under test, identified by `(strategy, framework, metaframework, runtime)`. |
-| **Profile** | The load specification (rate curve, duration, repetitions). Lives under `orchestrator/test_scenarios/`. |
-| **Study** | One execution of a Profile against a set of Applications (`mgr test`). |
-| **Experiment** | The atomic unit: one Application × one Profile run, producing one Artifact. |
-| **Artifact** | A structured directory in `results/` with raw Prometheus data, k6 output, logs, and metadata. |
-| **Campaign** | A scripted sequence: provision → warm-up → test → rotate Applications. |
 
 ## Prerequisites
 
-- Linux or WSL2 (Ubuntu/Debian recommended)
-- Python **3.12+**, Terraform **1.5+**, Ansible **2.15+**, Docker + Compose
-- AWS account with an EC2 key pair and `aws configure` completed
+- Linux or WSL2
+- Python **3.12+**
+- Docker and Docker Compose
+- Terraform **1.5+**
+- Ansible **2.15+**
+- AWS account, configured AWS credentials, and an EC2 key pair
 
-## Quick Start
+## Quick start
 
 ```bash
-# 1. Install the orchestrator
-cd orchestrator
+git clone https://github.com/kestivvi/csr-ssr-performance-benchmark.git
+cd csr-ssr-performance-benchmark/orchestrator
+
 python3 -m venv venv
 source venv/bin/activate
 pip install -e .
 
-# 2. Configure your AWS environment
-cp infra.example.yaml infra.yaml
-$EDITOR infra.yaml   # set aws_region, key_name, my_ip
+cd ..
+cp orchestrator/infra.example.yaml orchestrator/infra.yaml
+$EDITOR orchestrator/infra.yaml
+```
 
-# 3. Verify Applications locally (free, runs in Docker)
+`orchestrator/infra.yaml` is local-only and ignored by Git. Set:
+
+- `aws_region`: AWS region for all EC2 resources
+- `key_name`: existing EC2 key pair name in that region
+- `my_ip`: CIDR allowed to access SSH and monitoring endpoints
+- `*_instance_type`: EC2 instance sizes for application, load-generator, and monitoring hosts
+
+Verify selected applications locally before using AWS:
+
+```bash
 mgr verify --apps csr-react-nginx,ssr-nextjs-node
 ```
 
 > [!IMPORTANT]
-> `mgr setup`, `mgr destroy`, and `mgr test` provision and exercise paid AWS resources. Run them yourself — don't delegate to autonomous agents.
+> `mgr setup`, `mgr test`, `mgr campaign`, and `mgr destroy` interact with paid AWS resources. Review `infra.yaml` and active applications before running them.
 
-## CLI Overview
+## Run a benchmark
 
-```
-mgr setup       Provision + configure AWS infrastructure
-mgr destroy     Tear down all infrastructure
-mgr test        Run performance experiments (load | capacity | file | wrk | stop)
-mgr campaign    Sequential research campaign (provision → warmup → test → rotate)
-mgr analyze     Generate statistical reports and plots from results
-mgr aggregate   Merge repetition artifacts into one dataset
-mgr verify      Build & smoke-test Applications locally in Docker
-mgr preview     Run a single Application locally for manual inspection
-```
-
-### Provision the cloud environment
+Provision a cost-conscious fleet with only the applications you need:
 
 ```bash
-# Bring up only the Applications you need (cost-conscious default)
-mgr setup infra.yaml --apps csr-react-nginx,ssr-nextjs-node
+mgr setup orchestrator/infra.yaml --apps csr-react-nginx,ssr-nextjs-node
+```
 
-# Tear everything down when you're done
+Run a capacity test:
+
+```bash
+mgr test capacity --peak-rate 1000 --ramp-up 5m
+```
+
+Run a fixed-rate load test:
+
+```bash
+mgr test load --rps 200 --duration 5m --repetitions 3
+```
+
+Run a reproducible YAML scenario:
+
+```bash
+mgr test file orchestrator/test_scenarios/capacity_k6_prod_app.yaml
+```
+
+Analyze collected results:
+
+```bash
+mgr analyze capacity_k6 results/capacity_k6_2026-05-16_23-00-00
+```
+
+Tear down infrastructure:
+
+```bash
 mgr destroy
 ```
 
-Useful flags: `-f/--force` to rebuild over an existing fleet, `--exclude` to skip Applications, `-y/--yes` for non-interactive runs.
+## CLI overview
 
-### Run a performance study
-
-> [!TIP]
-> `mgr test` defaults to **every active Application** in the fleet. You normally restrict the fleet at `mgr setup` time, not at test time — restricting tests would leave provisioned instances idle.
-
-```bash
-# Capacity test: ramp RPS until the system saturates → reveals Max RPS
-mgr test capacity --peak-rate 1000 --ramp-up 5m
-
-# Load test: hold a constant rate → measures CPU, RAM, p90/p95/p99 latency
-mgr test load --rps 200 --duration 5m --repetitions 3
-
-# Reproducible study driven by a YAML profile
-mgr test file orchestrator/test_scenarios/capacity_k6_prod.yaml
+```text
+mgr setup       Provision and configure AWS infrastructure
+mgr destroy     Tear down infrastructure
+mgr test        Run load, capacity, file-based, or wrk tests
+mgr campaign    Run a sequenced benchmark campaign
+mgr aggregate   Merge partial result directories
+mgr analyze     Generate reports and plots
+mgr verify      Build and smoke-test applications locally
+mgr preview     Run one application locally for manual inspection
 ```
 
-A minimal capacity profile (`test_scenarios/capacity_k6.example.yaml`):
+## Repository layout
+
+```text
+.
+├── orchestrator/        # Python CLI engine and test scenario definitions
+├── terraform/           # AWS Graviton infrastructure
+├── ansible/             # Server configuration, deployment, monitoring roles
+├── applications/        # Standardized CSR and SSR benchmark applications
+├── k6/                  # Load-testing scripts
+│   └── fixtures/        # Captured HTML/assets used by k6 parser regression tests
+├── docs/                # Infrastructure and methodology notes
+└── results/             # Local experiment outputs, ignored by Git
+```
+
+Files under `k6/fixtures/` are intentionally tracked generated outputs from selected benchmark applications. They are regression fixtures for `k6/extract.test.js`, not hand-authored application source.
+
+## Benchmark applications
+
+Applications follow a common contract so the load generator sees comparable behavior:
+
+- `/` renders `Hello World` plus an interactive counter.
+- `/dynamic/:id` renders the dynamic ID.
+- `/dynamic-app/:id` renders a larger application-like page.
+- Static assets are offloaded to Nginx or Apache.
+- SSR runtimes handle dynamic HTML generation only.
+- Gzip compression is enabled at the web-server layer.
+
+See [`applications/README.md`](applications/README.md) for the full application contract and registry.
+
+## Test scenarios
+
+Scenario files live in [`orchestrator/test_scenarios/`](orchestrator/test_scenarios/). They define the test type, repetition count, load curve, target path type, timeout, and asset-fetching behavior.
+
+Example capacity scenario:
 
 ```yaml
 test_type: capacity_k6
 num_repetitions: 3
 
 capacity_k6_options:
-  start_rate: 1          # starting RPS
-  peak_rate: 1200        # target peak RPS
-  ramp_up: 5m            # linear ramp from start_rate to peak_rate
-  sustain: 2m            # hold at peak_rate
+  start_rate: 1
+  peak_rate: 1200
+  ramp_up: 5m
+  sustain: 2m
   ramp_down: 1m
-  warmup: 1m             # JIT warmup before measurement begins
-  max_vus: 500           # pre-allocated virtual users
-  path_type: dynamic     # 'static' (fixed) or 'dynamic' (randomised paths)
-  timeout: 0.5s          # requests slower than this count as errors
+  warmup: 1m
+  max_vus: 500
+  path_type: dynamic
+  timeout: 0.5s
 ```
 
-### Analyze the results
+## Analysis outputs
+
+`mgr analyze` writes reports and plots next to the input result directory:
+
+- `capacity_report_k6.md` or load-test report files
+- `plots/*.png` for report figures
+- grouped comparisons by rendering strategy, framework, runtime, or selected champions
+
+`mgr aggregate` can merge partial reruns into a single result set:
 
 ```bash
-# Reduce a capacity Study into a Markdown report + LaTeX-ready plots
-mgr analyze capacity_k6 results/capacity_k6_2026-05-16_23-00-00
+mgr aggregate results/run_part1 results/run_part2 -o results/aggregated_run
 ```
 
-Outputs land alongside the input directory:
-- `capacity_report_k6.md` — Markdown scorecards
-- `plots/` — PNG charts (violin, time-series, bar) sized for the thesis
+## Quality checks
 
-Available report types: `load`, `capacity_k6`, `capacity_wrk`, `champions` (head-to-head; pass `--champions <a>,<b>`).
-
-> [!NOTE]
-> **`mgr aggregate`** merges partial reruns back into a Study — useful when a handful of Experiments fail on a transient cloud issue and you'd rather rerun those individually than redo the whole Study.
->
-> ```bash
-> mgr aggregate results/run_part1 results/run_part2 -o results/aggregated_run
-> ```
-
-### Inspect an Application locally
-
-```bash
-mgr preview ssr-nextjs-node   # builds + runs the Application; opens on localhost
-```
-
-## Repository Layout
-
-```
-mgr-code/
-├── orchestrator/        # Python CLI engine (Typer, pandas, matplotlib, seaborn)
-│   ├── src/orchestrator/
-│   │   └── actions/     # setup · test · analyze · aggregate · campaign · verify · preview · destroy
-│   ├── test_scenarios/  # YAML Profile templates (dev / preprod / prod)
-│   └── infra.example.yaml
-├── terraform/           # AWS Graviton infrastructure (c8g / m8g)
-├── ansible/             # Roles & playbooks for SUT, load generator, monitoring host
-├── applications/        # Benchmark Applications (csr-* / ssr-*)
-├── k6/                  # k6 scripts used by the load generator
-├── docs/                # Methodology notes (inventory, infra rationale, wrk usage)
-└── results/             # Materialized Artifacts (git-ignored)
-```
-
-See [`applications/README.md`](applications/README.md) for the contract every benchmark Application must satisfy (functional identity, static offloading, runtime versions). See [`docs/`](docs/) for methodology notes.
-
-## Quality Control
-
-Run before every commit. The orchestrator targets `mypy --strict` and clean Ruff output.
+Run the relevant checks before committing changes:
 
 ```bash
 # Python
 cd orchestrator
 ./venv/bin/ruff format .
-./venv/bin/ruff check .
 ./venv/bin/mypy --strict .
 ./venv/bin/pytest
+./venv/bin/ruff check .
 
 # Ansible
 cd ../ansible
